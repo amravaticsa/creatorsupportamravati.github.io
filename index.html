@@ -14,10 +14,11 @@
     body{margin:0;background:linear-gradient(180deg,var(--navy) 0%, #041426 100%);color:#eaf4ff}
     a{color:var(--accent)}
     .container{max-width:1150px;margin:0 auto;padding:20px}
-    header{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+    header{display:flex;align-items:center;justify-content:space-between;padding:18px 0;flex-wrap:wrap}
     .brand{display:flex;align-items:center;gap:12px}
     .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ffd87a);display:flex;align-items:center;justify-content:center;color:#07122a;font-weight:900}
     nav a{margin-left:12px;font-weight:600}
+    nav{display:flex;flex-wrap:wrap;gap:10px}
     .hero{display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start;padding:28px 0}
     h1{font-size:28px;margin:0}
     p.lead{color:var(--muted);margin-top:10px}
@@ -25,13 +26,17 @@
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
     .course-card{background:#081027;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
     .list{margin:0;padding:0;list-style:none}
-    footer{margin-top:40px;padding:24px 0;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap}
+    footer{margin-top:40px;padding:24px 0;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+    footer a{color:var(--accent)}
     .btn{background:var(--accent);color:#07122a;padding:10px 14px;border-radius:10px;font-weight:700}
     input,textarea,select,button{font-family:inherit}
     .content{margin-top:18px}
     .breadcrumb{color:var(--muted);font-size:13px;margin-bottom:8px}
     .meta{color:var(--muted);font-size:13px}
-    @media(max-width:920px){.hero{grid-template-columns:1fr}.logo{width:48px;height:48px}}
+    @media(max-width:920px){
+      .hero{grid-template-columns:1fr}
+      .logo{width:48px;height:48px}
+    }
   </style>
 </head>
 <body>
@@ -53,274 +58,320 @@
         <a href="#/blog">Blog</a>
         <a href="#/courses">Courses</a>
         <a href="#/contact" class="btn">Contact</a>
+        <a href="#/privacy">Privacy</a>
       </nav>
     </header>
 
-    <main id="app">
-      <!-- content injected by JS router -->
-    </main>
+    <main id="app"></main>
 
     <footer>
       <div>© Creator Support Amravati</div>
-      <div style="color:var(--muted)">
+      <div>
         Made in Amravati • 
-        <a href="#/privacy">Privacy</a> • 
-        <a href="#/terms">Terms</a> • 
-        <a href="#/disclaimer">Disclaimer</a> • 
+        <a href="#/privacy">Privacy</a> •
+        <a href="#/terms">Terms</a> •
+        <a href="#/disclaimer">Disclaimer</a> •
         <a href="#/affiliate">Affiliate</a>
       </div>
     </footer>
   </div>
 
-  <script>
-    // ======= Data (articles + pages) =======
-    const site = {
-      title: 'Creator Support Amravati',
-      owner: 'Rajkumar Jagdambasing Chavhan',
-      phone: '+919225515679',
-      email: 'amravati.csa@gmail.com'
-    };
+<script>
+// SITE DATA
+const site = {
+  title: 'Creator Support Amravati',
+  owner: 'Rajkumar Jagdambasing Chavhan',
+  phone: '+919225515679',
+  email: 'amravati.csa@gmail.com'
+};
 
-    const articles = [
-      {id:1, title:'What is YouTube & How it works', slug:'what-is-youtube', module:1, excerpt:'YouTube kaise kaam karta hai, discovery, recommendation aur basic flow explained.', content:`<h2>What is YouTube?</h2><p>YouTube ek search + recommendation platform hai jaha content discovery algorithm user behaviour aur engagement signals par kaam karta hai. Jab aap video post karte ho, YouTube use short-term test audiences ko dikhata hai; agr CTR aur retention strong ho to wider audience ko show karta hai.</p><h3>Key signals</h3><ul><li>Click-through rate (CTR)</li><li>Average watch time & retention</li><li>Session time</li><li>Engagement (likes, comments, shares)</li></ul>`},
+// -------------------------------
+// PRIVACY POLICY PAGE
+// -------------------------------
+function renderPrivacy(){
+  return `
+    <section>
+      <div class="breadcrumb">Home / Privacy Policy</div>
+      <h1>Privacy Policy</h1>
+      <div class="content card">
+        <p>Creator Support Amravati (CSA) aapki privacy ko seriously leta hai. Yeh policy batati hai ki hum kya data collect karte hain aur kaise use karte hain.</p>
 
-      {id:2, title:'YouTube Algorithm 2025 – Complete Breakdown', slug:'youtube-algo-2025', module:1, excerpt:'Latest behaviour of the recommender system, CTR, retention, impressions', content:`<h2>Algorithm overview</h2><p>2025 me YouTube recommender mix of personalization + freshness + watchtime balance hota hai. Short videos ko boost milta hai for discovery, lekin long-form retains revenue value.</p><h3>Practical tactics</h3><ol><li>Strong hook in first 3–10 seconds</li><li>High thumbnail contrast</li><li>Optimize end screens to increase session watch time</li></ol>`},
+        <h3>Jo data hum collect karte hain</h3>
+        <ul>
+          <li>Name, Email, Phone (jab aap form bharte ho)</li>
+          <li>Basic analytics data</li>
+          <li>AdSense ke through ad-related cookies</li>
+        </ul>
 
-      {id:3, title:'Perfect Niche Selection Formula', slug:'niche-selection', module:1, excerpt:'Niche choose karne ke practical steps', content:`<h2>Niche selection</h2><p>Choose niche at intersection of your interest, audience demand, and monetization potential. Use keyword tools and local intent to find pockets of low competition.</p>`},
+        <h3>Data ka use</h3>
+        <ul>
+          <li>Aapko contact karne ke liye</li>
+          <li>Service provide karne ke liye</li>
+          <li>Website improve karne ke liye</li>
+        </ul>
 
-      {id:4, title:'Channel Setup – Pro way', slug:'channel-setup', module:1, excerpt:'Step-by-step channel setup including About section and links', content:`<h2>Channel setup</h2><p>Use consistent branding, write a value-focused About, add chapters and playlists, link social & website, and enable monetization prerequisites early.</p>`},
+        <h3>Third-party sharing</h3>
+        <p>Hum aapka data kisi ko sell nahi karte. Sirf trusted tools use hote hain (FormSubmit, Analytics, AdSense).</p>
 
-      ...
-      ... (YAHAN AAPKA PURA ARTICLES ARRAY CONTINUE HOGA, BILKUL AAPKE FILE JAISA)
-      ...
-      {id:30, title:'Consistency Formula', slug:'consistency-formula', module:6, excerpt:'How to maintain output long term', content:`<h2>Consistency</h2><p>Batching, systems, and accountability partners help creators stay consistent. Use realistic schedules and KPIs.</p>`}
-    ];
+        <h3>Contact</h3>
+        <p>Email: ${site.email}<br>Phone: ${site.phone}</p>
+      </div>
+    </section>
+  `;
+}
 
-    // ===== EXTRA STATIC PAGES WE ADDED (NEW) =====
+// -------------------------------
+// TERMS PAGE
+// -------------------------------
+function renderTerms(){
+  return `
+    <section>
+      <div class="breadcrumb">Home / Terms & Conditions</div>
+      <h1>Terms & Conditions</h1>
+      <div class="content card">
+        <p>CSA website aur services ko use karne ke rules neeche diye gaye hain.</p>
 
-    function renderPrivacy(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Privacy Policy</div>
-          <h1>Privacy Policy</h1>
-          <div class="card content">
-            <p>Your privacy is important to us. This page explains what data we collect and how we use it.</p>
-            <h3>Information We Collect</h3>
-            <p>Name, email, phone (only when you submit contact forms).</p>
-            <h3>Third-party Tools</h3>
-            <p>Google Analytics, Google AdSense, WhatsApp links.</p>
-          </div>
-        </section>`;
-    }
+        <h3>Website Use</h3>
+        <p>Aap website ka misuse nahi kar sakte – jaise hacking, spam, unauthorized copying.</p>
 
-    function renderTerms(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Terms & Conditions</div>
-          <h1>Terms & Conditions</h1>
-          <div class="card content">
-            <p>By using this website, you agree to follow all terms:</p>
-            <ul>
-              <li>Services depend on availability.</li>
-              <li>Payments are non-refundable after booking confirmation.</li>
-              <li>Studio rules must be followed strictly.</li>
-            </ul>
-          </div>
-        </section>`;
-    }
+        <h3>Services Policy</h3>
+        <p>Studio booking, editing, production, courses – inke charges change ho sakte hain.</p>
 
-    function renderDisclaimer(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Disclaimer</div>
-          <h1>Disclaimer</h1>
-          <div class="card content">
-            <p>All content on this website is for educational purposes only.</p>
-            <p>We do not guarantee any specific earnings or results.</p>
-          </div>
-        </section>`;
-    }
+        <h3>Payments</h3>
+        <p>Studio / courses ki payment non-refundable hoti hai (unless special approval diya jaye).</p>
 
-    function renderAffiliate(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Affiliate Disclosure</div>
-          <h1>Affiliate Disclosure</h1>
-          <div class="card content">
-            <p>Some links on this website may be affiliate links.</p>
-            <p>If you purchase through them, we may earn a commission at no extra cost to you.</p>
-          </div>
-        </section>`;
-    }
+        <h3>Liability</h3>
+        <p>CSA kisi bhi technical loss ya damage ke liye responsible nahi hoga.</p>
+      </div>
+    </section>
+  `;
+}
 
-    // =======================
-    // MAIN PAGE RENDERERS
-    // =======================
+// -------------------------------
+// DISCLAIMER PAGE
+// -------------------------------
+function renderDisclaimer(){
+  return `
+    <section>
+      <div class="breadcrumb">Home / Disclaimer</div>
+      <h1>Disclaimer</h1>
+      <div class="content card">
+        <p>CSA par diya gaya content sirf educational aur informational purpose ke liye hota hai.</p>
 
-    function navTo(hash){ 
-      window.location.hash = hash; 
-      render(); 
-    }
+        <h3>No Guarantees</h3>
+        <p>YouTube growth ya income guaranteed nahi hoti – har creator ki journey alag hoti hai.</p>
 
-    function getArticleBySlug(slug){ 
-      return articles.find(a=>a.slug===slug); 
-    }
+        <h3>External Links</h3>
+        <p>Kabhi kabhi hamare website me third-party links hote hain – unke content par hum control nahi rakhte.</p>
 
-    function renderHome(){
-      return `
-        <section class="hero">
-          <div>
-            <h1>We help creators & small brands make pro videos, grow audiences and earn more.</h1>
-            <p class="lead">Studio space, production, editing, channel strategy and the full YouTube Basic→Advanced course — built for creators in Amravati.</p>
-          </div>
-        </section>
-      `;
-    }
+        <h3>Professional Advice</h3>
+        <p>Hum legal ya financial advisors nahi hain – decision aapki responsibility hai.</p>
+      </div>
+    </section>
+  `;
+}
 
-    function renderAbout(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / About</div>
-          <h1>About Creator Support Amravati</h1>
-          <div class="card content">
-            <p>Creator Support Amravati helps creators grow using pro video, mentorship & strategy.</p>
-          </div>
-        </section>`;
-    }
+// -------------------------------
+// AFFILIATE PAGE
+// -------------------------------
+function renderAffiliate(){
+  return `
+    <section>
+      <div class="breadcrumb">Home / Affiliate Disclosure</div>
+      <h1>Affiliate Disclosure</h1>
+      <div class="content card">
+        <p>Hamari website me kuch product links affiliate ho sakte hain.</p>
 
-    function renderServices(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Services</div>
-          <h1>Services</h1>
-          <div class="grid content">
-            <div class="card"><h3>Studio Rental</h3><p class="meta">Hourly / Monthly</p></div>
-            <div class="card"><h3>Production</h3><p class="meta">Full video production</p></div>
-            <div class="card"><h3>Editing</h3><p class="meta">Pro editing packages</p></div>
-          </div>
-        </section>`;
-    }
+        <h3>What it means</h3>
+        <p>Agar aap koi product affiliate link se buy karte ho, hume thoda commission mil sakta hai.</p>
 
-    function renderPortfolio(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Portfolio</div>
-          <h1>Portfolio</h1>
-          <div class="grid content">
-            <div class="card"><strong>Wedding Films</strong></div>
-            <div class="card"><strong>Creator Case Studies</strong></div>
-            <div class="card"><strong>Brand Videos</strong></div>
-          </div>
-        </section>`;
-    }
+        <h3>No Extra Cost</h3>
+        <p>Aapko koi extra charges nahi lagte.</p>
 
-    function renderPricing(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Pricing</div>
-          <h1>Pricing</h1>
-          <div class="grid content">
-            <div class="card"><strong>Starter</strong></div>
-            <div class="card"><strong>Creator Membership</strong></div>
-            <div class="card"><strong>Premium Production</strong></div>
-          </div>
-        </section>`;
-    }
+        <h3>Honest Recommendations</h3>
+        <p>Hum sirf wohi products suggest karte hain jo creators ko genuinely benefit karte hain.</p>
+      </div>
+    </section>
+  `;
+}
+// ----------------------------------
+// EXISTING FUNCTIONS (BLOG, HOME, ETC.)
+// ----------------------------------
 
-    function renderBlogList(){
-      const items = articles.map(a=>`
-        <div class="card">
-          <h3><a href="#/article/${a.slug}">${a.title}</a></h3>
-          <div class="meta">Module ${a.module} • ${a.excerpt}</div>
+function getArticleBySlug(slug){ return articles.find(a=>a.slug===slug); }
+
+function renderHome(){
+  return `
+  <section class="hero">
+    <div>
+      <h1>We help creators & small brands make pro videos, grow audiences and earn more.</h1>
+      <p class="lead">Studio space, production, editing, channel strategy and the full YouTube Basic→Advanced course — built for creators in Amravati.</p>
+
+      <div class="grid" style="margin-top:18px">
+        <div class="course-card card">
+          <h3>Studio & Equipment Rental</h3>
+          <p class="meta">4K cameras, lighting, green screen, teleprompter — hourly & monthly plans.</p>
         </div>
-      `).join('');
+        <div class="course-card card">
+          <h3>Pro Editing & Production</h3>
+          <p class="meta">End-to-end post-production, colour grading, and fast delivery.</p>
+        </div>
+        <div class="course-card card">
+          <h3>Courses & Mentorship</h3>
+          <p class="meta">YouTube Basic → Advanced course, live workshops, and 1:1 coaching.</p>
+        </div>
+      </div>
 
-      return `
-        <section>
-          <div class="breadcrumb">Home / Blog</div>
-          <h1>Blog & Course Articles</h1>
-          <div class="grid content">${items}</div>
-        </section>`;
-    }
+      <div style="margin-top:18px;display:flex;gap:12px">
+        <a class="btn" href="#/courses">Explore Courses</a>
+        <a style="background:transparent;border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,0.06);font-weight:700" href="#/portfolio">View Portfolio</a>
+      </div>
 
-    function renderArticle(slug){
-      const a = getArticleBySlug(slug);
-      if(!a) return `<section><h1>Article Not Found</h1></section>`;
-      
-      return `
-        <section>
-          <div class="breadcrumb">Home / Blog / ${a.title}</div>
-          <h1>${a.title}</h1>
-          <div class="card content">${a.content}</div>
-        </section>`;
-    }
+      <div style="margin-top:12px;color:var(--muted);font-size:13px">WhatsApp: <a href="tel:${site.phone}">${site.phone}</a> • Email: <a href="mailto:${site.email}">${site.email}</a></div>
+    </div>
 
-    function renderCourses(){
-      const modules = [1,2,3,4,5,6];
-      const html = modules.map(m=>{
-        const list = articles.filter(a=>a.module===m).map(x=>`<li><a href="#/article/${x.slug}">${x.title}</a></li>`).join('');
-        return `<div class="card"><h3>Module ${m}</h3><ul>${list}</ul></div>`;
-      }).join('');
+    <aside>
+      <div class="card">
+        <strong>Why work with CSA</strong>
+        <ul style="color:var(--muted);margin-top:8px">
+          <li>Local creators-first approach</li>
+          <li>Affordable pro equipment</li>
+          <li>Course + hands-on studio access</li>
+        </ul>
+      </div>
 
-      return `
-        <section>
-          <div class="breadcrumb">Home / Courses</div>
-          <h1>YouTube Basic → Advanced Course</h1>
-          <div class="grid content">${html}</div>
-        </section>`;
-    }
+      <div style="margin-top:12px" class="card">
+        <strong>Quick Packages</strong>
+        <div style="color:var(--muted);margin-top:8px">Starter Studio — ₹500/hr<br/>Creator Membership — ₹3,000/month</div>
+      </div>
+    </aside>
+  </section>`;
+}
 
-    function renderContact(){
-      return `
-        <section>
-          <div class="breadcrumb">Home / Contact</div>
-          <h1>Contact & Bookings</h1>
-          <div class="card content">
-            <p>WhatsApp: ${site.phone}</p>
-            <p>Email: ${site.email}</p>
-          </div>
-        </section>`;
-    }
+function renderAbout(){ return `<section><div class="breadcrumb">Home / About</div><h1>About Creator Support Amravati</h1><div class="content card"><p>Creator Support Amravati (CSA) equips creators across Vidarbha with production, mentorship and growth services. Founded by <strong>${site.owner}</strong>, our goal is to remove barriers for creators to make professional content and earn from it.</p><h3>Team</h3><p class="meta">Owner: ${site.owner} • Studio Manager: Available • Tech Assistant: Available</p><h3>Mission</h3><p>To make professional video production, education and monetization accessible to creators in Amravati.</p></div></section>`; }
 
-    // =======================
-    // ROUTER (UPDATED)
-    // =======================
-    function renderPage(){
-      const hash = location.hash || '#/';
+function renderServices(){ return `<section><div class="breadcrumb">Home / Services</div><h1>Services</h1><div class="grid content"><div class="card"><h3>Studio Rental</h3><p class="meta">Book hourly or monthly with full equipment support.</p></div><div class="card"><h3>Production</h3><p class="meta">Pre-production, filming, full editing and delivery.</p></div><div class="card"><h3>Editing</h3><p class="meta">Fast edits, thumbnails, captions, and optimisation.</p></div><div class="card"><h3>Courses</h3><p class="meta">YouTube Basic→Advanced, group workshops & 1:1 mentorship.</p></div></div></section>`; }
 
-      if(hash.startsWith('#/article/')){
-        const slug = hash.replace('#/article/','');
-        return renderArticle(slug);
-      }
+function renderPortfolio(){ return `<section><div class="breadcrumb">Home / Portfolio</div><h1>Portfolio</h1><div class="grid content"><div class="card"><strong>Wedding Films</strong><p class="meta">Cinematic edits and highlight reels.</p></div><div class="card"><strong>Creator Case Studies</strong><p class="meta">Subscriber growth projects and shorts strategies.</p></div><div class="card"><strong>Brand Videos</strong><p class="meta">Product promos, hotel & local business videos.</p></div></div></section>`; }
 
-      switch(hash){
-        case '#/': return renderHome();
-        case '#/about': return renderAbout();
-        case '#/services': return renderServices();
-        case '#/portfolio': return renderPortfolio();
-        case '#/pricing': return renderPricing();
-        case '#/blog': return renderBlogList();
-        case '#/courses': return renderCourses();
-        case '#/contact': return renderContact();
+function renderPricing(){ return `<section><div class="breadcrumb">Home / Pricing</div><h1>Pricing</h1><div class="grid content"><div class="card"><strong>Starter</strong><p class="meta">Studio ₹500/hr • Editing ₹800/video</p></div><div class="card"><strong>Creator Membership</strong><p class="meta">₹3,000/month — daily 30 min studio access + editing credits</p></div><div class="card"><strong>Premium Production</strong><p class="meta">From ₹25,000 — Full wedding films & brand campaigns</p></div></div></section>`; }
 
-        // NEW STATIC PAGES
-        case '#/privacy': return renderPrivacy();
-        case '#/terms': return renderTerms();
-        case '#/disclaimer': return renderDisclaimer();
-        case '#/affiliate': return renderAffiliate();
 
-        default: 
-          return `<section><h1>Page not found</h1></section>`;
-      }
-    }
+// BLOG LIST
+function renderBlogList(){
+  const items = articles.map(a=>`
+    <div class="card" style="padding:14px">
+      <h3 style="margin:0"><a href="#/article/${a.slug}">${a.title}</a></h3>
+      <div class="meta">Module ${a.module} • ${a.excerpt}</div>
+    </div>
+  `).join('');
 
-    function render(){
-      document.getElementById('app').innerHTML = renderPage();
-    }
+  return `
+    <section>
+      <div class="breadcrumb">Home / Blog</div>
+      <h1>Blog & Course Articles</h1>
+      <div class="content grid">${items}</div>
+    </section>`;
+}
 
-    window.addEventListener('hashchange', render);
-    window.addEventListener('load', render);
-  </script>
 
+// ARTICLE PAGE
+function renderArticle(slug){
+  const a = getArticleBySlug(slug);
+  if(!a) return `<section><h1>Article not found</h1></section>`;
+  return `
+    <section>
+      <div class="breadcrumb">Home / Blog / ${a.title}</div>
+      <h1>${a.title}</h1>
+      <div class="meta">Module ${a.module} • Author: ${site.owner}</div>
+      <div class="content card">${a.content}<p style="margin-top:18px;color:var(--muted)">Published: ${new Date().toLocaleDateString()}</p></div>
+    </section>`;
+}
+
+
+// COURSES
+function renderCourses(){
+  const modules = [1,2,3,4,5,6];
+  const html = modules.map(m=>{
+    const list = articles.filter(a=>a.module===m).map(x=>`<li><a href="#/article/${x.slug}">${x.title}</a></li>`).join('');
+    return `<div class="card"><h3>Module ${m}</h3><ul style="color:var(--muted)">${list}</ul></div>`;
+  }).join('');
+
+  return `
+    <section>
+      <div class="breadcrumb">Home / Courses</div>
+      <h1>YouTube Basic → Advanced Course</h1>
+      <p class="meta">Complete curriculum with articles, downloadable templates and membership options.</p>
+      <div class="grid content">${html}</div>
+    </section>`;
+}
+
+
+// CONTACT PAGE
+function renderContact(){
+  return `
+    <section>
+      <div class="breadcrumb">Home / Contact</div>
+      <h1>Contact & Bookings</h1>
+      <div class="columns content" style="display:grid;grid-template-columns:1fr 340px;gap:18px">
+        <div class="card">
+          <form action="https://formsubmit.co/${site.email}" method="POST">
+            <input type="hidden" name="_subject" value="Website enquiry">
+            <div style="display:flex;gap:10px"><input name="name" placeholder="Your name*" required><input name="phone" placeholder="Phone*" required></div>
+            <div style="margin-top:10px"><input name="email" type="email" placeholder="Email"></div>
+            <div style="margin-top:10px"><select name="service"><option>Studio Booking</option><option>Video Production</option><option>Channel Audit</option></select></div>
+            <div style="margin-top:10px"><textarea name="message" rows="4" placeholder="Message"></textarea></div>
+            <div style="margin-top:12px;display:flex;gap:10px"><button class="btn" type="submit">Send Request</button><a class="btn" href="#/pricing" style="background:#07b16f">Pay Deposit</a></div>
+          </form>
+        </div>
+
+        <aside>
+          <div class="card"><strong>Visit / Office</strong><div class="meta" style="margin-top:8px">Mahendra Colony, Amravati — Visit by appointment</div></div>
+          <div style="margin-top:12px" class="card"><strong>Connect</strong><div class="meta" style="margin-top:8px">WhatsApp: <a href="https://wa.me/${site.phone.replace('+','')}">${site.phone}</a><br/>Email: <a href="mailto:${site.email}">${site.email}</a></div></div>
+        </aside>
+    </section>`;
+}
+
+
+// --------------------------
+// ROUTER
+// --------------------------
+function renderPage(){
+  const hash = location.hash || '#/';
+
+  if(hash.startsWith('#/article/')){
+    const slug = hash.replace('#/article/','');
+    return renderArticle(slug);
+  }
+
+  switch(hash){
+    case '#/': return renderHome();
+    case '#/about': return renderAbout();
+    case '#/services': return renderServices();
+    case '#/portfolio': return renderPortfolio();
+    case '#/pricing': return renderPricing();
+    case '#/blog': return renderBlogList();
+    case '#/courses': return renderCourses();
+    case '#/contact': return renderContact();
+
+    // NEW PAGES
+    case '#/privacy': return renderPrivacy();
+    case '#/terms': return renderTerms();
+    case '#/disclaimer': return renderDisclaimer();
+    case '#/affiliate': return renderAffiliate();
+
+    default: return `<section><h1>Page not found</h1></section>`;
+  }
+}
+
+
+function render(){
+  document.getElementById('app').innerHTML = renderPage();
+}
+
+window.addEventListener('hashchange', render);
+window.addEventListener('load', render);
+
+</script>
 </body>
 </html>
