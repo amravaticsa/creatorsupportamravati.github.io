@@ -92,67 +92,660 @@
       email: 'amravati.csa@gmail.com'
     };
 
-    const articles = [
-      {id:1, title:'What is YouTube & How it works', slug:'what-is-youtube', module:1, excerpt:'YouTube kaise kaam karta hai...', content:`<h2>What is YouTube?</h2><p>YouTube ek search + recommendation platform...</p>`},
+   const articles = [
 
-      {id:2, title:'YouTube Algorithm 2025 – Complete Breakdown', slug:'youtube-algo-2025', module:1, excerpt:'Latest behaviour...', content:`<h2>Algorithm overview</h2><p>2025 me YouTube recommender...</p>`},
+  {
+    id: 1,
+    module: 1,
+    slug: "what-is-youtube",
+    title: "What is YouTube & How it Works",
+    excerpt: "YouTube kaise kaam karta hai, discovery, recommendation aur basic flow explained.",
+    content: `
+      <h2>What is YouTube?</h2>
+      <p>YouTube ek search + recommendation platform hai jaha content discovery algorithm user behaviour aur engagement signals par kaam karta hai.</p>
 
-      {id:3, title:'Perfect Niche Selection Formula', slug:'niche-selection', module:1, excerpt:'Niche choose karne ke steps...', content:`<h2>Niche selection</h2><p>Choose niche at intersection...</p>`},
+      <p>Jab aap video post karte ho, YouTube use short-term test audiences ko dikhata hai. Agar CTR aur retention strong ho to video wider audience ko show hota hai.</p>
 
-      {id:4, title:'Channel Setup – Pro way', slug:'channel-setup', module:1, excerpt:'Step-by-step channel setup...', content:`<h2>Channel setup</h2><p>Use consistent branding...</p>`},
+      <h3>Key Signals</h3>
+      <ul>
+        <li>Click-through rate (CTR)</li>
+        <li>Average watch time & retention</li>
+        <li>Session time</li>
+        <li>Engagement (likes, comments, shares)</li>
+      </ul>
+    `
+  },
 
-      {id:5, title:'Branding: Logo, Banner & Description', slug:'branding', module:1, excerpt:'Branding tips for creators...', content:`<h2>Branding</h2><p>Logo readable in small sizes...</p>`},
+  {
+    id: 2,
+    module: 1,
+    slug: "youtube-algo-2025",
+    title: "YouTube Algorithm 2025 – Complete Breakdown",
+    excerpt: "Latest behaviour of the recommender system, CTR, retention, impressions.",
+    content: `
+      <h2>Algorithm Overview</h2>
+      <p>2025 me YouTube recommender personalization, freshness aur watchtime ke mix par run hota hai.</p>
 
-      {id:6, title:'Perfect Video Script (Template)', slug:'video-script', module:2, excerpt:'High-retention script...', content:`<h2>Script template</h2><p>Hook → Promise → Value...</p>`},
+      <p>Short videos ko discovery boost milta hai, lekin long-form videos abhi bhi revenue aur depth ke liye best hain.</p>
 
-      {id:7, title:'Hook Writing Secrets', slug:'hook-writing', module:2, excerpt:'Hooks that retain...', content:`<h2>Hook tactics</h2><p>Use curiosity gap...</p>`},
+      <h3>Practical Tactics</h3>
+      <ol>
+        <li>Strong hook first 3–10 seconds me</li>
+        <li>High-contrast thumbnail</li>
+        <li>End screens optimize karke session watchtime badhao</li>
+      </ol>
+    `
+  },
 
-      {id:8, title:'A-Roll & B-Roll Shooting Tips', slug:'a-b-roll', module:2, excerpt:'Shooting tips...', content:`<h2>Shooting tips</h2><p>Plan B-roll shots...</p>`},
+  {
+    id: 3,
+    module: 1,
+    slug: "niche-selection",
+    title: "Perfect Niche Selection Formula",
+    excerpt: "Niche choose karne ke practical steps.",
+    content: `
+      <h2>Niche Selection</h2>
+      <p>Niche choose hota hai 3 cheezon ke intersection se:</p>
 
-      {id:9, title:'Camera Settings & Angles', slug:'camera-settings', module:3, excerpt:'Camera basics...', content:`<h2>Camera settings</h2><p>Use manual exposure...</p>`},
+      <ul>
+        <li>Your interest</li>
+        <li>Audience demand</li>
+        <li>Monetization potential</li>
+      </ul>
 
-      {id:10, title:'Lighting Techniques', slug:'lighting-techniques', module:3, excerpt:'Affordable lighting setups...', content:`<h2>Lighting</h2><p>3-point lighting...</p>`},
+      <p>Keyword tools aur local intent use karke low-competition pockets identify kar sakte ho.</p>
+    `
+  },
 
-      {id:11, title:'Audio Quality: Mic Guide', slug:'audio-quality', module:3, excerpt:'Mic selection...', content:`<h2>Audio guide</h2><p>Lavalier for interviews...</p>`},
+  {
+    id: 4,
+    module: 1,
+    slug: "channel-setup",
+    title: "Channel Setup – Pro Way",
+    excerpt: "Step-by-step channel setup including About section and links.",
+    content: `
+      <h2>Channel Setup</h2>
+      <p>Consistent branding use karo, value-focused About section likho aur playlists, chapters aur links properly set karo.</p>
 
-      {id:12, title:'Editing on Filmora', slug:'editing-filmora', module:4, excerpt:'Filmora workflow...', content:`<h2>Filmora editing</h2><p>Organize clips...</p>`},
+      <ul>
+        <li>Brand kit ready rakho</li>
+        <li>About me clear value likho</li>
+        <li>Channel links add karo</li>
+        <li>Playlists organize karo</li>
+      </ul>
+    `
+  },
 
-      {id:13, title:'Thumbnail Psychology', slug:'thumbnail-psychology', module:4, excerpt:'Design thumbnails...', content:`<h2>Thumbnail tips</h2><p>Use faces...</p>`},
+  {
+    id: 5,
+    module: 1,
+    slug: "branding",
+    title: "Branding: Logo, Banner & Description",
+    excerpt: "Branding tips for creators.",
+    content: `
+      <h2>Branding</h2>
+      <p>Logo readable hona chahiye even in small sizes. Banner main value communicate kare, aur description SEO-optimized ho.</p>
 
-      {id:14, title:'SEO: Title, Tags & Description', slug:'seo-youtube', module:4, excerpt:'YouTube SEO...', content:`<h2>YouTube SEO</h2><p>Place primary keyword...</p>`},
+      <ul>
+        <li>High-contrast logo</li>
+        <li>Value-driven banner</li>
+        <li>Keyword-optimized description</li>
+        <li>Clear CTA</li>
+      </ul>
+    `
+  },
 
-      {id:15, title:'CTR Boosting Techniques', slug:'ctr-boost', module:4, excerpt:'Improve clicks...', content:`<h2>CTR techniques</h2><p>Improve thumbnail clarity...</p>`},
+  {
+    id: 6,
+    module: 2,
+    slug: "video-script",
+    title: "Perfect Video Script (Template)",
+    excerpt: "High-retention script template for creators.",
+    content: `
+      <h2>Script Template</h2>
+      <p>Ye script structure retention ke hisaab se optimized hai:</p>
 
-      {id:16, title:'Retention Curve Mastery', slug:'retention-curve', module:4, excerpt:'Keep viewers...', content:`<h2>Retention</h2><p>Use pattern interrupts...</p>`},
+      <ol>
+        <li><strong>Hook</strong> – Pehle 3–5 sec me curiosity</li>
+        <li><strong>Promise</strong> – Viewer ko kya milega</li>
+        <li><strong>Value delivery</strong> – Depth + clarity</li>
+        <li><strong>Mini-cliffhanger</strong> – Retention peak points</li>
+        <li><strong>CTA</strong> – Like/Subscribe/Next video</li>
+      </ol>
+    `
+  },
+  {
+    id: 7,
+    module: 2,
+    slug: "hook-writing",
+    title: "Hook Writing Secrets",
+    excerpt: "Hooks that retain audience.",
+    content: `
+      <h2>Hook Writing Secrets</h2>
+      <p>Hook ka kaam hai viewer ko first 3 seconds me hi pakad lena. Jitna strong hook, utna better retention.</p>
 
-      {id:17, title:'Monetization: Adsense & Beyond', slug:'monetization', module:5, excerpt:'How to monetize...', content:`<h2>Monetization</h2><p>Adsense, sponsorships...</p>`},
+      <h3>Best Hook Types</h3>
+      <ul>
+        <li><strong>Curiosity Gap:</strong> “Aap ye galti roz karte ho…”</li>
+        <li><strong>Shock Value:</strong> “99% creators ye nahi jaante…”</li>
+        <li><strong>Benefit-Driven:</strong> “Is trick se aapka CTR double hoga.”</li>
+        <li><strong>Question Hook:</strong> “Aapko pata hai ki…?”</li>
+      </ul>
 
-      {id:18, title:'How to Get Sponsorships', slug:'sponsorships', module:5, excerpt:'Pitching brands...', content:`<h2>Sponsorships</h2><p>Create a media kit...</p>`},
+      <p>Aapke hook ka target hota hai — viewer ko scroll karne se rokna.</p>
+    `
+  },
 
-      {id:19, title:'Affiliate Marketing for Creators', slug:'affiliate-marketing', module:5, excerpt:'Fast affiliate funnels...', content:`<h2>Affiliate tips</h2><p>Place affiliate links...</p>`},
+  {
+    id: 8,
+    module: 2,
+    slug: "a-b-roll",
+    title: "A-Roll & B-Roll Shooting Tips",
+    excerpt: "Shooting tips for cinematic look.",
+    content: `
+      <h2>A-Roll & B-Roll Shooting Tips</h2>
+      <p>A-Roll ka matlab main talking footage. B-Roll ka matlab supporting visuals jo context aur feel add karte hain.</p>
 
-      {id:20, title:'Scaling to 1 Lakh/Month', slug:'scale-earnings', module:5, excerpt:'Revenue roadmap...', content:`<h2>Scale plan</h2><p>Combine ad revenue...</p>`},
+      <h3>A-Roll Tips</h3>
+      <ul>
+        <li>Eye-level framing</li>
+        <li>Soft lighting</li>
+        <li>Clear audio</li>
+        <li>Stable camera</li>
+      </ul>
 
-      {id:21, title:'AI Tools for Creators', slug:'ai-tools', module:6, excerpt:'AI workflow...', content:`<h2>AI workflow</h2><p>Use AI for ideation...</p>`},
+      <h3>B-Roll Tips</h3>
+      <ul>
+        <li>Context explain karta ho</li>
+        <li>Slow motion ya movement shots</li>
+        <li>Cutaway shots for retention</li>
+      </ul>
 
-      {id:22, title:'Viral Strategy Framework', slug:'viral-strategy', module:6, excerpt:'Viral formula...', content:`<h2>Viral framework</h2><p>Hook, emotional resonance...</p>`},
+      <p>Cinematic look tab aata hai jab dono balance ho.</p>
+    `
+  },
 
-      {id:23, title:'Analytics Mastery', slug:'analytics-mastery', module:6, excerpt:'Read analytics...', content:`<h2>Analytics</h2><p>Focus on CTR...</p>`},
+  {
+    id: 9,
+    module: 3,
+    slug: "camera-settings",
+    title: "Camera Settings & Angles",
+    excerpt: "Camera basics for creators.",
+    content: `
+      <h2>Camera Settings Basics</h2>
+      <p>Shoot hamesha manual mode me karo — consistent results milte hain.</p>
 
-      {id:24, title:'YouTube Automation Model', slug:'automation-model', module:6, excerpt:'Templates, outsourcing...', content:`<h2>Automation</h2><p>Create SOPs...</p>`},
+      <ul>
+        <li><strong>Shutter Speed:</strong> FPS ka double (e.g., 25fps → 1/50)</li>
+        <li><strong>Aperture:</strong> Background blur control</li>
+        <li><strong>ISO:</strong> Light ke hisaab se adjust karo</li>
+        <li><strong>White Balance:</strong> Always set manually</li>
+      </ul>
 
-      {id:25, title:'Content Calendar (30 Days)', slug:'content-calendar', module:2, excerpt:'Planner template...', content:`<h2>30-day content calendar</h2><p>Plan shoots...</p>`},
+      <h3>Best Angles</h3>
+      <ul>
+        <li>Eye-level → natural look</li>
+        <li>Top-down → product shots</li>
+        <li>Close-up → emotions highlight</li>
+      </ul>
+    `
+  },
 
-      {id:26, title:'Channel Audit Checklist', slug:'channel-audit', module:4, excerpt:'Checklist...', content:`<h2>Audit checklist</h2><p>Fix thumbnails...</p>`},
+  {
+    id: 10,
+    module: 3,
+    slug: "lighting-techniques",
+    title: "Lighting Techniques for Video",
+    excerpt: "Affordable lighting setups.",
+    content: `
+      <h2>Lighting Techniques</h2>
+      <p>Good lighting = professional look. Even phone camera amazing lagta hai.</p>
 
-      {id:27, title:'YouTube Shorts Strategy', slug:'shorts-strategy', module:6, excerpt:'Short form + long...', content:`<h2>Shorts strategy</h2><p>Use Shorts for discovery...</p>`},
+      <h3>3-Point Lighting</h3>
+      <ul>
+        <li><strong>Key Light:</strong> Main light</li>
+        <li><strong>Fill Light:</strong> Shadows soften</li>
+        <li><strong>Back Light:</strong> Background separation</li>
+      </ul>
 
-      {id:28, title:'Monetization Case Study', slug:'monetization-case', module:5, excerpt:'Case study...', content:`<h2>Case study</h2><p>Creator case study...</p>`},
+      <p>Natural light bhi use kar sakte ho — window ke side shoot karo.</p>
+    `
+  },
 
-      {id:29, title:'Editing Workflow Templates', slug:'editing-templates', module:3, excerpt:'Templates...', content:`<h2>Editing templates</h2><p>Filmora project templates...</p>`},
+  {
+    id: 11,
+    module: 3,
+    slug: "audio-quality",
+    title: "Audio Quality: Mic Guide",
+    excerpt: "Mic selection and placement.",
+    content: `
+      <h2>Audio Quality Guide</h2>
+      <p>Poor audio = low retention. Achhi audio retention ko double kar deti hai.</p>
 
-      {id:30, title:'Consistency Formula', slug:'consistency-formula', module:6, excerpt:'Long-term output...', content:`<h2>Consistency</h2><p>Batching, systems...</p>`}
-    ];
+      <h3>Types of Mics</h3>
+      <ul>
+        <li><strong>Lavalier:</strong> Interviews, talking head</li>
+        <li><strong>Shotgun:</strong> Directional use</li>
+        <li><strong>USB Condenser:</strong> Voiceover</li>
+      </ul>
+
+      <p>Always monitor audio with headphones.</p>
+    `
+  },
+
+  {
+    id: 12,
+    module: 4,
+    slug: "editing-filmora",
+    title: "Editing on Filmora (Step-by-step)",
+    excerpt: "Filmora workflow for creators.",
+    content: `
+      <h2>Filmora Editing Workflow</h2>
+      <p>Filmora beginners ke liye best editing software hai — fast, clean, simple.</p>
+
+      <h3>Steps</h3>
+      <ol>
+        <li>Clips import & organize</li>
+        <li>Timeline me arrange karo</li>
+        <li>J-cuts & L-cuts use karo</li>
+        <li>Colour grade using LUTs</li>
+        <li>Two-pass encoding export</li>
+      </ol>
+    `
+  },
+  {
+    id: 13,
+    module: 4,
+    slug: "thumbnail-psychology",
+    title: "Thumbnail Psychology",
+    excerpt: "Design thumbnails that double CTR.",
+    content: `
+      <h2>Thumbnail Psychology</h2>
+      <p>Thumbnail ka kaam hota hai attention grab karna aur curiosity create karna. CTR direct thumbnail par depend karta hai.</p>
+
+      <h3>Best Practices</h3>
+      <ul>
+        <li>Faces with expressions</li>
+        <li>Bold readable text</li>
+        <li>High contrast colours</li>
+        <li>One emotional focus</li>
+      </ul>
+
+      <p>Always test 2–3 thumbnail variations.</p>
+    `
+  },
+
+  {
+    id: 14,
+    module: 4,
+    slug: "seo-youtube",
+    title: "SEO: Title, Tags & Description",
+    excerpt: "YouTube SEO best practices.",
+    content: `
+      <h2>YouTube SEO</h2>
+      <p>Title, description, tags — ye teen YouTube ko context samajhne me help karte hain.</p>
+
+      <h3>Title Tips</h3>
+      <ul>
+        <li>Primary keyword add karo</li>
+        <li>Benefit + curiosity balance</li>
+        <li>50–60 characters best</li>
+      </ul>
+
+      <h3>Description Tips</h3>
+      <ul>
+        <li>First 2 lines me keyword</li>
+        <li>Chapters add karo</li>
+        <li>Affiliate links add karo</li>
+      </ul>
+
+      <p>Tags sirf context dene ke liye use hote hain — ranking ke liye nahi.</p>
+    `
+  },
+
+  {
+    id: 15,
+    module: 4,
+    slug: "ctr-boost",
+    title: "CTR Boosting Techniques",
+    excerpt: "Improve clicks without misleading.",
+    content: `
+      <h2>CTR Boosting Techniques</h2>
+      <p>CTR badhane ka matlab hota hai: thumbnail + title ko optimize karna, bina misleading kare.</p>
+
+      <ul>
+        <li>Thumbnail me emotion focus</li>
+        <li>Short strong title</li>
+        <li>Before–after type setup</li>
+        <li>Contrast + bold elements</li>
+      </ul>
+
+      <p>Misleading thumbnail = retention drop = video dead.</p>
+    `
+  },
+
+  {
+    id: 16,
+    module: 4,
+    slug: "retention-curve",
+    title: "Retention Curve Mastery",
+    excerpt: "Keep viewers till the end.",
+    content: `
+      <h2>Retention Curve Mastery</h2>
+      <p>Retention decide karta hai ki YouTube video ko push karega ya nahi.</p>
+
+      <h3>Retention Tips</h3>
+      <ul>
+        <li>Hook first 5 sec</li>
+        <li>Pattern interrupts</li>
+        <li>Short, tight sentences</li>
+        <li>Mini cliffhangers</li>
+      </ul>
+
+      <p>Retention graph analyze karke drop points fix karo.</p>
+    `
+  },
+
+  {
+    id: 17,
+    module: 5,
+    slug: "monetization",
+    title: "Monetization: Adsense & Beyond",
+    excerpt: "How to monetize YouTube channel.",
+    content: `
+      <h2>YouTube Monetization Methods</h2>
+      <p>YouTube earnings multiple streams se aati hain — sirf Adsense nahi.</p>
+
+      <ul>
+        <li>Adsense revenue</li>
+        <li>Sponsorship deals</li>
+        <li>Affiliate commissions</li>
+        <li>Own products/courses</li>
+      </ul>
+
+      <p>Diversify income = stable earnings.</p>
+    `
+  },
+
+  {
+    id: 18,
+    module: 5,
+    slug: "sponsorships",
+    title: "How to Get Sponsorships",
+    excerpt: "Pitching brands and rate cards.",
+    content: `
+      <h2>How to Get Sponsorships</h2>
+      <p>Sponsorships tab milte hain jab aapke paas audience + niche clarity hoti hai.</p>
+
+      <h3>Steps</h3>
+      <ol>
+        <li>Media kit create karo</li>
+        <li>Local brands se start karo</li>
+        <li>Deliverables clear rakho</li>
+        <li>Case studies show karo</li>
+      </ol>
+
+      <p>Professional communication = higher closing rates.</p>
+    `
+  },
+  {
+    id: 19,
+    module: 5,
+    slug: "affiliate-marketing",
+    title: "Affiliate Marketing for Creators",
+    excerpt: "Fast affiliate funnels.",
+    content: `
+      <h2>Affiliate Marketing for Creators</h2>
+      <p>Affiliate earning creators ka sabse easy aur fast income system hota hai. Bas sahi product + sahi audience match.</p>
+
+      <h3>Best Affiliate Tactics</h3>
+      <ul>
+        <li>Product review videos</li>
+        <li>How-to videos with product usage</li>
+        <li>Top 5 / Top 10 lists</li>
+        <li>Tools you use daily</li>
+      </ul>
+
+      <p>Always disclose affiliate links for trust.</p>
+    `
+  },
+
+  {
+    id: 20,
+    module: 5,
+    slug: "scale-earnings",
+    title: "Scaling to 1 Lakh/Month",
+    excerpt: "Realistic revenue roadmap.",
+    content: `
+      <h2>Scaling to 1 Lakh/Month</h2>
+      <p>1 lakh/month earn karna mushkil nahi hota — system banana hota hai.</p>
+
+      <h3>Formula</h3>
+      <ul>
+        <li>Adsense</li>
+        <li>Sponsorships</li>
+        <li>Affiliate products</li>
+        <li>Own courses/services</li>
+      </ul>
+
+      <p>Combination = stable monthly income.</p>
+    `
+  },
+
+  {
+    id: 21,
+    module: 6,
+    slug: "ai-tools",
+    title: "AI Tools for Creators",
+    excerpt: "AI workflow for scripting and editing.",
+    content: `
+      <h2>AI Tools for Creators</h2>
+      <p>AI ne content creation ko 5x faster bana diya hai — scripting, editing, thumbnail ideas, sab AI se ho sakta hai.</p>
+
+      <h3>Use Cases</h3>
+      <ul>
+        <li>Script drafts generation</li>
+        <li>Thumbnail suggestions</li>
+        <li>Idea research</li>
+        <li>Rough cut editing</li>
+      </ul>
+
+      <p>Final polish hamesha human touch se aata hai.</p>
+    `
+  },
+
+  {
+    id: 22,
+    module: 6,
+    slug: "viral-strategy",
+    title: "Viral Strategy Framework",
+    excerpt: "Repeatable viral recipe.",
+    content: `
+      <h2>Viral Strategy Framework</h2>
+      <p>Viral hona luck nahi, ek repeatable pattern hota hai.</p>
+
+      <h3>Framework</h3>
+      <ul>
+        <li>Strong hook</li>
+        <li>Fast payoffs</li>
+        <li>Emotion trigger</li>
+        <li>Distribution strategy</li>
+      </ul>
+
+      <p>Repeat winners, improve losers — that’s the game.</p>
+    `
+  },
+
+  {
+    id: 23,
+    module: 6,
+    slug: "analytics-mastery",
+    title: "Analytics Mastery",
+    excerpt: "Read YouTube Studio like a pro.",
+    content: `
+      <h2>Analytics Mastery</h2>
+      <p>YouTube Studio ke analytics hi aapko batate hain ki kya kaam kar raha hai aur kya nahi.</p>
+
+      <h3>Main Metrics</h3>
+      <ul>
+        <li>CTR</li>
+        <li>Average View Duration</li>
+        <li>Impressions</li>
+        <li>Suggested traffic</li>
+      </ul>
+
+      <p>Experiment + analysis = guaranteed growth.</p>
+    `
+  },
+
+  {
+    id: 24,
+    module: 6,
+    slug: "automation-model",
+    title: "YouTube Automation Model",
+    excerpt: "Delegation, templates and SOPs.",
+    content: `
+      <h2>YouTube Automation Model</h2>
+      <p>Automation model creators ke output ko double kar deta hai — without burning out.</p>
+
+      <h3>Automation Steps</h3>
+      <ul>
+        <li>SOPs banaao</li>
+        <li>Templates create karo</li>
+        <li>Editor hire karo</li>
+        <li>Bulk batching workflow</li>
+      </ul>
+
+      <p>Goal: Less effort, more output.</p>
+    `
+  },
+  {
+    id: 25,
+    module: 2,
+    slug: "content-calendar",
+    title: "Content Calendar (30 Days Template)",
+    excerpt: "Downloadable 30-day planner.",
+    content: `
+      <h2>30-Day Content Calendar</h2>
+      <p>Consistent rehne ka best hack — ek 30-day content calendar.</p>
+
+      <h3>How to Use</h3>
+      <ul>
+        <li>3 days planning</li>
+        <li>7 days filming</li>
+        <li>7 days editing</li>
+        <li>7 days publishing</li>
+      </ul>
+
+      <p>Theme-based weeks content ko strong banate hain.</p>
+    `
+  },
+
+  {
+    id: 26,
+    module: 4,
+    slug: "channel-audit",
+    title: "Channel Audit Checklist",
+    excerpt: "Checklist to fix quick wins.",
+    content: `
+      <h2>Channel Audit Checklist</h2>
+      <p>Channel audit se aapko turant improvements milte hain.</p>
+
+      <ul>
+        <li>Thumbnail clarity</li>
+        <li>SEO-friendly titles</li>
+        <li>Description with chapters</li>
+        <li>Playlists properly organized</li>
+        <li>About section keyword-optimized</li>
+      </ul>
+    `
+  },
+
+  {
+    id: 27,
+    module: 6,
+    slug: "shorts-strategy",
+    title: "YouTube Shorts Strategy",
+    excerpt: "Shorts + long form synergy.",
+    content: `
+      <h2>YouTube Shorts Strategy</h2>
+      <p>Shorts discovery ke liye best tool hain — fast growth.</p>
+
+      <h3>Tips</h3>
+      <ul>
+        <li>Shorts se long-form audience drive karo</li>
+        <li>1 topic → long + shorts combination</li>
+        <li>Strong hook first 1 second me</li>
+      </ul>
+
+      <p>Shorts channel ko alive rakhte hain between long videos.</p>
+    `
+  },
+
+  {
+    id: 28,
+    module: 5,
+    slug: "monetization-case",
+    title: "Monetization Case Study",
+    excerpt: "Real creator case study.",
+    content: `
+      <h2>Monetization Case Study</h2>
+      <p>Ek real creator ka example jisme humne unko 0 se earning tak lead kiya.</p>
+
+      <h3>Results</h3>
+      <ul>
+        <li>0 → 10k subscribers</li>
+        <li>Affiliate ₹25k/month</li>
+        <li>Sponsored content deals</li>
+      </ul>
+
+      <p>Right strategy + regular output = guaranteed growth.</p>
+    `
+  },
+
+  {
+    id: 29,
+    module: 3,
+    slug: "editing-templates",
+    title: "Editing Workflow Templates",
+    excerpt: "Downloadable editor templates.",
+    content: `
+      <h2>Editing Workflow Templates</h2>
+      <p>Templates editing speed ko 2x–3x faster bana dete hain.</p>
+
+      <ul>
+        <li>Filmora project templates</li>
+        <li>LUT packs suggestions</li>
+        <li>Export presets list</li>
+      </ul>
+
+      <p>Smart editors templates use karke time save karte hain.</p>
+    `
+  },
+
+  {
+    id: 30,
+    module: 6,
+    slug: "consistency-formula",
+    title: "Consistency Formula",
+    excerpt: "How to maintain output long term.",
+    content: `
+      <h2>Consistency Formula</h2>
+      <p>Long-term growth ka secret = consistent posting.</p>
+
+      <h3>Consistency Tips</h3>
+      <ul>
+        <li>Batch shoot karo</li>
+        <li>Fixed publishing days</li>
+        <li>Realistic schedule</li>
+        <li>Accountability partner</li>
+      </ul>
+
+      <p>Consistency → Trust → Subscribers → Income.</p>
+    `
+  }
+
+];
     function renderHome(){
       return `
       <section class="hero">
