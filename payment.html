@@ -1,112 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Advance Booking Payment | Creator Support Amravati</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Advance Booking Payment — Creator Support Amravati</title>
+<link rel="stylesheet" href="assets/css/style.css">
 <style>
-body {
-    font-family: 'Poppins', sans-serif;
-    background: #f5f7fa;
-    margin: 0;
-    padding: 0;
-}
-.header {
-    background: #000;
-    color: #fff;
-    padding: 20px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: 1px;
-}
-.container {
-    width: 95%;
-    max-width: 480px;
-    margin: 40px auto;
-    background: #fff;
-    padding: 25px;
-    border-radius: 15px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.15);
-}
-h2 {
-    margin-top: 0;
-    font-size: 24px;
-    text-align: center;
-}
-.price-box {
-    text-align: center;
-    padding: 15px;
-    background: #e8f0fe;
-    border-radius: 10px;
-    margin: 20px 0;
-    font-size: 22px;
-    font-weight: bold;
-}
-button {
-    width: 100%;
-    padding: 15px;
-    border: none;
-    background: #0084ff;
-    color: #fff;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 18px;
-}
-button:hover {
-    background: #006edc;
-}
-.footer {
-    text-align: center;
-    margin-top: 25px;
-    color: #555;
-}
+body{font-family:Inter,system-ui,Arial,sans-serif;background:#f7fbff;margin:0}
+.container{max-width:520px;margin:40px auto;padding:20px}
+.card{background:#fff;padding:24px;border-radius:12px;box-shadow:0 10px 30px rgba(14,30,60,0.06);text-align:center}
+.btn{display:inline-block;background:#0084ff;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;border:none;cursor:pointer}
+.small{color:#666;font-size:14px;margin-top:10px}
 </style>
 </head>
 <body>
-
-<div class="header">Creator Support Amravati</div>
-
 <div class="container">
+  <div class="card">
     <h2>Advance Booking Payment</h2>
-    <div class="price-box">₹500 Advance Booking</div>
+    <p class="small">Pay ₹500 to confirm your studio slot. This advance amount will be adjusted in final invoice.</p>
 
-    <button id="rzp-button">Pay ₹500</button>
-
-    <div class="footer">
-        सुरक्षित भुगतान – Razorpay Secured Gateway
+    <div style="margin-top:18px">
+      <input type="text" id="payer_name" placeholder="Your full name" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px">
+      <input type="email" id="payer_email" placeholder="Email (optional)" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px">
+      <input type="tel" id="payer_contact" placeholder="Phone / WhatsApp" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px">
     </div>
+
+    <button id="payBtn" class="btn">Pay ₹500</button>
+    <p class="small">Secure payment via Razorpay</p>
+  </div>
 </div>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-
 <script>
-document.getElementById('rzp-button').onclick = function(e){
-    var options = {
-        "key": "rzp_test_123456789", 
-        "amount": "50000", 
-        "currency": "INR",
-        "name": "Creator Support Amravati",
-        "description": "Advance Booking Payment",
-        "image": "https://yourdomain/logo.png", 
-        "handler": function (response){
-            window.location.href = "success.html";
-        },
-        "prefill": {
-            "name": "",
-            "email": "",
-            "contact": ""
-        },
-        "theme": {
-            "color": "#0084ff"
-        }
-    };
-    var rzp = new Razorpay(options);
-    rzp.open();
-    e.preventDefault();
-}
-</script>
+const RAZORPAY_KEY = "rzp_test_123456789"; // <-- REPLACE WITH YOUR KEY_ID
+const AMOUNT_PAISA = 50000; // ₹500 in paise
 
+document.getElementById('payBtn').addEventListener('click', function(){
+  const name = document.getElementById('payer_name').value || '';
+  const email = document.getElementById('payer_email').value || '';
+  const contact = document.getElementById('payer_contact').value || '';
+
+  const options = {
+    "key": RAZORPAY_KEY,
+    "amount": AMOUNT_PAISA,
+    "currency": "INR",
+    "name": "Creator Support Amravati",
+    "description": "Advance Booking Payment",
+    "handler": function (response){
+      // response.razorpay_payment_id
+      // You can POST payment details to Google Sheet / server here
+      // For now redirect to success
+      window.location.href = "success.html";
+    },
+    "prefill": {
+      "name": name,
+      "email": email,
+      "contact": contact
+    },
+    "theme": {"color":"#0084ff"}
+  };
+  const rzp = new Razorpay(options);
+  rzp.open();
+});
+</script>
 </body>
 </html>
