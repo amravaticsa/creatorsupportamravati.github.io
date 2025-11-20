@@ -1,57 +1,217 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Creator Support Amravati — Studio, Video Production, Podcast & YouTube Support</title>
+  <meta name="description" content="Creator Support Amravati — Full-service creator studio in Amravati. Studio rental, video production, podcast recording, editing, equipment rental and YouTube growth services." />
   <link rel="stylesheet" href="assets/css/style.css">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Creators Support Amravati</title>
-<link rel="stylesheet" href="assets/css/style.css">
-<meta name="description" content="Creators Support Amravati - Studio, Video Production, Podcast, YouTube support in Amravati.">
+  <style>
+    /* Page-specific homepage styles */
+    :root{--primary:#1a73e8;--accent:#0b5cd6;--muted:#6b7280;--dark:#0f1724}
+    body{font-family:Inter,system-ui,Arial,sans-serif;background:#f7fbff;margin:0;color:#111}
+    .site-header{background:#fff;position:sticky;top:0;z-index:40;box-shadow:0 6px 24px rgba(13,38,68,0.04)}
+    .header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;gap:12px}
+    .logo img{height:48px}
+    .main-nav{display:flex;gap:18px;align-items:center}
+    .main-nav a{color:#111;text-decoration:none;font-weight:600}
+    .hero{display:grid;grid-template-columns:1fr 520px;gap:28px;align-items:center;padding:44px 20px;max-width:1200px;margin:22px auto}
+    .hero-left h1{font-size:36px;color:var(--dark);margin:0 0 12px;line-height:1.05}
+    .hero-left p{color:var(--muted);font-size:16px;margin:0 0 18px}
+    .hero-cta{display:flex;gap:12px;flex-wrap:wrap}
+    .btn-primary{background:var(--primary);color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:800}
+    .btn-outline{border:2px solid var(--primary);color:var(--primary);padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700}
+    .hero-right{border-radius:12px;overflow:hidden;box-shadow:0 12px 34px rgba(14,30,60,0.08)}
+    .hero-right img{width:100%;height:100%;object-fit:cover;display:block}
+
+    .section{max-width:1200px;margin:28px auto;padding:0 20px}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(14,30,60,0.06)}
+    .card img{width:100%;height:150px;object-fit:cover;border-radius:8px;margin-bottom:12px}
+    .card h3{margin:0 0 8px;color:var(--primary)}
+    .card p{color:var(--muted);font-size:14px}
+
+    .portfolio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+    .portfolio-grid img{width:100%;height:160px;object-fit:cover;border-radius:10px}
+
+    .testimonials{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+    .testimonial{background:#fff;padding:16px;border-radius:12px;box-shadow:0 8px 24px rgba(14,30,60,0.04)}
+    .testimonial .meta{display:flex;gap:12px;align-items:center}
+    .testimonial img{width:54px;height:54px;border-radius:50%;object-fit:cover}
+    .stars{color:#f5b50a;font-weight:700;margin-left:6px}
+
+    .blog-preview{display:flex;gap:14px;align-items:flex-start}
+    .blog-thumb{width:220px;height:140px;object-fit:cover;border-radius:10px}
+
+    footer{background:var(--dark);color:#fff;padding:20px 0;margin-top:30px}
+    .footer-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:0 20px}
+
+    @media(max-width:1000px){ .hero{grid-template-columns:1fr} .cards{grid-template-columns:repeat(2,1fr)} .portfolio-grid{grid-template-columns:repeat(2,1fr)} .testimonials{grid-template-columns:1fr} .blog-preview{flex-direction:column} }
+    @media(max-width:620px){ .cards{grid-template-columns:1fr} .portfolio-grid{grid-template-columns:1fr} .hero-left h1{font-size:26px} .header-inner{padding:10px} .main-nav{display:none} }
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"Organization",
+    "name":"Creator Support Amravati",
+    "url":"https://<your-github-username>.github.io/creatorsupportamravati/",
+    "logo":"https://<your-github-username>.github.io/creatorsupportamravati/assets/images/logo.png",
+    "contactPoint":[{"@type":"ContactPoint","telephone":"+91-9225515679","contactType":"customer service","areaServed":"IN"}]
+  }
+  </script>
 </head>
 <body>
-  <!-- Navigation Bar -->
-<header>
-  <nav class="navbar">
-    <div class="logo">
-      <a href="index.html">Creator Support Amravati</a>
+
+  <!-- HEADER / NAV -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="logo"><a href="index.html"><img src="assets/images/logo.png" alt="Creator Support Amravati"></a></div>
+      <nav class="main-nav" role="navigation" aria-label="Main">
+        <a href="index.html">Home</a>
+        <a href="about.html">About</a>
+        <a href="why-choose-us.html">Why Creator Support?</a>
+        <a href="services.html">Services</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="blog.html">Blog</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a href="services.html#booking" class="btn-primary">Book Now</a>
+      </div>
     </div>
-    <ul class="nav-links">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="about.html">About</a></li>
-      <li><a href="services.html">Services</a></li>
-      <li><a href="portfolio.html">Portfolio</a></li>
-      <li><a href="blog.html">Blog</a></li>
-      <li><a href="contact.html">Contact</a></li>
-    </ul>
-  </nav>
-</header>
+  </header>
 
-<header class="site-header">
-  <div class="container header-inner">
-    <div class="logo"><img src="assets/images/logo.png" alt="Creators Support Amravati"></div>
-    <nav class="main-nav">
-      <a href="index.html">Home</a>
-      <a href="services.html">Services</a>
-      <a href="portfolio.html">Portfolio</a>
-      <a href="blog.html">Blog</a>
-      <a href="contact.html">Contact</a>
-    </nav>
-  </div>
-</header>
+  <!-- HERO -->
+  <section class="hero" role="region" aria-label="Hero">
+    <div class="hero-left">
+      <h1>Studio, Production & Growth — <br>All-in-one Creator Support in Amravati</h1>
+      <p>Professional 4K studio, podcast booth, teleprompter, full production crew and end-to-end YouTube growth services — local pricing, premium results.</p>
+      <div class="hero-cta">
+        <a class="btn-primary" href="services.html#booking">Book Studio</a>
+        <a class="btn-outline" href="why-choose-us.html">Why Creator Support?</a>
+      </div>
 
-<main class="container">
-  <section class="hero">
-    <h1>Creators Support Amravati</h1>
-    <p>Your one-stop Creator Studio in Amravati — Video production, Podcast studio, Editing, YouTube growth and more.</p>
-    <a class="btn" href="services.html">Explore Services</a>
+      <div style="margin-top:18px;color:var(--muted);font-size:14px">
+        <strong>Call / WhatsApp:</strong> <a href="tel:9225515679">9225515679</a> • <strong>Email:</strong> <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a>
+      </div>
+    </div>
+
+    <div class="hero-right" aria-hidden="true">
+      <img src="assets/images/hero-studio.jpg" alt="Creator Studio Amravati">
+    </div>
   </section>
-</main>
 
-<footer class="site-footer">
-  <div class="container">
-    <p>&copy; 2025 Creators Support Amravati • <a href="privacy.html">Privacy Policy</a></p>
-  </div>
-</footer>
-<script src="assets/js/main.js"></script>
+  <!-- SERVICES PREVIEW -->
+  <section class="section" aria-labelledby="services">
+    <h2 style="color:var(--primary);margin:6px 0 12px">Our Top Services</h2>
+    <div class="cards" role="list">
+      <article class="card" role="listitem">
+        <img src="assets/images/service-thumb-1.jpg" alt="Video Production">
+        <h3>Video Production</h3>
+        <p>End-to-end production: concept, shoot, edit, and YouTube-ready upload with SEO optimization.</p>
+      </article>
+
+      <article class="card" role="listitem">
+        <img src="assets/images/service-thumb-2.jpg" alt="Podcast Studio">
+        <h3>Podcast Studio</h3>
+        <p>Soundproof podcast booth, multi-mic recording & editing for clean audio and publishing.</p>
+      </article>
+
+      <article class="card" role="listitem">
+        <img src="assets/images/service-thumb-3.jpg" alt="Equipment Rental">
+        <h3>Equipment Rental</h3>
+        <p>Cameras, tripods, teleprompters, lights & mics — hourly or daily rental with operator options.</p>
+      </article>
+    </div>
+
+    <p style="margin-top:14px"><a class="btn-outline" href="services.html">See all services</a></p>
+  </section>
+
+  <!-- PORTFOLIO PREVIEW -->
+  <section class="section" aria-labelledby="portfolio">
+    <h2 style="color:var(--primary);margin:6px 0 12px">Recent Work</h2>
+    <div class="portfolio-grid" role="list">
+      <img src="assets/images/portfolio-1.jpg" alt="Project 1" role="listitem">
+      <img src="assets/images/portfolio-2.jpg" alt="Project 2" role="listitem">
+      <img src="assets/images/portfolio-3.jpg" alt="Project 3" role="listitem">
+    </div>
+
+    <p style="margin-top:12px"><a class="btn-outline" href="portfolio.html">View full portfolio</a></p>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="section" aria-labelledby="testimonials">
+    <h2 style="color:var(--primary);margin:6px 0 12px">What Creators Say</h2>
+    <div class="testimonials">
+      <div class="testimonial">
+        <div class="meta"><img src="assets/images/testimonial-1.jpg" alt="R. Sharma"><div><strong>R. Sharma</strong><div class="stars">★★★★★</div></div></div>
+        <p style="margin-top:10px;color:var(--muted)">“Creator Support Amravati helped my channel grow — professional thumbnails and fast edits made a huge difference.”</p>
+      </div>
+
+      <div class="testimonial">
+        <div class="meta"><img src="assets/images/testimonial-2.jpg" alt="Priya K."><div><strong>Priya K.</strong><div class="stars">★★★★★</div></div></div>
+        <p style="margin-top:10px;color:var(--muted)">“Fast delivery, friendly team and excellent studio vibe. Highly recommended for creators starting out.”</p>
+      </div>
+    </div>
+
+    <p style="margin-top:12px"><a class="btn-outline" href="testimonials.html">Read more testimonials</a></p>
+  </section>
+
+  <!-- BLOG PREVIEW -->
+  <section class="section" aria-labelledby="blog">
+    <h2 style="color:var(--primary);margin:6px 0 12px">From Our Blog</h2>
+    <div class="blog-preview">
+      <img src="assets/images/blog-thumb-1.jpg" alt="YouTube Course" class="blog-thumb">
+      <div>
+        <h3 style="margin-top:0"><a href="blog.html" style="color:var(--dark);text-decoration:none">YouTube Course — Basic to Advanced</a></h3>
+        <p style="color:var(--muted)">Step-by-step guide for creators: niche selection, scripting, lighting, editing and YouTube SEO. Read the full course on our blog.</p>
+        <p style="margin-top:10px"><a class="btn-outline" href="blog.html">Read article</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST + CTA -->
+  <section class="section" aria-labelledby="trust">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <h3 style="margin:0;color:var(--primary)">Trusted locally — 100+ creators</h3>
+        <p style="color:var(--muted);margin-top:8px">4.9 ★ Google Rating • 95% repeat clients • Fast delivery & friendly team</p>
+        <p style="margin-top:12px"><a class="btn-primary" href="services.html#booking">Book a Slot</a></p>
+      </div>
+      <div style="flex:1;min-width:260px;text-align:right">
+        <img src="assets/images/logo.png" alt="CSA Logo" style="height:70px;opacity:.95">
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer role="contentinfo">
+    <div class="footer-inner">
+      <div>
+        <img src="assets/images/logo.png" alt="Creator Support Amravati" style="height:38px;margin-bottom:10px">
+        <p style="color:#cbd5e1;margin:0">Creator Support Amravati — Studio, Production & YouTube Growth</p>
+      </div>
+
+      <div>
+        <h4 style="color:#fff;margin-bottom:8px">Quick Links</h4>
+        <p style="margin:6px 0"><a href="services.html" style="color:#9fbefc">Services</a></p>
+        <p style="margin:6px 0"><a href="portfolio.html" style="color:#9fbefc">Portfolio</a></p>
+        <p style="margin:6px 0"><a href="blog.html" style="color:#9fbefc">Blog</a></p>
+      </div>
+
+      <div>
+        <h4 style="color:#fff;margin-bottom:8px">Contact</h4>
+        <p style="color:#cbd5e1;margin:6px 0">📞 <a href="tel:9225515679" style="color:#9fbefc">9225515679</a></p>
+        <p style="color:#cbd5e1;margin:6px 0">📱 WhatsApp: 9372790292</p>
+        <p style="color:#cbd5e1;margin:6px 0">📧 <a href="mailto:amravati.csa@gmail.com" style="color:#9fbefc">amravati.csa@gmail.com</a></p>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding-top:12px;color:#9fbefc">
+      © 2025 Creator Support Amravati • <a href="privacy.html" style="color:#9fbefc">Privacy Policy</a> • <a href="terms.html" style="color:#9fbefc">Terms</a>
+    </div>
+  </footer>
+
 </body>
 </html>
