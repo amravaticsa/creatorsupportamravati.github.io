@@ -1,34 +1,156 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contact</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Contact Us | Creator Support Amravati</title>
 <link rel="stylesheet" href="assets/css/style.css">
+
+<style>
+body {
+  background: #f4f8ff;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
+h1 {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #1a73e8;
+}
+form {
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+label {
+  font-weight: 600;
+  display: block;
+  margin-top: 15px;
+  color: #333;
+}
+input, select, textarea {
+  width: 100%;
+  padding: 12px;
+  margin-top: 5px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 22px;
+  background: #1a73e8;
+  color: white;
+  border-radius: 10px;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  font-weight: 700;
+}
+button:hover {
+  background: #0b5cd6;
+}
+</style>
+
 </head>
 <body>
 
-<header>
-    <div class="logo">Creators Support Amravati</div>
-    <nav class="nav-menu">
-        <a href="index.html">Home</a>
-        <a href="about.html">About</a>
-        <a href="services.html">Services</a>
-        <a href="portfolio.html">Portfolio</a>
-        <a href="blog.html">Blog</a>
-        <a href="contact.html">Contact</a>
-    </nav>
-</header>
+<div class="container">
+  <h1>Contact / Booking Form</h1>
 
-<main>
-    <h1>Contact</h1>
-    <p>This is the Contact page of the premium responsive website.</p>
-</main>
+  <form id="contactForm">
 
-<footer>
-    <p>&copy; 2025 Creators Support Amravati</p>
-</footer>
+    <label>आपका पूरा नाम *</label>
+    <input type="text" name="name" required />
 
-<script src="assets/js/main.js"></script>
+    <label>WhatsApp नंबर *</label>
+    <input type="text" name="phone" required />
+
+    <label>Email (Optional)</label>
+    <input type="email" name="email" />
+
+    <label>आपका पता / Location *</label>
+    <input type="text" name="location" required />
+
+    <label>कौन-कौन सी सेवाएं चाहिए? *</label>
+    <textarea name="services" required placeholder="Camera, Lights, Reels Shoot, Editing..."></textarea>
+
+    <label>वीडियो किस लिए है? *</label>
+    <select name="video_type" required>
+      <option>YouTube Video</option>
+      <option>Instagram Reel</option>
+      <option>Interview Recording</option>
+      <option>Online Course</option>
+      <option>Product Video</option>
+      <option>Other</option>
+    </select>
+
+    <label>यदि Other, तो यहाँ लिखें:</label>
+    <textarea name="other_purpose"></textarea>
+
+    <label>शूट की तारीख *</label>
+    <input type="date" name="booking_date" required />
+
+    <label>Time Slot *</label>
+    <input type="time" name="booking_time" required />
+
+    <label>वीडियो की अनुमानित लंबाई:</label>
+    <select name="length">
+      <option>0-5 Minutes</option>
+      <option>5-15 Minutes</option>
+      <option>15-30 Minutes</option>
+      <option>30+ Minutes</option>
+    </select>
+
+    <label>क्या आपके पास Script है?</label>
+    <select name="script_available">
+      <option>Yes</option>
+      <option>No</option>
+    </select>
+
+    <label>कोई अन्य जानकारी हो तो लिखें:</label>
+    <textarea name="extra_info"></textarea>
+
+    <button type="submit">Submit Form</button>
+
+  </form>
+
+  <p style="text-align:center; margin-top:25px; font-size:18px;">
+    📞 Call/WhatsApp: <b>9225515679</b>
+  </p>
+
+</div>
+
+<script>
+// ==== REPLACE THIS WITH YOUR APPS SCRIPT URL ====
+const API_URL = "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
+document.getElementById("contactForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData.entries());
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: {"Content-Type": "application/json"}
+  })
+  .then(res => res.json())
+  .then(() => {
+      window.location.href = "success.html";
+  })
+  .catch(err => alert("Error: " + err));
+});
+</script>
+
 </body>
 </html>
+
