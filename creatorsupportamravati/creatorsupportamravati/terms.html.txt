@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Terms & Conditions — Creator Support Amravati</title>
+  <meta name="description" content="Terms and Conditions for using Creator Support Amravati website and services — studio booking, equipment rental, video production and editing." />
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    :root{--primary:#1a73e8;--muted:#666}
+    body{font-family:Inter,system-ui,Arial,sans-serif;background:#f7fbff;color:#222;margin:0}
+    .container{max-width:1000px;margin:28px auto;padding:20px}
+    .card{background:#fff;padding:22px;border-radius:12px;box-shadow:0 10px 30px rgba(14,30,60,0.06);margin-bottom:18px}
+    h1{color:var(--primary);margin:0 0 8px}
+    h2{color:#111;margin-top:12px}
+    p, li{color:#444;line-height:1.7}
+    ol, ul{margin-left:18px}
+    .muted{color:var(--muted);font-size:14px}
+    a.cta{display:inline-block;background:var(--primary);color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700;margin-top:12px}
+    @media(max-width:700px){.container{padding:12px}}
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header>
+    <nav class="navbar" style="background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.06)">
+      <div class="container" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+        <div style="font-weight:700"><a href="index.html" style="text-decoration:none;color:#111">Creator Support Amravati</a></div>
+        <div style="font-size:14px"><a href="contact.html">Contact</a></div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container" role="main">
+    <section class="card">
+      <h1>Terms &amp; Conditions</h1>
+      <p class="muted">Last updated: <strong>January 2025</strong></p>
+
+      <p>Welcome to <strong>Creator Support Amravati</strong>. These Terms & Conditions (the "Terms") govern your use of our website and services including studio rental, equipment rental, video production, editing, podcast recording, and related services (collectively, the "Services"). By accessing or using our website or booking our Services, you agree to be bound by these Terms.</p>
+
+      <h2 id="scope">1. Scope of Services</h2>
+      <p>We offer a range of creative services including but not limited to:</p>
+      <ul>
+        <li>Studio rental and on-site shoots</li>
+        <li>Camera, lighting and audio equipment rental</li>
+        <li>Video production (pre-production, shooting, post-production)</li>
+        <li>Podcast recording and editing</li>
+        <li>Video editing, thumbnails and YouTube upload/SEO support</li>
+      </ul>
+
+      <h2 id="booking">2. Booking &amp; Confirmation</h2>
+      <ol>
+        <li>Bookings can be made via our booking form, email (<a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a>) or WhatsApp at <strong>9225515679</strong> / 9372790292.</li>
+        <li>All bookings are subject to availability. A booking is confirmed only after we receive the required advance payment (if applicable) and provide a confirmation message via email or WhatsApp.</li>
+        <li>Booking details (date, time, services, equipment) must be confirmed at least 24–72 hours in advance depending on the service. Urgent bookings are subject to acceptance.</li>
+      </ol>
+
+      <h2 id="payments">3. Payments &amp; Pricing</h2>
+      <ol>
+        <li>Prices for studio time, equipment rental, production and post-production services are provided in individual quotes or on the website packages page.</li>
+        <li>Advance Payment: To secure a booking, we may require an advance payment. The advance amount will be communicated at the time of booking.</li>
+        <li>Payment Methods: We accept UPI, Razorpay, bank transfers and other payment modes as specified in the invoice.</li>
+        <li>Final Payment: Final balance is to be paid as per the invoice terms before delivery of final files unless otherwise agreed in writing.</li>
+      </ol>
+
+      <h2 id="cancellation">4. Cancellation &amp; Rescheduling</h2>
+      <ol>
+        <li>Cancellation by Client: If you cancel your confirmed booking, the advance payment may be forfeited partially or fully as per the refund policy. Please see our Refund Policy for details.</li>
+        <li>Rescheduling: You may request rescheduling subject to availability. We will try to accommodate reasonable requests; rescheduling within 24 hours of the shoot may attract additional charges.</li>
+        <li>Cancellation by Us: In rare circumstances (equipment failure, safety concerns, emergency), we may cancel or reschedule a booking and will offer an alternative slot or full refund.</li>
+      </ol>
+
+      <h2 id="deliverables">5. Deliverables &amp; Turnaround Time</h2>
+      <p>Deliverable timelines vary by service. Typical turnaround times:</p>
+      <ul>
+        <li>Instagram Reels — same day or 24 hours</li>
+        <li>YouTube edit — 24–72 hours depending on complexity</li>
+        <li>Course / long-form videos — timeline specified in the quote</li>
+      </ul>
+      <p>Timelines are estimates and may change due to client revisions, additional requests or technical issues. Rush delivery may be available for an additional fee.</p>
+
+      <h2 id="content-rights">6. Intellectual Property &amp; Usage Rights</h2>
+      <ol>
+        <li>Unless agreed otherwise in writing, Creator Support Amravati retains the copyright to raw footage, project files, and certain creative elements until full payment is received.</li>
+        <li>On full payment, we grant the client a non-exclusive, worldwide right to use the final delivered videos for promotional and commercial purposes unless otherwise agreed.</li>
+        <li>Any third-party music, assets or licensed content used by the client must be cleared by the client. Creator Support Amravati is not responsible for copyright claims arising from client-supplied assets unless agreed otherwise.</li>
+      </ol>
+
+      <h2 id="client-resp">7. Client Responsibilities</h2>
+      <ul>
+        <li>Clients must provide accurate information at booking and ensure necessary permissions for shoot locations, talent releases and copyrighted material.</li>
+        <li>Clients must arrive on time. Delays caused by the client may be billed additional studio time or crew charges.</li>
+        <li>Clients are responsible for content accuracy, consent from participants, and local permits if required.</li>
+      </ul>
+
+      <h2 id="revisions">8. Revisions &amp; Approvals</h2>
+      <p>Our standard packages include a specified number of revision rounds. Additional revisions beyond the included rounds may incur extra charges. Final approval from the client is required for delivery of the final file.</p>
+
+      <h2 id="refunds">9. Refunds</h2>
+      <p>Refund rules vary by service (studio booking, equipment rental, editing). Please review our <a href="refund.html">Refund Policy</a> for full details. Refunds, if any, will be processed after verification and in accordance with the refund policy.</p>
+
+      <h2 id="liability">10. Limitation of Liability</h2>
+      <p>To the maximum extent permitted by law, Creator Support Amravati will not be liable for indirect, special or consequential losses. Our total liability for any claim arising out of a contract will not exceed the fees paid by the client for that service.</p>
+
+      <h2 id="privacy">11. Privacy</h2>
+      <p>We handle client data in accordance with our <a href="privacy.html">Privacy Policy</a>. By using our services you consent to the collection and use of personal information for the purpose of service delivery.</p>
+
+      <h2 id="force-majeure">12. Force Majeure</h2>
+      <p>We are not liable for any failure or delay in performance caused by circumstances beyond our reasonable control, including natural disasters, pandemics, strikes, or government actions. In such cases, we will endeavour to reschedule or provide a refund as appropriate.</p>
+
+      <h2 id="termination">13. Termination</h2>
+      <p>We may terminate services if a client breaches these Terms and fails to remedy such breach within a reasonable timeframe. On termination, outstanding payments remain payable and rights/ownership provisions will still apply as outlined above.</p>
+
+      <h2 id="changes">14. Changes to Terms</h2>
+      <p>We may update these Terms from time to time. The updated Terms will be posted on this page with the effective date. Continued use of our services after changes constitutes acceptance of the updated Terms.</p>
+
+      <h2 id="governing-law">15. Governing Law</h2>
+      <p>These Terms are governed by the laws of India. Any dispute arising out of or in connection with these Terms will be subject to the exclusive jurisdiction of the courts in Amravati, Maharashtra.</p>
+
+      <h2 id="contact">16. Contact</h2>
+      <p>If you have questions about these Terms, please contact us:</p>
+      <p><strong>Creator Support Amravati</strong><br>
+      Email: <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a><br>
+      Phone / WhatsApp: <strong>9225515679</strong> | 9372790292</p>
+
+      <p class="muted" style="margin-top:12px">Thank you for choosing Creator Support Amravati. We look forward to helping you create exceptional content.</p>
+
+    </section>
+  </main>
+
+  <footer style="background:#0f1724;color:#fff;padding:18px 0;text-align:center">
+    <div class="container" style="max-width:1000px">
+      <p style="margin:0">© 2025 Creator Support Amravati • <a href="privacy.html" style="color:#9fbefc">Privacy Policy</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
