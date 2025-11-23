@@ -139,7 +139,135 @@ section{padding:60px 0;}
 <p>Local language content (Hindi/Marathi) with cultural references often performs well in regional markets. Use local stories, interviews and regional music while maintaining production quality to appeal both locally and nationally.</p>
 
 <p><strong>Conclusion:</strong> YouTube success combines craft (production quality), consistency (publish plan) and strategy (SEO & promotion). If you need help with studio, editing or channel strategy — <a href="services.html#booking" class="btn">Book Studio / Consultation</a> or email us at <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a>.</p>
+<div class="action-bar">
+    <button class="action-btn" id="likeBtn">
+        <i class="fa-solid fa-thumbs-up"></i> 
+        <span id="likeCount">0</span>
+    </button>
 
+    <button class="action-btn" id="commentToggle">
+        <i class="fa-solid fa-comment"></i> Comment
+    </button>
+
+    <button class="action-btn" id="shareToggle">
+        <i class="fa-solid fa-share"></i> Share
+    </button>
+</div>
+
+<div class="comment-box" id="commentBox">
+    <textarea placeholder="Write your comment..."></textarea>
+    <button id="postComment">Post</button>
+</div>
+
+<div id="commentsList"></div>
+
+<div class="share-box" id="shareBox">
+    <p>Share this page:</p>
+    <a class="share-item" href="#" id="whatsapp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+    <a class="share-item" href="#" id="facebook"><i class="fa-brands fa-facebook"></i> Facebook</a>
+    <a class="share-item" href="#" id="twitter"><i class="fa-brands fa-twitter"></i> Twitter</a>
+    <a class="share-item" href="#" id="linkedin"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
+    <a class="share-item" href="#" id="copyLink"><i class="fa-solid fa-copy"></i> Copy Link</a>
+</div>
+
+<style>
+.action-bar{
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.action-btn{
+    padding: 10px 18px;
+    border: none;
+    background: #f3f4f6;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: .3s;
+}
+.action-btn:hover{ background: #e5e7eb; }
+
+.comment-box{
+    display: none;
+    margin-top: 10px;
+}
+.comment-box textarea{
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+.comment-box button{
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.share-box{
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    background: #f3f4f6;
+    border-radius: 10px;
+}
+.share-item{
+    display: block;
+    padding: 8px 0;
+    color: black;
+    text-decoration: none;
+}
+.share-item i{ margin-right: 8px; }
+</style>
+
+<script>
+let likeCount = 0;
+document.getElementById("likeBtn").onclick = () => {
+    likeCount++;
+    document.getElementById("likeCount").innerText = likeCount;
+};
+
+document.getElementById("commentToggle").onclick = () => {
+    let box = document.getElementById("commentBox");
+    box.style.display = box.style.display === "block" ? "none" : "block";
+};
+
+document.getElementById("postComment").onclick = () => {
+    let txt = document.querySelector(".comment-box textarea").value;
+    if(txt.trim() !== ""){
+        let p = document.createElement("p");
+        p.style.background = "#f1f5f9";
+        p.style.padding = "10px";
+        p.style.borderRadius = "6px";
+        p.style.marginTop = "8px";
+        p.innerText = txt;
+        document.getElementById("commentsList").appendChild(p);
+        document.querySelector(".comment-box textarea").value = "";
+    }
+};
+
+document.getElementById("shareToggle").onclick = () => {
+    let box = document.getElementById("shareBox");
+    box.style.display = box.style.display === "block" ? "none" : "block";
+};
+
+let url = window.location.href;
+
+document.getElementById("whatsapp").href = `https://wa.me/?text=${url}`;
+document.getElementById("facebook").href = `https://www.facebook.com/sharer.php?u=${url}`;
+document.getElementById("twitter").href = `https://twitter.com/intent/tweet?url=${url}`;
+document.getElementById("linkedin").href = `https://www.linkedin.com/shareArticle?url=${url}`;
+
+document.getElementById("copyLink").onclick = () => {
+    navigator.clipboard.writeText(url);
+    alert("Link Copied!");
+};
+</script>
+         
           </div>
 
           <!-- Article footer: tags and share -->
