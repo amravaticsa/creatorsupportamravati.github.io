@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Refund Policy — Creator Support Amravati</title>
+  <meta name="description" content="Refund Policy for Creator Support Amravati — studio booking, equipment rental, video production, editing services. Read our transparent refund rules." />
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <style>
+    :root{--primary:#1a73e8;--muted:#666}
+    body{font-family:Inter,system-ui,Arial,sans-serif;background:#f7fbff;color:#222;margin:0}
+    .container{max-width:1000px;margin:28px auto;padding:20px}
+    .card{background:#fff;padding:22px;border-radius:12px;box-shadow:0 10px 30px rgba(14,30,60,0.06);margin-bottom:18px}
+    h1{color:var(--primary);margin-bottom:8px}
+    h2{color:#111;margin-top:16px}
+    p, li{color:#444;line-height:1.75}
+    ul, ol{margin-left:18px}
+    .muted{color:var(--muted);font-size:14px}
+    a{color:var(--primary);text-decoration:none}
+    a.cta{background:var(--primary);color:#fff;padding:10px 14px;border-radius:8px;font-weight:700;margin-top:12px;display:inline-block}
+  </style>
+</head>
+
+<body>
+
+  <!-- NAV -->
+  <header>
+    <nav class="navbar" style="background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.06)">
+      <div class="container" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+        <div style="font-weight:700">
+          <a href="index.html" style="text-decoration:none;color:#111">Creator Support Amravati</a>
+        </div>
+        <div style="font-size:14px"><a href="contact.html">Contact</a></div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- CONTENT -->
+  <main class="container">
+    <section class="card">
+      <h1>Refund Policy</h1>
+      <p class="muted">Last updated: <strong>January 2025</strong></p>
+
+      <p>Creator Support Amravati में आपका स्वागत है। हम studio rental, video production, equipment rental, video editing, podcast recording और YouTube content creation जैसी services प्रदान करते हैं।  
+      नीचे हमारी स्पष्ट और पारदर्शी Refund Policy दी गई है, ताकि हर client को एक fair और professional experience मिल सके।</p>
+
+      <h2>1. Studio Booking Refund Policy</h2>
+      <ul>
+        <li><strong>24 घंटे से पहले cancellation:</strong> 100% refund (processing charges को छोड़कर)</li>
+        <li><strong>24 घंटे के अंदर cancellation:</strong> 0% refund (studio slot reserve करने में cost लगती है)</li>
+        <li><strong>Rescheduling:</strong> Shooting से minimum 12 घंटे पहले request करने पर free।  
+        उसके बाद rescheduling का charge लग सकता है।</li>
+        <li><strong>No Show या Late Arrival:</strong> कोई refund नहीं।</li>
+      </ul>
+
+      <h2>2. Equipment Rental Refund Policy</h2>
+      <ul>
+        <li><strong>Pickup से 24 घंटे पहले cancellation:</strong> 100% refund</li>
+        <li><strong>Pickup से 12–24 घंटे पहले cancellation:</strong> 50% refund</li>
+        <li><strong>12 घंटे के अंदर cancellation:</strong> 0% refund</li>
+        <li>अगर equipment malfunction हमारी तरफ से हो जाए → <strong>full refund + reschedule option free</strong></li>
+      </ul>
+
+      <h2>3. Video Editing / Post-Production Refund Policy</h2>
+      <ul>
+        <li>अगर editing शुरू नहीं हुई → 100% refund</li>
+        <li>Editing शुरू हो चुकी हो → refund नहीं (क्योंकि time और effort consume हो चुका होता है)</li>
+        <li>Client raw files दे और बाद में project cancel करे → कोई refund नहीं</li>
+        <li>Editing में dissatisfaction हो → हम <strong>2 free revision</strong> देते हैं</li>
+      </ul>
+
+      <h2>4. Photography & Video Shoot (On-Location)</h2>
+      <ul>
+        <li><strong>48 घंटे पहले cancellation:</strong> 100% refund</li>
+        <li><strong>24–48 घंटे पहले:</strong> 50% refund</li>
+        <li><strong>24 घंटे के अंदर:</strong> कोई refund नहीं</li>
+        <li>Bad weather / emergency reason → slot reschedule किया जाएगा (refund नहीं)</li>
+      </ul>
+
+      <h2>5. YouTube Video Recording / Podcast Recording</h2>
+      <ul>
+        <li><strong>12 घंटे पहले cancellation:</strong> 100% refund</li>
+        <li><strong>12 घंटे के अंदर:</strong> refund नहीं</li>
+        <li>Recording issue हमारी तरफ से हो → <strong>full refund</strong></li>
+      </ul>
+
+      <h2>6. Membership Plans Refund Policy</h2>
+      <p>Membership non-refundable होती है क्योंकि:</p>
+      <ul>
+        <li>Daily 30-minute slot आपके नाम से reserved होता है</li>
+        <li>Equipment, staff और studio आपका slot hold करते हैं</li>
+      </ul>
+      <p>However, अगर studio किसी reason से unavailable हो जाए →  
+      हम *extra days* free में extend करते हैं।</p>
+
+      <h2>7. Mode of Refund</h2>
+      <p>Refund 3–7 working days में उसी payment mode में किया जाएगा:</p>
+      <ul>
+        <li>UPI</li>
+        <li>Bank Transfer</li>
+        <li>Razorpay refund</li>
+      </ul>
+
+      <h2>8. Refund Not Applicable For</h2>
+      <ul>
+        <li>Client mistake से खराब footage</li>
+        <li>Client late arrival</li>
+        <li>Client द्वारा गलत equipment handling (damage charges अलग से लागू होंगे)</li>
+        <li>Third-party copyright issues</li>
+      </ul>
+
+      <h2>9. Forced Cancellations (हमारी तरफ से)</h2>
+      <p>अगर नीचे के कारण service नहीं मिल पाती:</p>
+      <ul>
+        <li>Equipment failure</li>
+        <li>Electricity issue / internet outage</li>
+        <li>Health emergency</li>
+        <li>Technical problems</li>
+      </ul>
+      <p>तो client को मिलेगा:</p>
+      <ul>
+        <li>Full refund OR</li>
+        <li>Free rescheduling</li>
+      </ul>
+
+      <h2>10. कैसे Request करें Refund?</h2>
+      <p>Refund request करें:</p>
+
+      <p><strong>WhatsApp:</strong> 9225515679 / 9372790292<br>
+      <strong>Email:</strong> amravati.csa@gmail.com</p>
+
+      <p class="muted">Refund verification के लिए booking ID / payment screenshot आवश्यक होगा।</p>
+
+      <a href="index.html" class="cta">Back to Home</a>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer style="background:#0f1724;color:#fff;padding:18px 0;text-align:center">
+    <div class="container">
+      <p style="margin:0">© 2025 Creator Support Amravati • <a href="privacy.html" style="color:#9fbefc">Privacy Policy</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>

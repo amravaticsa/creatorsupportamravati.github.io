@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Success — Creator Support Amravati</title>
+
+  <meta name="description" content="Thank you for booking Creator Support Amravati. Your request has been received successfully. Our team will contact you soon!">
+
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial, sans-serif;
+      background: #f4f8ff;
+      color: #222;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 12px 34px rgba(14,30,60,0.10);
+      text-align: center;
+      animation: fadeIn 0.7s ease;
+    }
+
+    @keyframes fadeIn {
+      from {opacity:0; transform:translateY(20px);}
+      to {opacity:1; transform:translateY(0);}
+    }
+
+    h1 {
+      color: #1a73e8;
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      font-size: 17px;
+      line-height: 1.7;
+      color: #444;
+    }
+
+    .tick {
+      font-size: 64px;
+      color: #28a745;
+      margin-bottom: 15px;
+    }
+
+    a.btn {
+      display: inline-block;
+      background: #1a73e8;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    a.btn-outline {
+      display: inline-block;
+      margin-top: 14px;
+      color: #1a73e8;
+      font-weight: 600;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="card">
+      <div class="tick">✔</div>
+
+      <h1>Booking Successful!</h1>
+
+      <p>धन्यवाद! आपका फॉर्म सफलतापूर्वक सबमिट हो गया है।  
+      <br>Creator Support Amravati की team आपसे जल्द ही संपर्क करेगी।</p>
+
+      <p><strong>आपका WhatsApp नंबर / Email verify होने के बाद आपकी बुकिंग कन्फर्म की जाएगी।</strong></p>
+
+      <p style="margin-top:20px;">
+        📞 <strong>Call / WhatsApp:</strong> 9225515679  
+        <br>📧 <strong>Email:</strong> amravati.csa@gmail.com
+      </p>
+
+      <a href="index.html" class="btn">Back to Home</a>
+      <br>
+      <a href="services.html" class="btn-outline">View All Services</a>
+    </div>
+  </div>
+
+</body>
+</html>

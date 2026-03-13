@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 Quick Video Editing Tricks — Creator Support Amravati</title>
+<meta name="description" content="Editing tips: jump cuts, audio leveling, color grade basics, subtitles, speed ramps and music selection." />
+<link rel="stylesheet" href="assets/css/style.css">
+<style>body{font-family:Inter,Arial,sans-serif;background:#f7fbff;margin:0;color:#222}.container{max-width:900px;margin:28px auto;padding:0 20px}.article{background:#fff;padding:24px;border-radius:12px;box-shadow:0 12px 30px rgba(14,30,60,0.06)}h1{color:#1a73e8}.small{color:#666}</style>
+</head>
+<body>
+<header><div class="container" style="padding:12px 0"><a href="index.html" style="font-weight:700;text-decoration:none;color:#111">Creator Support Amravati</a></div></header>
+<main class="container">
+  <article class="article">
+    <h1>10 Quick Video Editing Tricks Every Creator Should Know</h1>
+    <p class="small">Speed up your editing workflow and improve video quality with practical tips.</p>
+    <ol>
+      <li><strong>Use jump cuts</strong> to remove pauses and tighten pace.</li>
+      <li><strong>Audio leveling</strong> — normalize audio and use compression subtly.</li>
+      <li><strong>Color grade</strong> a LUT or basic corrections for consistent look.</li>
+      <li><strong>Subtitles</strong> for retention and accessibility.</li>
+      <li><strong>B-roll</strong> to explain and visually support your narration.</li>
+      <li><strong>Speed ramps</strong> for motion emphasis in short-form content.</li>
+      <li><strong>Proper export settings</strong> — H.264, correct bitrate and resolution.</li>
+      <li><strong>Thumbnail workflow</strong> — keep editable PSD or template for quick thumbnails.</li>
+      <li><strong>Use markers</strong> to organize cuts and audio cues.</li>
+      <li><strong>Backup</strong> all raw files and exports on cloud or SSD.</li>
+    </ol>
+    <p>Want us to edit your footage? <a href="services.html#booking">Book Editing</a> or email <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a>.</p>
+  </article>
+</main>
+</body>
+</html>
