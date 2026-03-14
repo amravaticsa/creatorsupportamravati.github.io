@@ -1,34 +1,243 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contact</title>
-<link rel="stylesheet" href="assets/css/style.css">
+
+<title>Contact | Creator Support Amravati</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+font-family:'Inter',sans-serif;
+margin:0;
+background:#f5f5f5;
+color:#333;
+}
+
+/* HEADER */
+
+header{
+background:#000;
+color:white;
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:15px 5%;
+}
+
+.logo{
+font-size:22px;
+font-weight:700;
+}
+
+.logo span{
+color:#ffd600;
+}
+
+nav a{
+color:white;
+text-decoration:none;
+margin-left:20px;
+font-weight:600;
+}
+
+/* CONTACT SECTION */
+
+.contact{
+
+padding:60px 8%;
+
+text-align:center;
+
+}
+
+.contact h1{
+
+font-size:40px;
+
+margin-bottom:10px;
+
+}
+
+/* CONTACT GRID */
+
+.grid{
+
+margin-top:40px;
+
+display:grid;
+
+grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+
+gap:30px;
+
+}
+
+/* CONTACT INFO */
+
+.info{
+
+background:white;
+
+padding:30px;
+
+border-radius:10px;
+
+box-shadow:0 5px 15px rgba(0,0,0,0.1);
+
+text-align:left;
+
+}
+
+/* FORM */
+
+form{
+
+background:white;
+
+padding:30px;
+
+border-radius:10px;
+
+box-shadow:0 5px 15px rgba(0,0,0,0.1);
+
+}
+
+input, textarea{
+
+width:100%;
+
+padding:12px;
+
+margin-top:10px;
+
+margin-bottom:15px;
+
+border:1px solid #ccc;
+
+border-radius:5px;
+
+font-family:inherit;
+
+}
+
+button{
+
+background:#ffd600;
+
+border:none;
+
+padding:12px 25px;
+
+font-weight:600;
+
+cursor:pointer;
+
+border-radius:5px;
+
+}
+
+/* FOOTER */
+
+footer{
+
+background:black;
+
+color:white;
+
+text-align:center;
+
+padding:20px;
+
+margin-top:40px;
+
+}
+
+</style>
+
 </head>
+
 <body>
 
 <header>
-    <div class="logo">Creators Support Amravati</div>
-    <nav class="nav-menu">
-        <a href="index.html">Home</a>
-        <a href="about.html">About</a>
-        <a href="services.html">Services</a>
-        <a href="portfolio.html">Portfolio</a>
-        <a href="blog.html">Blog</a>
-        <a href="contact.html">Contact</a>
-    </nav>
+
+<div class="logo">
+Creator Support <span>Amravati</span>
+</div>
+
+<nav>
+
+<a href="index.html">Home</a>
+<a href="about.html">About</a>
+<a href="services.html">Services</a>
+<a href="portfolio.html">Portfolio</a>
+<a href="blog.html">Blog</a>
+<a href="contact.html">Contact</a>
+
+</nav>
+
 </header>
 
-<main>
-    <h1>Contact</h1>
-    <p>This is the Contact page of the premium responsive website.</p>
-</main>
+
+<section class="contact">
+
+<h1>Contact Us</h1>
+
+<p>Have a project or need support? Get in touch with us.</p>
+
+<div class="grid">
+
+
+<div class="info">
+
+<h3>Contact Information</h3>
+
+<p><b>Location:</b> Amravati, Maharashtra</p>
+
+<p><b>Email:</b> creatorsupport@example.com</p>
+
+<p><b>Phone:</b> +91 XXXXX XXXXX</p>
+
+<p><b>Services:</b> Video Editing, AI Content, Creator Support</p>
+
+</div>
+
+
+<form>
+
+<h3>Send Message</h3>
+
+<input type="text" placeholder="Your Name" required>
+
+<input type="email" placeholder="Your Email" required>
+
+<textarea rows="5" placeholder="Your Message"></textarea>
+
+<button type="submit">Send Message</button>
+
+</form>
+
+</div>
+
+</section>
+
 
 <footer>
-    <p>&copy; 2025 Creators Support Amravati</p>
+
+
+<p>
+<a href="privacy.html">Privacy Policy</a> |
+<a href="terms.html">Terms & Conditions</a> |
+<a href="refund.html">Refund Policy</a> |
+<a href="disclaimer.html">Disclaimer</a>
+</p>
+<p>© 2026 Creator Support Amravati. All Rights Reserved.</p>
 </footer>
 
-<script src="assets/js/main.js"></script>
 </body>
 </html>
