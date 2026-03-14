@@ -1,34 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Services</title>
-<link rel="stylesheet" href="assets/css/style.css">
+<title>Services | Creator Support Amravati</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+font-family:'Inter',sans-serif;
+margin:0;
+color:#333;
+}
+
+/* HEADER */
+
+header{
+background:#000;
+color:#fff;
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:15px 5%;
+}
+
+.logo{
+font-size:22px;
+font-weight:700;
+}
+
+.logo span{
+color:#ffd600;
+}
+
+nav a{
+color:white;
+text-decoration:none;
+margin-left:20px;
+font-weight:600;
+}
+
+/* SERVICES */
+
+.services{
+padding:60px 8%;
+text-align:center;
+}
+
+.services h1{
+font-size:40px;
+margin-bottom:20px;
+}
+
+.services p{
+max-width:800px;
+margin:auto;
+}
+
+/* GRID */
+
+.grid{
+margin-top:40px;
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:25px;
+}
+
+.card{
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 5px 15px rgba(0,0,0,0.1);
+}
+
+.card h3{
+margin-bottom:10px;
+}
+
+/* FOOTER */
+
+footer{
+background:black;
+color:white;
+text-align:center;
+padding:20px;
+margin-top:50px;
+}
+
+</style>
+
 </head>
+
 <body>
 
 <header>
-    <div class="logo">Creators Support Amravati</div>
-    <nav class="nav-menu">
-        <a href="index.html">Home</a>
-        <a href="about.html">About</a>
-        <a href="services.html">Services</a>
-        <a href="portfolio.html">Portfolio</a>
-        <a href="blog.html">Blog</a>
-        <a href="contact.html">Contact</a>
-    </nav>
+
+<div class="logo">
+Creator Support <span>Amravati</span>
+</div>
+
+<nav>
+
+<a href="index.html">Home</a>
+<a href="about.html">About</a>
+<a href="services.html">Services</a>
+<a href="portfolio.html">Portfolio</a>
+<a href="blog.html">Blog</a>
+<a href="contact.html">Contact</a>
+
+</nav>
+
 </header>
 
-<main>
-    <h1>Services</h1>
-    <p>This is the Services page of the premium responsive website.</p>
-</main>
+
+<section class="services">
+
+<h1>Our Services</h1>
+
+<p>
+We provide professional digital services for creators, businesses,
+and brands who want to grow online with high-quality content.
+</p>
+
+
+<div class="grid">
+
+<div class="card">
+<h3>Video Editing</h3>
+<p>Professional editing for YouTube videos, reels, shorts and promotional content.</p>
+</div>
+
+<div class="card">
+<h3>AI Video Creation</h3>
+<p>Modern AI generated videos for marketing, social media and brand storytelling.</p>
+</div>
+
+<div class="card">
+<h3>AI Image Generation</h3>
+<p>High quality AI generated images for ads, thumbnails and creative campaigns.</p>
+</div>
+
+<div class="card">
+<h3>YouTube Channel Setup</h3>
+<p>Complete YouTube channel creation, optimization and growth strategy.</p>
+</div>
+
+<div class="card">
+<h3>Social Media Content</h3>
+<p>Professional content creation for Instagram, YouTube Shorts and reels.</p>
+</div>
+
+<div class="card">
+<h3>Creator Support</h3>
+<p>Technical support and strategy to help creators grow their digital presence.</p>
+</div>
+
+</div>
+
+</section>
+
 
 <footer>
-    <p>&copy; 2025 Creators Support Amravati</p>
+
+
+
+
+<p>
+<a href="privacy.html">Privacy Policy</a> |
+<a href="terms.html">Terms & Conditions</a> |
+<a href="refund.html">Refund Policy</a> |
+<a href="disclaimer.html">Disclaimer</a>
+</p>
+<p>© 2026 Creator Support Amravati. All Rights Reserved.</p>
+
+
 </footer>
 
-<script src="assets/js/main.js"></script>
 </body>
 </html>
