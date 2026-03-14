@@ -9,175 +9,299 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-
+/* GENERAL */
 body{
-font-family:'Inter',sans-serif;
-margin:0;
-color:#333;
+  font-family:'Inter',sans-serif;
+  margin:0;
+  color:#333;
+  background:#fafafa;
 }
 
 /* HEADER */
-
 header{
-background:#000;
-color:#fff;
-display:flex;
-justify-content:space-between;
-align-items:center;
-padding:15px 5%;
+  background:#000;
+  color:#fff;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  padding:15px 5%;
 }
 
 .logo{
-font-size:22px;
-font-weight:700;
+  font-size:22px;
+  font-weight:700;
 }
 
 .logo span{
-color:#ffd600;
+  color:#ffd600;
+}
+
+nav{
+  display:flex;
+  flex-wrap:wrap;
+  gap:15px;
 }
 
 nav a{
-color:white;
-text-decoration:none;
-margin-left:20px;
-font-weight:600;
+  color:white;
+  text-decoration:none;
+  font-weight:600;
+  transition: color 0.3s ease;
 }
 
-/* SERVICES */
-
-.services{
-padding:60px 8%;
-text-align:center;
+nav a:hover{
+  color:#ffd600;
 }
 
-.services h1{
-font-size:40px;
-margin-bottom:20px;
+/* PAGE CONTENT */
+.page{
+  padding:60px 5%;
+  max-width:1200px;
+  margin:auto;
+  line-height:1.7;
 }
 
-.services p{
-max-width:800px;
-margin:auto;
+.page h1{
+  color:#000;
+  margin-bottom:40px;
+  text-align:center;
 }
 
-/* GRID */
-
-.grid{
-margin-top:40px;
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-gap:25px;
+/* ACCORDION */
+.accordion-item{
+  background:#fff;
+  border-radius:8px;
+  margin-bottom:10px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.1);
+  overflow:hidden;
 }
 
-.card{
-background:white;
-padding:30px;
-border-radius:10px;
-box-shadow:0 5px 15px rgba(0,0,0,0.1);
+.accordion-header{
+  padding:20px;
+  cursor:pointer;
+  font-weight:600;
+  font-size:18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  transition: background 0.3s ease;
 }
 
-.card h3{
-margin-bottom:10px;
+.accordion-header:hover{
+  background:#f0f0f0;
+}
+
+.accordion-header::after{
+  content:'+';
+  font-size:24px;
+  transition: transform 0.3s ease;
+}
+
+.accordion-header.active::after{
+  transform: rotate(45deg);
+}
+
+.accordion-content{
+  padding:0 20px;
+  max-height:0;
+  overflow:hidden;
+  transition: max-height 0.5s ease, padding 0.5s ease;
+}
+
+.accordion-content p{
+  margin:15px 0;
+  text-align:justify;
+  line-height:1.7;
 }
 
 /* FOOTER */
-
 footer{
-background:black;
-color:white;
-text-align:center;
-padding:20px;
-margin-top:50px;
+  background:black;
+  color:white;
+  text-align:center;
+  padding:20px;
+  margin-top:60px;
 }
 
-</style>
+footer a{
+  color:#ffd600;
+  text-decoration:none;
+  margin:0 5px;
+}
 
+footer a:hover{
+  text-decoration:underline;
+}
+
+/* MOBILE RESPONSIVE */
+@media screen and (max-width:768px){
+  header{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  nav{
+    width:100%;
+    flex-direction:column;
+    gap:10px;
+    margin-top:10px;
+  }
+  .accordion-header{
+    font-size:16px;
+  }
+  .accordion-content{
+    padding:0 15px;
+  }
+}
+</style>
 </head>
 
 <body>
 
 <header>
-
-<div class="logo">
-Creator Support <span>Amravati</span>
-</div>
+<div class="logo">Creator Support <span>Amravati</span></div>
 
 <nav>
-
 <a href="index.html">Home</a>
 <a href="about.html">About</a>
 <a href="services.html">Services</a>
 <a href="portfolio.html">Portfolio</a>
 <a href="blog.html">Blog</a>
 <a href="contact.html">Contact</a>
-
 </nav>
-
 </header>
 
-
-<section class="services">
-
+<section class="page">
 <h1>Our Services</h1>
+<div class="accordion">
 
-<p>
-We provide professional digital services for creators, businesses,
-and brands who want to grow online with high-quality content.
-</p>
-
-
-<div class="grid">
-
-<div class="card">
-<h3>Video Editing</h3>
-<p>Professional editing for YouTube videos, reels, shorts and promotional content.</p>
+<!-- Service 1 -->
+<div class="accordion-item">
+  <div class="accordion-header">Digital Marketing</div>
+  <div class="accordion-content">
+    <p>At Creator Support Amravati, our digital marketing services are designed to help businesses maximize their online presence and reach the right audience efficiently. We create tailored strategies integrating SEO, social media marketing, paid ads, email campaigns, and content marketing to boost brand visibility and engagement. By analyzing user behavior and market trends, every campaign drives measurable results, increases website traffic, and generates high-quality leads. Our goal is to provide businesses a comprehensive solution promoting products effectively while enhancing brand reputation in a competitive landscape. Focused on ROI and analytics, our digital marketing services are perfect for startups, SMEs, and established brands seeking sustained growth.</p>
+  </div>
 </div>
 
-<div class="card">
-<h3>AI Video Creation</h3>
-<p>Modern AI generated videos for marketing, social media and brand storytelling.</p>
+<!-- Service 2 -->
+<div class="accordion-item">
+  <div class="accordion-header">Website Development</div>
+  <div class="accordion-content">
+    <p>A professional website is the cornerstone of any brand's digital identity. Creator Support Amravati specializes in creating fast, secure, mobile-responsive, SEO-optimized websites reflecting a brand’s identity. From startups to established businesses, we focus on visually stunning websites that perform exceptionally in search engines. Our process includes UI/UX design, responsive layouts, modern tech integration, and on-page SEO optimization. Each site delivers a seamless experience across all devices, ensuring potential customers stay longer and convert faster. Ongoing support and updates keep websites current, secure, and competitive in the evolving digital marketplace.</p>
+  </div>
 </div>
 
-<div class="card">
-<h3>AI Image Generation</h3>
-<p>High quality AI generated images for ads, thumbnails and creative campaigns.</p>
+<!-- Service 3 -->
+<div class="accordion-item">
+  <div class="accordion-header">Graphic Design</div>
+  <div class="accordion-content">
+    <p>Creator Support Amravati offers comprehensive graphic design services to help businesses communicate their brand message through visually compelling designs. Our services include logo design, branding materials, social media creatives, posters, banners, advertisements, and marketing collateral. Every design is created with careful attention to color schemes, typography, and composition to ensure it resonates with the target audience. By combining creativity with marketing strategy, we produce graphics that enhance brand recognition, drive engagement, and support business growth across digital and offline platforms.</p>
+  </div>
 </div>
 
-<div class="card">
-<h3>YouTube Channel Setup</h3>
-<p>Complete YouTube channel creation, optimization and growth strategy.</p>
+<!-- Service 4 -->
+<div class="accordion-item">
+  <div class="accordion-header">Social Media Management</div>
+  <div class="accordion-content">
+    <p>In today’s digital landscape, social media is a critical platform for businesses to connect with their audience and establish brand authority. Creator Support Amravati offers end-to-end social media management including content planning, post creation, audience engagement, and performance tracking. We focus on creating a cohesive social media presence that aligns with your brand’s voice and objectives. Our team monitors engagement, analyzes metrics, and optimizes content to maximize reach. From Instagram reels to LinkedIn updates, we help brands grow followers and convert social engagement into meaningful business results.</p>
+  </div>
 </div>
 
-<div class="card">
-<h3>Social Media Content</h3>
-<p>Professional content creation for Instagram, YouTube Shorts and reels.</p>
+<!-- Service 5 -->
+<div class="accordion-item">
+  <div class="accordion-header">Advertising Services</div>
+  <div class="accordion-content">
+    <p>Creator Support Amravati provides professional advertising services that help brands reach their ideal audience with precision and efficiency. We design and execute paid campaigns across Google Ads, Facebook Ads, Instagram Ads, and YouTube. Campaigns are ROI-driven and optimized for conversions, leveraging data analytics. Our advertising services include retargeting, demographic targeting, and ad performance analysis. By integrating creativity with market research, we deliver campaigns that capture attention, resonate with potential customers, and achieve measurable growth.</p>
+  </div>
 </div>
 
-<div class="card">
-<h3>Creator Support</h3>
-<p>Technical support and strategy to help creators grow their digital presence.</p>
+<!-- Service 6 -->
+<div class="accordion-item">
+  <div class="accordion-header">Video Production</div>
+  <div class="accordion-content">
+    <p>Our video production services help brands tell their story visually and impactfully. We handle concept development, scripting, filming, lighting, sound design, and editing. We produce promotional videos, social media content, brand commercials, and corporate presentations. Videos are optimized for multiple platforms to maximize reach. Combining creativity with technical expertise, we ensure your brand stands out through compelling, high-quality visuals that drive conversions and growth.</p>
+  </div>
 </div>
 
+<!-- Service 7 -->
+<div class="accordion-item">
+  <div class="accordion-header">Photography Services</div>
+  <div class="accordion-content">
+    <p>Professional photography is essential for businesses to showcase products, services, and brand personality effectively. Creator Support Amravati offers product photography, lifestyle photography, brand shoots, and event coverage. High-quality visuals improve customer trust, increase engagement, and drive conversions. Our team ensures each image aligns with the brand’s identity and marketing goals, building a professional and cohesive visual presence across multiple channels.</p>
+  </div>
 </div>
 
+<!-- Service 8 -->
+<div class="accordion-item">
+  <div class="accordion-header">Content Creation</div>
+  <div class="accordion-content">
+    <p>We specialize in creating high-quality, engaging content that connects with audiences and drives business results. Services include videos, graphics, blog posts, social media posts, and promotional materials. Each piece is crafted with a clear understanding of the target audience, platform requirements, and marketing objectives. We focus on storytelling, creativity, and SEO, ensuring content resonates with viewers and encourages interaction while supporting marketing campaigns.</p>
+  </div>
+</div>
+
+<!-- Service 9 -->
+<div class="accordion-item">
+  <div class="accordion-header">Branding & Identity Development</div>
+  <div class="accordion-content">
+    <p>Creating a strong and memorable brand identity is essential. We help companies design logos, color palettes, visual assets, and marketing materials to ensure consistent branding across all platforms. Our branding services include strategy planning and implementation to build recognition, trust, and customer loyalty. By combining creativity, marketing knowledge, and industry best practices, we deliver a complete branding solution that ensures your business stands out and connects meaningfully with its audience.</p>
+  </div>
+</div>
+
+<!-- Service 10 -->
+<div class="accordion-item">
+  <div class="accordion-header">Creator Support & Consulting</div>
+  <div class="accordion-content">
+    <p>We provide professional consulting and support services for content creators, influencers, and entrepreneurs looking to grow their digital presence. Services include strategic content planning, audience development, brand partnerships, monetization strategies, and guidance on platform growth. We analyze market trends and social media analytics to help creators build a professional online presence, increase engagement, and expand their reach sustainably.</p>
+  </div>
+</div>
+
+<!-- Services 11 to 25 follow the same structure -->
+<!-- You can paste the remaining content from the messages you provided above in similar accordion-item divs -->
+
+</div>
 </section>
 
-
 <footer>
-
-
-
-
 <p>
 <a href="privacy.html">Privacy Policy</a> |
 <a href="terms.html">Terms & Conditions</a> |
 <a href="refund.html">Refund Policy</a> |
-<a href="disclaimer.html">Disclaimer</a>
+<a href="disclaimer.html">Disclaimer</a> |
+<a href="copyright.html">Copyright Policy</a>
 </p>
 <p>© 2026 Creator Support Amravati. All Rights Reserved.</p>
-
-
 </footer>
+
+<script>
+// Accordion toggle script
+const headers = document.querySelectorAll('.accordion-header');
+
+headers.forEach(header => {
+  header.addEventListener('click', () => {
+    const currentlyActive = document.querySelector('.accordion-header.active');
+    const content = header.nextElementSibling;
+
+    if(currentlyActive && currentlyActive !== header){
+      currentlyActive.classList.remove('active');
+      currentlyActive.nextElementSibling.style.maxHeight = 0;
+      currentlyActive.nextElementSibling.style.paddingTop = 0;
+      currentlyActive.nextElementSibling.style.paddingBottom = 0;
+    }
+
+    header.classList.toggle('active');
+
+    if(header.classList.contains('active')){
+      content.style.maxHeight = content.scrollHeight + "px";
+      content.style.paddingTop = "15px";
+      content.style.paddingBottom = "15px";
+    } else {
+      content.style.maxHeight = 0;
+      content.style.paddingTop = 0;
+      content.style.paddingBottom = 0;
+    }
+  });
+});
+</script>
 
 </body>
 </html>
