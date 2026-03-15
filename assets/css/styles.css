@@ -23,7 +23,52 @@ text-decoration:none;
 color:black;
 font-weight:500;
 }
+/* HEADER */
 
+.header{
+position:sticky;
+top:0;
+background:black;
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:15px 8%;
+z-index:1000;
+}
+
+/* LOGO */
+
+.logo img{
+height:45px;
+width:auto;
+}
+
+/* NAVIGATION */
+
+.nav a{
+color:white;
+text-decoration:none;
+margin-left:25px;
+font-weight:600;
+position:relative;
+}
+
+/* Hover Animation */
+
+.nav a::after{
+content:"";
+position:absolute;
+width:0%;
+height:2px;
+background:#ffd600;
+left:0;
+bottom:-5px;
+transition:0.3s;
+}
+
+.nav a:hover::after{
+width:100%;
+}
 footer{
 background:black;
 color:white;
