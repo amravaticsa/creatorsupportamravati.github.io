@@ -10,9 +10,12 @@ align-items:center;
 padding:15px 40px;
 }
 
+
 .logo img{
-height:45px;
+height:40px;
+width:auto;
 }
+
 
 .menu a{
 margin-left:25px;
