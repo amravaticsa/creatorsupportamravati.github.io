@@ -153,6 +153,44 @@ footer {background:black;color:white;text-align:center;padding:20px;margin-top:6
 </p>
 <p>© 2026 Creator Support Amravati. All Rights Reserved.</p>
 </footer>
+<script>
 
+let likes = localStorage.getItem("blogLikes") || 0;
+document.getElementById("likeCount").innerText = likes;
+
+function likePost(){
+likes++;
+localStorage.setItem("blogLikes", likes);
+document.getElementById("likeCount").innerText = likes;
+}
+
+function sharePost(){
+navigator.share({
+title:"Creator Support Amravati Blog",
+url:window.location.href
+});
+}
+<div class="share-buttons">
+
+<h3>Share this article</h3>
+
+<a href="https://wa.me/?text=https://creatorsupportamravati.in/blog/blog1.html">WhatsApp</a>
+
+<a href="https://www.facebook.com/sharer/sharer.php?u=https://creatorsupportamravati.in/blog/blog1.html">Facebook</a>
+
+<a href="https://twitter.com/intent/tweet?url=https://creatorsupportamravati.in/blog/blog1.html">Twitter</a>
+
+</div>
+  <script src="https://giscus.app/client.js"
+        data-repo="amravaticsa/creatorsupportamravati.github.io"
+        data-repo-id="R_kgDOXXXX"
+        data-category="General"
+        data-category-id="DIC_kwDOXXXX"
+        data-mapping="pathname"
+        data-theme="light"
+        crossorigin="anonymous"
+        async>
+</script>
+</script>
 </body>
 </html>
