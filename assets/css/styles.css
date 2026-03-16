@@ -106,3 +106,22 @@ margin-bottom:18px;
 margin-bottom:20px;
 font-size:28px;
 }
+.portfolio-info{
+max-width:900px;
+margin:auto;
+padding:40px 20px;
+line-height:1.8;
+font-size:16px;
+color:#333;
+}
+
+.portfolio-info h2{
+text-align:center;
+margin-bottom:20px;
+font-size:28px;
+}
+
+.portfolio-info p{
+margin-bottom:18px;
+text-align:justify;
+}
