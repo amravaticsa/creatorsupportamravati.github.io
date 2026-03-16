@@ -74,3 +74,21 @@ color:white;
 margin:0 10px;
 text-decoration:none;
 }
+/* Portfolio Content Readability */
+
+.content-section{
+max-width:750px;
+margin:auto;
+padding:50px 20px;
+line-height:1.8;
+font-size:17px;
+}
+
+.content-section p{
+margin-bottom:18px;
+}
+
+.content-section h2{
+margin-bottom:20px;
+font-size:28px;
+}
