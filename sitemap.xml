@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
 <url>
@@ -8,6 +9,21 @@
 
 <url>
 <loc>https://creatorsupportamravati.in/about.html</loc>
+<priority>0.9</priority>
+</url>
+
+<url>
+<loc>https://creatorsupportamravati.in/services.html</loc>
+<priority>0.9</priority>
+</url>
+
+<url>
+<loc>https://creatorsupportamravati.in/portfolio.html</loc>
+<priority>0.8</priority>
+</url>
+
+<url>
+<loc>https://creatorsupportamravati.in/blog.html</loc>
 <priority>0.8</priority>
 </url>
 
@@ -24,6 +40,21 @@
 <url>
 <loc>https://creatorsupportamravati.in/terms.html</loc>
 <priority>0.7</priority>
+</url>
+
+<url>
+<loc>https://creatorsupportamravati.in/refund-policy.html</loc>
+<priority>0.6</priority>
+</url>
+
+<url>
+<loc>https://creatorsupportamravati.in/disclaimer.html</loc>
+<priority>0.6</priority>
+</url>
+
+<url>
+<loc>https://creatorsupportamravati.in/copyright-policy.html</loc>
+<priority>0.6</priority>
 </url>
 
 </urlset>
