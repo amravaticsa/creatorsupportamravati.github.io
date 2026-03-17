@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Admin Panel</title>
 
 <style>
@@ -45,65 +44,64 @@ border-radius:5px;
 </head>
 
 <body>
+
+<!-- 🔐 LOGIN -->
 <div id="loginBox">
 <h2>Admin Login</h2>
 <input type="password" id="password" placeholder="Enter Password">
 <button onclick="login()">Login</button>
 </div>
 
+<!-- 🔥 ADMIN PANEL -->
 <div id="adminPanel" style="display:none;">
-<!-- Yaha tumhara form rahega -->
-</div>
+
 <div class="container">
 
 <h2>🛠 Admin Panel</h2>
 
 <input type="text" id="title" placeholder="Post Title">
-
 <input type="text" id="image" placeholder="Image URL">
-
 <textarea id="content" placeholder="Post Content"></textarea>
 
 <button onclick="addPost()">Add Post</button>
 
 <h3>All Posts</h3>
-
 <div id="posts"></div>
 
 </div>
-<div id="adminPosts"></div>
 
-<script>
-let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
-let container = document.getElementById("adminPosts");
-
-posts.forEach((p,i)=>{
-container.innerHTML += `
-<div style="background:#fff;padding:10px;margin:10px 0;">
-<h3>${p.title}</h3>
-<button onclick="editPost(${i})">✏ Edit</button>
-<button onclick="deletePost(${i})">🗑 Delete</button>
 </div>
-`;
-});
-</script>
+
 <script>
 
+// 🔐 LOGIN FUNCTION
+function login(){
+let pass = document.getElementById("password").value;
+
+if(pass === "admin123"){
+document.getElementById("loginBox").style.display="none";
+document.getElementById("adminPanel").style.display="block";
+}else{
+alert("Wrong Password");
+}
+}
+
+// 📦 DATA LOAD
 let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
 
+// ➕ ADD POST
 function addPost(){
 let title = document.getElementById("title").value;
 let image = document.getElementById("image").value;
 let content = document.getElementById("content").value;
 
-let post = {title,image,content};
-
-posts.push(post);
+posts.push({title,image,content});
 localStorage.setItem("blogPosts", JSON.stringify(posts));
 
 loadPosts();
 }
 
+// 🔄 LOAD POSTS
 function loadPosts(){
 let container = document.getElementById("posts");
 container.innerHTML = "";
@@ -113,14 +111,42 @@ container.innerHTML += `
 <div class="post">
 <b>${p.title}</b>
 <p>${p.content.substring(0,50)}...</p>
+
+<button onclick="editPost(${i})">✏ Edit</button>
+<button onclick="deletePost(${i})">🗑 Delete</button>
+
 </div>
 `;
 });
 }
 
+// ✏ EDIT
+function editPost(i){
+let newTitle = prompt("Edit Title", posts[i].title);
+let newContent = prompt("Edit Content", posts[i].content);
+
+if(newTitle && newContent){
+posts[i].title = newTitle;
+posts[i].content = newContent;
+
+localStorage.setItem("blogPosts", JSON.stringify(posts));
+loadPosts();
+}
+}
+
+// 🗑 DELETE
+function deletePost(i){
+if(confirm("Delete this post?")){
+posts.splice(i,1);
+localStorage.setItem("blogPosts", JSON.stringify(posts));
+loadPosts();
+}
+}
+
+// INIT
 loadPosts();
 
 </script>
-<script src="assets/js/main.js"></script>
+
 </body>
 </html>
