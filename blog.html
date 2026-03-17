@@ -138,22 +138,8 @@ flex-direction:column;
 </head>
 
 <body>
-db.collection("posts").orderBy("created","desc").get()
-.then((snapshot)=>{
-let container = document.getElementById("posts");
 
-snapshot.forEach(doc=>{
-let p = doc.data();
 
-container.innerHTML += `
-<div class="card">
-<img src="${p.image}">
-<h3>${p.title}</h3>
-<p>${p.content.substring(0,80)}...</p>
-</div>
-`;
-});
-});
 <header>
 <div class="logo">Creator Support <span>Amravati</span></div>
 
