@@ -226,3 +226,21 @@ document.getElementById("adminPanel").style.display = "block";
 alert("Wrong Password");
 }
 }
+function addPost(){
+let title = document.getElementById("title").value;
+let image = document.getElementById("image").value;
+let content = document.getElementById("content").value;
+
+db.collection("posts").add({
+title: title,
+image: image,
+content: content,
+created: new Date()
+})
+.then(()=>{
+alert("Post Added Successfully 🔥");
+})
+.catch((error)=>{
+console.error(error);
+});
+}
