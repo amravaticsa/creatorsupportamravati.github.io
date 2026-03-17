@@ -163,3 +163,27 @@ function loadLikes(postId){
 // INIT (IMPORTANT)
 loadComments("post1");
 loadLikes("post1");
+function likePost(id){
+let count = localStorage.getItem(id) || 0;
+count++;
+localStorage.setItem(id, count);
+document.getElementById(id).innerText = count;
+}
+
+window.onload = function(){
+document.querySelectorAll("[id^='post']").forEach(el=>{
+let val = localStorage.getItem(el.id) || 0;
+el.innerText = val;
+});
+}
+
+function sharePost(){
+if(navigator.share){
+navigator.share({
+title:document.title,
+url:window.location.href
+});
+}else{
+window.open(`https://wa.me/?text=${window.location.href}`);
+}
+}
