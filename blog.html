@@ -1,189 +1,198 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Blog | Creator Support Amravati</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+
 <style>
-body {font-family:'Inter',sans-serif;margin:0;color:#333;}
-header {background:#000;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:15px 5%;}
-.logo {font-size:22px;font-weight:700;}
-.logo span {color:#ffd600;}
-nav a {color:white;text-decoration:none;margin-left:20px;font-weight:600;}
-.blog-container {padding:60px 5%; max-width:1000px; margin:auto;}
-.blog-post {margin-bottom:60px;}
-.blog-post h2 {color:#000;margin-bottom:15px;}
-.blog-post p {line-height:1.7;margin-bottom:15px;}
-footer {background:black;color:white;text-align:center;padding:20px;margin-top:60px;}
+body{
+font-family:'Inter',sans-serif;
+margin:0;
+background:#f5f5f5;
+}
+
+/* HEADER */
+header{
+background:#000;
+color:#fff;
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:15px 5%;
+}
+
+.logo{
+font-size:22px;
+font-weight:700;
+}
+
+.logo span{
+color:#ffd600;
+}
+
+nav a{
+color:white;
+text-decoration:none;
+margin-left:20px;
+font-weight:600;
+}
+
+/* LAYOUT */
+.container{
+display:flex;
+gap:20px;
+padding:40px 5%;
+}
+
+.left{
+flex:3;
+}
+
+.right{
+flex:1;
+}
+
+/* CARD */
+.card{
+background:#fff;
+border-radius:10px;
+padding:15px;
+margin-bottom:15px;
+box-shadow:0 2px 6px rgba(0,0,0,0.08);
+display:flex;
+gap:15px;
+}
+
+.card img{
+width:120px;
+height:80px;
+object-fit:cover;
+border-radius:8px;
+}
+
+.card h3{
+margin:0;
+}
+
+.card p{
+font-size:14px;
+color:#666;
+}
+
+.read-btn{
+display:inline-block;
+margin-top:8px;
+padding:6px 12px;
+background:#000;
+color:#fff;
+text-decoration:none;
+border-radius:5px;
+font-size:12px;
+}
+
+/* BUTTONS */
+.card-actions{
+margin-top:8px;
+}
+
+.card-actions button{
+padding:5px 10px;
+border:none;
+background:#000;
+color:#fff;
+cursor:pointer;
+border-radius:5px;
+margin-right:5px;
+}
+
+/* SIDEBAR */
+.sidebar{
+background:#fff;
+padding:15px;
+border-radius:10px;
+box-shadow:0 2px 6px rgba(0,0,0,0.08);
+}
+
+/* FOOTER */
+footer{
+background:#000;
+color:#fff;
+text-align:center;
+padding:20px;
+margin-top:30px;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+.container{
+flex-direction:column;
+}
+}
 </style>
+
 </head>
 
 <body>
-<head>
-  <link rel="stylesheet" href="assets/css/style.css">
-<body>
+
 <header>
 <div class="logo">Creator Support <span>Amravati</span></div>
+
 <nav>
 <a href="index.html">Home</a>
-<a href="about.html">About</a>
-<a href="services.html">Services</a>
-<a href="portfolio.html">Portfolio</a>
 <a href="blog.html">Blog</a>
 <a href="contact.html">Contact</a>
 </nav>
 </header>
 
-<section class="blog-container">
-<div class="blog-card">
+<div class="container">
 
-<h3>How to Grow on YouTube in 2026</h3>
+<!-- LEFT SIDE -->
+<div class="left">
 
-<p>Learn powerful strategies to grow your YouTube channel.</p>
+<!-- STATIC CARD -->
+<div class="card">
+<img src="images/youtube-growth.jpg">
+<div>
+<h3>How to Grow a YouTube Channel</h3>
+<p>Learn powerful strategies to grow from 0 subscribers.</p>
+<a href="blog/blog1.html" class="read-btn">Read More</a>
 
-<a href="blog/blog1.html">Read Article</a>
+<div class="card-actions">
+<button onclick="likePost('post1')">👍 <span id="post1">0</span></button>
+<button onclick="sharePost()">📤</button>
+</div>
 
 </div>
-<article class="blog-post">
-  <!-- SEO meta inside the post -->
-  <meta name="title" content="How to Grow on YouTube in 2026: Proven Strategies">
-  <meta name="description" content="Learn how to grow your YouTube channel in 2026 with proven strategies, keyword optimization, engagement tactics, YouTube Shorts, and analytics-driven decisions.">
-  <meta name="keywords" content="YouTube growth 2026, YouTube growth tips, how to grow on YouTube, Creator Support Amravati, increase YouTube subscribers">
-
-  <h2>How to Grow on YouTube in 2026: Proven Strategies</h2>
-
-  <p>
-  YouTube growth 2026 mein sirf videos upload karne se nahi hoti; yeh <strong>strategic aur analytics-driven approach</strong> maangta hai jo reach, engagement aur subscribers ko maximize kare. Creator Support Amravati kehta hai ki <strong>high-quality, niche-focused content</strong> banaiye jo aapke audience ke saath resonate kare.
-  </p>
-
-  <p>
-  Sabse pehle apni niche define karein aur samjhein ki audience kya dekhna pasand karti hai. <strong>Keyword research tools</strong> ka use karein trending topics ke liye aur phrases jaise “how to grow on YouTube” aur “YouTube growth tips” titles, descriptions aur tags mein include karein.
-  </p>
-
-  <p>
-  Consistency bahut important hai: 2–3 videos per week upload karein engaging storytelling, clear visuals aur actionable takeaways ke saath. Engaging thumbnails aur clickable titles se CTR improve hota hai, aur optimized descriptions se search visibility badhti hai. <strong>YouTube Shorts</strong> aur live streams ka use karein discoverability ke liye. Comments, community posts aur polls ke through audience ke saath interact karein.
-  </p>
-
-  <p>
-  Collaborations ke zariye aur audience reach expand hoti hai. Analytics ko monitor karein: watch time, audience retention, traffic sources aur engagement metrics. Content strategy ko optimize karein. Strong CTAs jaise “subscribe”, “like”, “share” naturally include karein. Quality content, SEO, engagement aur consistency ke combination se aapka channel grow hoga, brand authority strong hogi aur monetization opportunities create hongi.
-  </p>
-
-  <p>
-  Shorts aur trending formats ko integrate karein. Video descriptions mein <strong>relevant keywords</strong> aur links include karein. Community engagement maintain karein: comments ka jawab, polls, aur live interactions. Long-term strategy banayein: analytics se samjhein ki audience kya pasand kar rahi hai aur content optimize karein.
-  </p>
-
-  <p>
-  Monetization ke liye consistent views aur engagement crucial hai. Affiliate links, sponsorships aur product promotions incorporate karein jab channel ready ho. Analytics-driven decisions aur continuous improvement se aap sustainable growth aur strong online presence achieve kar sakte hain.
-  </p>
-
-  <p>
-  Post Title: How to Grow on YouTube in 2026: Proven Strategies | Primary Keywords: YouTube growth 2026, YouTube growth tips, how to grow on YouTube | Meta Description: Learn how to grow your YouTube channel in 2026 with proven strategies, keyword optimization, engagement tactics, YouTube Shorts, and analytics-driven decisions.
-  </p>
-</article>
-  <div class="share-buttons">
-
-<h3>Share this article</h3>
-
-<a href="https://wa.me/?text=https://creatorsupportamravati.in/blog/blog1.html">WhatsApp</a>
-
-<a href="https://www.facebook.com/sharer/sharer.php?u=https://creatorsupportamravati.in/blog/blog1.html">Facebook</a>
-
-<a href="https://twitter.com/intent/tweet?url=https://creatorsupportamravati.in/blog/blog1.html">Twitter</a>
-
-<a href="https://www.linkedin.com/sharing/share-offsite/?url=https://creatorsupportamravati.in/blog/blog1.html">LinkedIn</a>
+</div>
 
 </div>
-  <article class="blog-post">
-  <!-- SEO Meta -->
-  <meta name="title" content="Top YouTube Growth Strategies for 2026">
-  <meta name="description" content="Discover proven YouTube growth strategies for 2026. Learn about content optimization, SEO, engagement tactics, analytics, and more to grow your channel.">
-  <meta name="keywords" content="YouTube growth 2026, YouTube tips, grow on YouTube, Creator Support Amravati, YouTube strategy">
 
-  <h2>Top YouTube Growth Strategies for 2026</h2>
+<!-- RIGHT SIDEBAR -->
+<div class="right">
 
-  <p>
-  2026 mein YouTube channel grow karna sirf videos upload karne se possible nahi hai. Creator Support Amravati ke experts kehte hain ki aapko <strong>strategic content planning, keyword research aur analytics-driven approach</strong> adopt karna hoga. High-quality aur niche-specific content create karein jo aapke target audience ke saath resonate kare.
-  </p>
-
-  <p>
-  Sabse pehle apni <strong>target audience aur niche</strong> define karein. Keyword research ke liye tools like TubeBuddy aur VidIQ ka use karein. Videos ke titles, descriptions aur tags mein relevant keywords naturally include karein jaise “YouTube growth 2026” aur “grow on YouTube tips”. Engaging thumbnails aur catchy titles CTR ko improve karte hain.
-  </p>
-
-  <p>
-  Consistency maintain karein: weekly 2–3 videos upload karein. <strong>YouTube Shorts</strong> aur live sessions ka use karein reach aur discoverability badhane ke liye. Audience engagement maintain karein: comments ka jawab, community posts aur polls. Collaborations aur cross-promotions se audience aur subscribers expand hote hain.
-  </p>
-
-  <p>
-  Analytics ko regularly monitor karein: watch time, audience retention, traffic sources aur engagement metrics. Content strategy ko data-driven optimize karein. CTAs naturally include karein: subscribe, like, share. Videos ka SEO optimized hona zaruri hai, taki search aur recommendations mein appear ho.
-  </p>
-
-  <p>
-  Monetization aur long-term growth ke liye consistent engagement aur high-quality content important hai. Sponsorships aur affiliate promotions introduce karne se pehle audience trust build karein. Short-term aur long-term strategies ka combination aapke channel ko sustainable growth aur authority provide karega.
-  </p>
-
-  <p>
-  Post Title: Top YouTube Growth Strategies for 2026 | Primary Keywords: YouTube growth 2026, YouTube tips, grow on YouTube | Meta Description: Discover proven YouTube growth strategies for 2026. Learn about content optimization, SEO, engagement tactics, analytics, and more to grow your channel.
-  </p>
-</article>
-  <div class="blog-actions">
-
-<button onclick="likePost()">👍 Like <span id="likeCount">0</span></button>
-
-<button onclick="sharePost()">🔗 Share</button>
+<div class="sidebar">
+<h3>Latest Posts</h3>
+<p>New posts will appear here</p>
+</div>
 
 </div>
-  <script src="https://giscus.app/client.js"
-        data-repo="amravaticsa/creatorsupportamravati.github.io"
-        data-repo-id="R_kgDOXXXX"
-        data-category="General"
-        data-category-id="DIC_kwDOXXXX"
-        data-mapping="pathname"
-        data-theme="light"
-        crossorigin="anonymous"
-        async>
-</script>
-</section>
+
+</div>
 
 <footer>
-<p>
-<a href="privacy.html">Privacy Policy</a> |
-<a href="terms.html">Terms & Conditions</a> |
-<a href="refund.html">Refund Policy</a> |
-<a href="disclaimer.html">Disclaimer</a>
-</p>
-<p>© 2026 Creator Support Amravati. All Rights Reserved.</p>
+<p>© 2026 Creator Support Amravati</p>
 </footer>
+
+<!-- MAIN JS -->
+<script src="assets/js/main.js"></script>
+
+<!-- ADMIN POSTS AUTO LOAD -->
 <script>
-
-let likes = localStorage.getItem("blogLikes") || 0;
-document.getElementById("likeCount").innerText = likes;
-
-function likePost(){
-likes++;
-localStorage.setItem("blogLikes", likes);
-document.getElementById("likeCount").innerText = likes;
-}
-
-function sharePost(){
-navigator.share({
-title:"Creator Support Amravati Blog",
-url:window.location.href
-});
-}
-<div class="share-buttons">
-
-<h3>Share this article</h3>
-
-<a href="https://wa.me/?text=https://creatorsupportamravati.in/blog/blog1.html">WhatsApp</a>
-
-<a href="https://www.facebook.com/sharer/sharer.php?u=https://creatorsupportamravati.in/blog/blog1.html">Facebook</a>
-
-<a href="https://twitter.com/intent/tweet?url=https://creatorsupportamravati.in/blog/blog1.html">Twitter</a>
-
-</div>
-  <script>
 let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
 
 let blogContainer = document.querySelector(".left");
@@ -200,17 +209,6 @@ blogContainer.innerHTML += `
 `;
 });
 </script>
-  <script src="https://giscus.app/client.js"
-        data-repo="amravaticsa/creatorsupportamravati.github.io"
-        data-repo-id="R_kgDOXXXX"
-        data-category="General"
-        data-category-id="DIC_kwDOXXXX"
-        data-mapping="pathname"
-        data-theme="light"
-        crossorigin="anonymous"
-        async>
-          <script src="assets/js/main.js"></script>
 
 </body>
-  
 </html>
