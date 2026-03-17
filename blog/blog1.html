@@ -1,28 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>My First Blog | Creator Support Amravati</title>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Page</title>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
-
-
-<head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>How to Grow a YouTube Channel from 0 Subscribers</title>
-
-<meta name="description" content="Learn how to grow a YouTube channel from zero subscribers with proven strategies and SEO techniques.">
-
-<link rel="stylesheet" href="../style.css">
-
-</head>
+<body>
 
 <body>
 
@@ -31,7 +15,22 @@
 <div class="logo">
 Creator Support Amravati
 </div>
+<div class="card">
+        <h3>How to Grow YouTube Channel</h3>
+        <p>Some description...</p>
 
+        <div class="actions">
+            <button onclick="likePost('post1', this)">👍 <span>0</span></button>
+            <button onclick="sharePost()">📤 Share</button>
+        </div>
+
+        <div class="comment-box">
+            <input type="text" id="commentInput-post1" placeholder="Write comment...">
+            <button onclick="addComment('post1')">Post</button>
+        </div>
+
+        <div id="comments-post1"></div>
+    </div>
 <nav>
 
 <a href="../index.html">Home</a>
@@ -167,7 +166,7 @@ document.getElementById("likes").innerText=count;
 }
 
 </script>
-
+ <script src="assets/js/main.js"></script>
 </body>
 
 </html>
