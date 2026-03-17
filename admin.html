@@ -63,7 +63,22 @@ border-radius:5px;
 <div id="posts"></div>
 
 </div>
+<div id="adminPosts"></div>
 
+<script>
+let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
+let container = document.getElementById("adminPosts");
+
+posts.forEach((p,i)=>{
+container.innerHTML += `
+<div style="background:#fff;padding:10px;margin:10px 0;">
+<h3>${p.title}</h3>
+<button onclick="editPost(${i})">✏ Edit</button>
+<button onclick="deletePost(${i})">🗑 Delete</button>
+</div>
+`;
+});
+</script>
 <script>
 
 let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
