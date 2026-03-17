@@ -187,3 +187,32 @@ url:window.location.href
 window.open(`https://wa.me/?text=${window.location.href}`);
 }
 }
+// LOAD POSTS
+let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
+
+// SAVE FUNCTION
+function savePosts(){
+localStorage.setItem("blogPosts", JSON.stringify(posts));
+}
+
+// DELETE POST
+function deletePost(index){
+if(confirm("Delete this post?")){
+posts.splice(index,1);
+savePosts();
+location.reload();
+}
+}
+
+// EDIT POST
+function editPost(index){
+let newTitle = prompt("Edit Title", posts[index].title);
+let newContent = prompt("Edit Content", posts[index].content);
+
+if(newTitle && newContent){
+posts[index].title = newTitle;
+posts[index].content = newContent;
+savePosts();
+location.reload();
+}
+}
