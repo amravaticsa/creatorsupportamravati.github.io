@@ -216,3 +216,13 @@ savePosts();
 location.reload();
 }
 }
+function login(){
+let pass = document.getElementById("password").value;
+
+if(pass === "admin123"){
+document.getElementById("loginBox").style.display = "none";
+document.getElementById("adminPanel").style.display = "block";
+}else{
+alert("Wrong Password");
+}
+}
