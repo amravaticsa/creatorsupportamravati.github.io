@@ -183,6 +183,23 @@ url:window.location.href
 <a href="https://twitter.com/intent/tweet?url=https://creatorsupportamravati.in/blog/blog1.html">Twitter</a>
 
 </div>
+  <script>
+let posts = JSON.parse(localStorage.getItem("blogPosts")) || [];
+
+let blogContainer = document.querySelector(".left");
+
+posts.forEach((p,i)=>{
+blogContainer.innerHTML += `
+<div class="card">
+<img src="${p.image}">
+<div>
+<h3>${p.title}</h3>
+<p>${p.content.substring(0,80)}...</p>
+</div>
+</div>
+`;
+});
+</script>
   <script src="https://giscus.app/client.js"
         data-repo="amravaticsa/creatorsupportamravati.github.io"
         data-repo-id="R_kgDOXXXX"
