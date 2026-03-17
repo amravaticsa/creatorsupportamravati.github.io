@@ -245,3 +245,29 @@ padding:20px;
 margin-top:40px;
 
 }
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.actions button {
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  background: #e8eaed;
+}
+
+.comment-box {
+  margin-top: 10px;
+}
+
+.comment-box input {
+  padding: 6px;
+  width: 70%;
+}
+
+.comment-box button {
+  padding: 6px 10px;
+}
