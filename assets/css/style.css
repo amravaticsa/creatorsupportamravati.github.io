@@ -62,3 +62,10 @@
   .blog-card .blog-cover{height:150px;max-height:150px}
   .article .article-cover{height:190px;max-height:190px}
 }
+
+
+/* Consistent ad-space placeholders across site pages. Replace with approved ad-unit markup only after approval. */
+.site-header:after{content:"ADVERTISEMENT SPACE · TOP";display:flex;align-items:center;justify-content:center;width:min(970px,92%);min-height:90px;margin:0 auto 18px;padding:12px;border:1px dashed #b8c2d1;border-radius:8px;background:#edf1f7;color:#7a8495;font-size:12px;font-weight:700;letter-spacing:.08em}
+main:before,.page-hero+.container.section:before{content:"ADVERTISEMENT SPACE · IN-CONTENT";display:flex;align-items:center;justify-content:center;width:min(970px,92%);min-height:100px;margin:22px auto;padding:16px;border:1px dashed #b8c2d1;border-radius:8px;background:#edf1f7;color:#7a8495;font-size:12px;font-weight:700;letter-spacing:.08em}
+.site-footer:before{content:"ADVERTISEMENT SPACE · BOTTOM";display:flex;align-items:center;justify-content:center;width:min(970px,92%);min-height:100px;margin:0 auto 28px;padding:18px;border:1px dashed #b8c2d1;border-radius:8px;background:#edf1f7;color:#7a8495;font-size:12px;font-weight:700;letter-spacing:.08em}
+@media(max-width:680px){.site-header:after,main:before,.page-hero+.container.section:before,.site-footer:before{min-height:80px;width:92%;font-size:11px;margin-top:16px;margin-bottom:18px}}
