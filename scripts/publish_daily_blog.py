@@ -34,7 +34,7 @@ blog=blog_path.read_text(encoding='utf-8')
 marker='</div><aside>'
 if marker not in blog:
     raise SystemExit('Could not locate blog feed insertion point; article was generated but listing was not changed.')
-card=f'<article class="content-card"><img src="{cover_rel}" alt="{esc(post["title"])}" class="blog-cover" loading="lazy"><div class="meta">{esc(post["category"])}</div><h3>{esc(post["title"])}</h3><p>{esc(post["description"])}</p><a class="text-link" href="blog/{slug}.html">Read article →</a></article>'
+card=f'<article class="content-card blog-card"><img src="{cover_rel}" alt="{esc(post["title"])}" class="blog-cover" loading="lazy"><div class="meta">{esc(post["category"])}</div><h3>{esc(post["title"])}</h3><p>{esc(post["description"])}</p><a class="text-link" href="blog/{slug}.html">Read article →</a></article>'
 blog=blog.replace(marker,card+marker,1)
 blog_path.write_text(blog,encoding='utf-8')
 # Add the new URL to the sitemap without disturbing existing entries.
