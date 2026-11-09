@@ -1,71 +1,38 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta name="robots" content="noindex,follow">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Advance Booking Payment — Creator Support Amravati</title>
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,follow">
+<title>Secure Project Payment | Creator Support Amravati</title><meta name="description" content="Pay your approved project advance or full invoice amount securely to Creator Support Amravati.">
 <link rel="stylesheet" href="assets/css/style.css">
 <style>
-body{font-family:Inter,system-ui,Arial,sans-serif;background:#f7fbff;margin:0}
-.container{max-width:520px;margin:40px auto;padding:20px}
-.card{background:#fff;padding:24px;border-radius:12px;box-shadow:0 10px 30px rgba(14,30,60,0.06);text-align:center}
-.btn{display:inline-block;background:#0084ff;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;border:none;cursor:pointer}
-.small{color:#666;font-size:14px;margin-top:10px}
+.pay-wrap{max-width:680px;margin:48px auto;padding:20px}.pay-card{background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:28px;box-shadow:0 12px 34px rgba(20,35,60,.08)}.pay-card h1{margin-top:0}.pay-card label{display:block;font-weight:600;margin:16px 0 7px}.pay-card input:not([type=radio]){box-sizing:border-box;width:100%;padding:13px;border:1px solid #ccd3df;border-radius:9px;font:inherit}.pay-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.pay-option{border:1px solid #d7deea;border-radius:10px;padding:14px;display:flex;gap:8px;align-items:flex-start}.pay-option input{width:auto;margin-top:4px}.pay-btn{width:100%;border:0;border-radius:10px;background:#111;color:#fff;font:inherit;font-weight:700;padding:15px;margin-top:22px;cursor:pointer}.pay-btn:disabled{opacity:.55;cursor:not-allowed}.note{font-size:14px;color:#626b79;line-height:1.6}.status{padding:12px;border-radius:9px;margin-top:16px;display:none;line-height:1.5}.status.show{display:block}.status.error{background:#fff0ef;color:#9a2118}.status.info{background:#eef5ff;color:#174b8a}.status.ok{background:#edf9f1;color:#176b35}@media(max-width:560px){.pay-options{grid-template-columns:1fr}.pay-card{padding:20px}}
 </style>
-<!-- Google Analytics 4: CSA website traffic tracking -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FE2SEB8NPH"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-FE2SEB8NPH');</script>
-</head>
-<body>
-<div class="container">
-  <div class="card">
-    <h2>Advance Booking Payment</h2>
-    <p class="small">Pay ₹500 to confirm your studio slot. This advance amount will be adjusted in final invoice.</p>
-
-    <div style="margin-top:18px">
-      <input type="text" id="payer_name" placeholder="Your full name" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px">
-      <input type="email" id="payer_email" placeholder="Email (optional)" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px">
-      <input type="tel" id="payer_contact" placeholder="Phone / WhatsApp" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px">
-    </div>
-
-    <button id="payBtn" class="btn">Pay ₹500</button>
-    <p class="small">Secure payment via Razorpay</p>
-  </div>
-</div>
-
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FE2SEB8NPH"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-FE2SEB8NPH');</script>
+</head><body>
+<header class="site-header"><div class="container header-inner"><a class="brand" href="index.html"><img src="assets/images/logo.png" alt="Creator Support Amravati"><span>Creator Support <span>Amravati</span></span></a><nav class="main-nav"><a href="index.html">Home</a><a href="services.html">Services</a><a href="booking.html">Booking</a><a href="contact.html">Contact</a></nav></div></header>
+<main class="pay-wrap"><div class="pay-card"><span class="section-kicker">Secure payment</span><h1>Project Payment</h1>
+<p>Use this page only after receiving a quotation or invoice from Creator Support Amravati. Enter the approved total project amount and choose the payment option agreed with our team.</p>
+<form id="paymentForm">
+<label for="totalAmount">Approved total project amount (₹)</label><input id="totalAmount" type="number" min="2" max="500000" step="0.01" placeholder="Example: 10000" required>
+<div class="pay-options"><label class="pay-option"><input type="radio" name="paymentType" value="advance" checked><span><strong>50% Advance</strong><br><small>Pay half of the approved project amount</small></span></label><label class="pay-option"><input type="radio" name="paymentType" value="full"><span><strong>Full Payment</strong><br><small>Pay the complete approved amount</small></span></label></div>
+<label for="payerName">Full name</label><input id="payerName" type="text" maxlength="80" autocomplete="name" required>
+<label for="payerEmail">Email address</label><input id="payerEmail" type="email" maxlength="120" autocomplete="email" required>
+<label for="payerPhone">Mobile / WhatsApp number</label><input id="payerPhone" type="tel" maxlength="16" autocomplete="tel" required>
+<button class="pay-btn" id="payBtn" type="submit">Continue to secure payment</button></form>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+<p class="note">Payments are processed by Razorpay. A payment is treated as verified only after our server validates Razorpay's signature. Retain your payment ID and invoice/quotation. Questions? Call <a href="tel:+919225515679">92255 15679</a> or email <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a>.</p>
+</div></main>
+<footer class="site-footer"><div class="container"><p>© 2026 Creator Support Amravati · <a href="terms.html">Terms</a> · <a href="refund-policy.html">Refund Policy</a> · <a href="privacy-policy.html">Privacy</a></p></div></footer>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-const RAZORPAY_KEY = "rzp_test_123456789"; // <-- REPLACE WITH YOUR KEY_ID
-const AMOUNT_PAISA = 50000; // ₹500 in paise
-
-document.getElementById('payBtn').addEventListener('click', function(){
-  const name = document.getElementById('payer_name').value || '';
-  const email = document.getElementById('payer_email').value || '';
-  const contact = document.getElementById('payer_contact').value || '';
-
-  const options = {
-    "key": RAZORPAY_KEY,
-    "amount": AMOUNT_PAISA,
-    "currency": "INR",
-    "name": "Creator Support Amravati",
-    "description": "Advance Booking Payment",
-    "handler": function (response){
-      // response.razorpay_payment_id
-      // You can POST payment details to Google Sheet / server here
-      // For now redirect to success
-      window.location.href = "success.html";
-    },
-    "prefill": {
-      "name": name,
-      "email": email,
-      "contact": contact
-    },
-    "theme": {"color":"#0084ff"}
-  };
-  const rzp = new Razorpay(options);
-  rzp.open();
-});
-</script>
-</body>
-</html>
+const API_BASE="https://csa-payment-api.creatorsupportamravati.workers.dev";
+const form=document.getElementById("paymentForm"),btn=document.getElementById("payBtn"),statusBox=document.getElementById("status");
+function showStatus(message,type="info"){statusBox.textContent=message;statusBox.className="status show "+type}
+async function api(path,data){const response=await fetch(API_BASE+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(data)});const result=await response.json().catch(()=>({error:"Unexpected server response"}));if(!response.ok)throw new Error(result.error||"Payment service is unavailable.");return result}
+fetch(API_BASE+"/health").then(r=>r.json()).then(s=>{if(!s.configured){btn.disabled=true;showStatus("Payment gateway setup is not complete yet. Please contact CSA to arrange payment. The payment button will be enabled after secure Razorpay credentials are configured.","info")}}).catch(()=>{btn.disabled=true;showStatus("Payment service is not reachable yet. Please contact CSA before making a payment.","error")});
+form.addEventListener("submit",async e=>{e.preventDefault();if(!window.Razorpay){showStatus("Razorpay Checkout could not load. Please refresh and try again.","error");return}btn.disabled=true;btn.textContent="Creating secure order…";try{
+const total=Number(document.getElementById("totalAmount").value),type=document.querySelector('input[name="paymentType"]:checked').value;
+const order=await api("/api/create-order",{totalAmount:total,paymentType:type,name:document.getElementById("payerName").value,email:document.getElementById("payerEmail").value,contact:document.getElementById("payerPhone").value});
+const options={key:order.keyId,amount:order.amount,currency:order.currency,name:order.businessName,description:order.description,order_id:order.orderId,prefill:{name:document.getElementById("payerName").value,email:document.getElementById("payerEmail").value,contact:document.getElementById("payerPhone").value},theme:{color:"#0F9D8C"},handler:async function(response){showStatus("Payment received by checkout. Verifying securely…","info");try{const verified=await api("/api/verify-payment",response);if(!verified.verified)throw new Error(verified.error||"Payment could not be verified.");form.style.display="none";showStatus("Payment signature verified successfully. Payment ID: "+verified.paymentId+". Please save this ID. CSA team will reconcile it with your quotation and contact you.","ok")}catch(err){showStatus("We could not verify this payment automatically: "+err.message+". Do not pay again immediately. Contact CSA with your Razorpay payment ID: "+response.razorpay_payment_id,"error")}btn.disabled=false;btn.textContent="Continue to secure payment"},modal:{ondismiss:function(){btn.disabled=false;btn.textContent="Continue to secure payment";showStatus("Checkout was closed. No confirmation has been recorded. You can try again when ready.","info")}}};
+const checkout=new Razorpay(options);checkout.on("payment.failed",function(r){showStatus("Payment failed: "+(r.error&&r.error.description?r.error.description:"Please try again or contact CSA."),"error");btn.disabled=false;btn.textContent="Continue to secure payment"});checkout.open();
+}catch(err){showStatus(err.message,"error");btn.disabled=false;btn.textContent="Continue to secure payment"}});
+</script></body></html>
