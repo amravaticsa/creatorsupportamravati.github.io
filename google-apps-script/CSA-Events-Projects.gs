@@ -24,7 +24,7 @@ function setupSheet() {
   sheet.getRange(2,1,1,headers.length).setValues([[
     "Example: Business Promotional Shoot","Project","Upcoming","","Amravati",
     "Replace this sample row with a confirmed CSA event or project. Do not publish unconfirmed dates.",
-    "","","Know More","TRUE","FALSE"
+    "","Know More","","TRUE","FALSE"
   ]]);
 }
 
