@@ -108,6 +108,7 @@ function enqueueReadyBlogs() {
   if (added) {
     githubPut('content/blog_queue.json', JSON.stringify(queue, null, 2) + '\n', queueFile.sha, token,
       'Queue blog articles from Google Sheets');
+    queuedRows.forEach(rowNum => sh.getRange(rowNum, col.Status + 1).setValue('Queued').setNote('Added to GitHub queue. It will be published by the scheduled website workflow.'));
     SpreadsheetApp.getActive().toast(added + ' article(s) added to the website publishing queue.', 'CSA Blog Manager', 8);
   } else {
     SpreadsheetApp.getActive().toast('No READY articles found.', 'CSA Blog Manager', 5);
