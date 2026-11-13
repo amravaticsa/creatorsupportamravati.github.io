@@ -38,6 +38,7 @@ card=f'<article class="content-card blog-card"><img src="{cover_rel}" alt="{esc(
 blog=blog.replace(marker,card+marker,1)
 blog_path.write_text(blog,encoding='utf-8')
 # Add the new URL to the sitemap without disturbing existing entries.
+# The workflow also runs on publisher-script changes for an immediate regression check.
 sitemap_path=ROOT/'sitemap.xml'
 sitemap=sitemap_path.read_text(encoding='utf-8')
 loc=f'<url><loc>https://creatorsupportamravati.in/blog/{slug}.html</loc><lastmod>{post["date"]}</lastmod><changefreq>yearly</changefreq><priority>0.7</priority></url>'
