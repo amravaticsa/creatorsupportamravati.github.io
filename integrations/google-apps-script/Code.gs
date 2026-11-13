@@ -73,6 +73,7 @@ function enqueueReadyBlogs() {
   queue.concat(published).forEach(p => { if (p.slug) known[p.slug] = true; });
 
   let added = 0;
+  const queuedRows = [];
   for (let r = 1; r < values.length; r++) {
     const row = values[r];
     if (String(row[col.Status]).trim().toLowerCase() !== 'ready') continue;
@@ -91,7 +92,9 @@ function enqueueReadyBlogs() {
       sh.getRange(r + 1, col.Status + 1).setNote('Add article text in Google Docs. Use Heading 2 for section headings.');
       continue;
     }
-    const dateValue = row[col['Publish Date']] instanceof Date ? row[col['Publish Date']] : new Date(row[col['Publish Date']] || new Date());
+    const rawDate = row[col['Publish Date']];
+    const dateValue = rawDate instanceof Date && !isNaN(rawDate.getTime()) ? rawDate : (rawDate ? new Date(rawDate) : new Date());
+    if (isNaN(dateValue.getTime())) throw new Error('Invalid Publish Date in sheet row ' + (r + 1));
     const date = Utilities.formatDate(dateValue, CSA_BLOG.timezone, 'yyyy-MM-dd');
     let slug = makeSlug(title);
     if (known[slug]) slug = slug + '-' + date;
@@ -99,7 +102,7 @@ function enqueueReadyBlogs() {
     const post = {slug, title, category, description, date, sections, source_doc_id: docId};
     queue.push(post);
     known[slug] = true;
-    sh.getRange(r + 1, col.Status + 1).setValue('Queued').setNote('Added to GitHub queue. It will be published by the scheduled website workflow.');
+    queuedRows.push(r + 1);
     added++;
   }
   if (added) {
