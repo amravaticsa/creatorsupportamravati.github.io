@@ -1,6 +1,6 @@
 /* CSA Events & Projects public feed
- * Connect the Google Apps Script web app URL here after deployment.
- * Leave blank until the Sheet API has been deployed; the page will show a friendly empty state.
+ * Paste the deployed Google Apps Script /exec URL below.
+ * The public feed exposes only rows explicitly marked visible=TRUE.
  */
 const CSA_EVENTS_API_URL = "";
 
@@ -33,11 +33,18 @@ const CSA_EVENTS_API_URL = "";
     if (Number.isNaN(d.getTime())) return value;
     return new Intl.DateTimeFormat("en-IN", {day:"numeric", month:"short", year:"numeric"}).format(d);
   }
+  function safeUrl(value) {
+    try {
+      const url = new URL(value, window.location.origin);
+      return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+    } catch (_) { return ""; }
+  }
   function card(item) {
     const article = make("article", "csa-event-card");
-    if (item.image) {
+    const imageUrl = safeUrl(item.image || "");
+    if (imageUrl) {
       const img = make("img", "csa-event-image");
-      img.src = item.image; img.alt = item.title || "CSA event or project"; img.loading = "lazy";
+      img.src = imageUrl; img.alt = item.title || "CSA event or project"; img.loading = "lazy";
       img.onerror = () => img.remove();
       article.append(img);
     } else {
@@ -55,9 +62,10 @@ const CSA_EVENTS_API_URL = "";
     details.append(make("span", "", "📅 " + formatDate(item.date)));
     if (item.location) details.append(make("span", "", "📍 " + item.location));
     body.append(details);
-    if (item.action_url) {
+    const actionUrl = safeUrl(item.action_url || "");
+    if (actionUrl) {
       const a = make("a", "csa-event-link", item.action_label || "Know more ↗");
-      a.href = item.action_url; a.target = "_blank"; a.rel = "noopener noreferrer"; body.append(a);
+      a.href = actionUrl; a.target = "_blank"; a.rel = "noopener noreferrer"; body.append(a);
     }
     article.append(body); return article;
   }
@@ -67,10 +75,13 @@ const CSA_EVENTS_API_URL = "";
     items.forEach(item => root.append(card(item)));
   }
   function validItems(data) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    return (Array.isArray(data) ? data : []).filter(x => x && x.title && String(x.visible).toLowerCase() !== "false")
+    return (Array.isArray(data) ? data : []).filter(x => x && x.title && String(x.visible).toLowerCase() === "true")
       .map(x => ({...x, type: String(x.type || "Project"), status: String(x.status || "Upcoming")}))
-      .sort((a,b) => new Date(a.date || "2999-12-31") - new Date(b.date || "2999-12-31"));
+      .sort((a,b) => {
+        const da = Date.parse(a.date) || Number.MAX_SAFE_INTEGER;
+        const db = Date.parse(b.date) || Number.MAX_SAFE_INTEGER;
+        return da - db;
+      });
   }
   function addFilters(items) {
     if (!filterRoot) return;
@@ -92,8 +103,22 @@ const CSA_EVENTS_API_URL = "";
     if (pageRoot) { addFilters(list); render(pageRoot, list); }
   }
   if (!CSA_EVENTS_API_URL) { load([]); return; }
-  fetch(CSA_EVENTS_API_URL, {cache:"no-store"})
-    .then(response => { if (!response.ok) throw new Error("Feed unavailable"); return response.json(); })
-    .then(data => load(data.items || data))
-    .catch(() => load([]));
+
+  // JSONP avoids cross-origin fetch restrictions on Google Apps Script web apps.
+  const callbackName = "csaEventsCallback";
+  const script = document.createElement("script");
+  const timeout = window.setTimeout(() => { cleanup(); load([]); }, 12000);
+  function cleanup() {
+    window.clearTimeout(timeout);
+    try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+    script.remove();
+  }
+  window[callbackName] = data => {
+    cleanup();
+    if (data && !data.error) load(data.items || []);
+    else load([]);
+  };
+  script.onerror = () => { cleanup(); load([]); };
+  script.src = CSA_EVENTS_API_URL + (CSA_EVENTS_API_URL.includes("?") ? "&" : "?") + "callback=" + callbackName;
+  document.head.appendChild(script);
 })();
