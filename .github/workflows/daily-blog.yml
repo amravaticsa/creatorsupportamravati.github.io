@@ -1,5 +1,9 @@
 name: CSA Daily Blog Publisher
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/publish_daily_blog.py'
   schedule:
     - cron: '30 3 * * *' # 09:00 Asia/Kolkata
   workflow_dispatch:
