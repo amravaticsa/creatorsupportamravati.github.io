@@ -8,6 +8,11 @@ published=json.loads(published_path.read_text(encoding='utf-8')) if published_pa
 if not queue:
     print('No queued articles remain; no changes made.')
     raise SystemExit(0)
+blog_path=ROOT/'blog.html'
+blog=blog_path.read_text(encoding='utf-8')
+marker='</div></div><footer class="site-footer">'
+if marker not in blog:
+    raise SystemExit('Could not locate the .cards feed closing tag in blog.html; no files were changed.')
 post=queue.pop(0)
 slug=post['slug']
 out=ROOT/'blog'/f'{slug}.html'
@@ -28,12 +33,7 @@ svg=f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBo
 published.insert(0,{k:post[k] for k in ('slug','title','category','description','date')})
 published_path.write_text(json.dumps(published,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 queue_path.write_text(json.dumps(queue,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-# Add a listing card before the feed closes; fail safely if the expected markup changes.
-blog_path=ROOT/'blog.html'
-blog=blog_path.read_text(encoding='utf-8')
-marker='</div><aside>'
-if marker not in blog:
-    raise SystemExit('Could not locate blog feed insertion point; article was generated but listing was not changed.')
+# Insert the new card inside the existing .cards grid, before its closing tag.
 card=f'<article class="content-card blog-card"><img src="{cover_rel}" alt="{esc(post["title"])}" class="blog-cover" loading="lazy"><div class="meta">{esc(post["category"])}</div><h3>{esc(post["title"])}</h3><p>{esc(post["description"])}</p><a class="text-link" href="blog/{slug}.html">Read article →</a></article>'
 blog=blog.replace(marker,card+marker,1)
 blog_path.write_text(blog,encoding='utf-8')
