@@ -36,7 +36,16 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
   function safeUrl(value) {
     try {
       const url = new URL(value, window.location.origin);
-      return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+      if (!["https:", "http:"].includes(url.protocol)) return "";
+      // Convert Google Drive share links into embeddable image URLs.
+      if (url.hostname === "drive.google.com") {
+        let fileId = "";
+        const match = url.pathname.match(/\\/file\\/d\\/([^/]+)/);
+        if (match) fileId = match[1];
+        if (!fileId) fileId = url.searchParams.get("id") || "";
+        if (fileId) return "https://drive.google.com/thumbnail?id=" + encodeURIComponent(fileId) + "&sz=w1600";
+      }
+      return url.href;
     } catch (_) { return ""; }
   }
   function card(item) {
