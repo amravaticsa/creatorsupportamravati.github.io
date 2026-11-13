@@ -2,7 +2,7 @@
  * Paste the deployed Google Apps Script /exec URL below.
  * The public feed exposes only rows explicitly marked visible=TRUE.
  */
-const CSA_EVENTS_API_URL = "";
+const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwg8pdNjo6o7YQsh4xwb-6TOovZU5_p-r3vPmGuyazVyBXVQIHtC11aOxHQlWXsmkc/exec";
 
 (function () {
   "use strict";
@@ -115,7 +115,7 @@ const CSA_EVENTS_API_URL = "";
   }
   window[callbackName] = data => {
     cleanup();
-    if (data && !data.error) load(data.items || []);
+    if (data && data.success !== false) load(data.events || data.items || []);
     else load([]);
   };
   script.onerror = () => { cleanup(); load([]); };
