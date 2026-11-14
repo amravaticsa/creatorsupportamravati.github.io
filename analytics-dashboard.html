@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>CSA Website Analytics Dashboard</title>
+<style>
+:root{--navy:#10233f;--teal:#0f9d8c;--muted:#64748b;--line:#e2e8f0;--bg:#f4f7fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.5 Inter,Arial,sans-serif;color:#172b4d}
+header{background:var(--navy);color:white;padding:25px max(20px,calc((100% - 1100px)/2))}
+header h1{margin:0;font-size:25px}header p{margin:5px 0 0;color:#cbd5e1}
+main{max-width:1100px;margin:24px auto;padding:0 18px 40px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+button{background:var(--teal);border:0;border-radius:9px;color:white;font-weight:700;padding:10px 16px;cursor:pointer}
+#status{font-size:13px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.card{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 12px #10233f08}
+.metric-label{font-size:13px;color:var(--muted);font-weight:600}.metric{font-size:29px;font-weight:800;margin-top:7px;color:var(--navy);font-variant-numeric:tabular-nums}
+.split{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-top:14px}
+h2{font-size:17px;margin:0 0 14px}.chart-wrap{height:280px;position:relative}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted);font-weight:700}td:last-child,th:last-child{text-align:right}.empty{color:var(--muted);padding:12px 0}
+.note{font-size:12px;color:var(--muted);margin-top:18px}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}.metric{font-size:24px}}
+@media(max-width:390px){.grid{grid-template-columns:1fr 1fr}.card{padding:13px}}
+</style>
+</head>
+<body>
+<header><h1>CSA Website Analytics</h1><p>Creator Support Amravati · Visitor and page performance</p></header>
+<main>
+<div class="toolbar"><span id="status">Connecting to analytics…</span><button id="refresh" type="button">Refresh data</button></div>
+<section class="grid">
+<div class="card"><div class="metric-label">Live visitors</div><div class="metric" id="online">—</div></div>
+<div class="card"><div class="metric-label">Today visitors</div><div class="metric" id="today">—</div></div>
+<div class="card"><div class="metric-label">Lifetime visitors</div><div class="metric" id="lifetime">—</div></div>
+<div class="card"><div class="metric-label">Total page views</div><div class="metric" id="pageviews">—</div></div>
+<div class="card"><div class="metric-label">Last 7 days visitors</div><div class="metric" id="weekly">—</div></div>
+<div class="card"><div class="metric-label">Last 30 days visitors</div><div class="metric" id="monthly">—</div></div>
+</section>
+<section class="split">
+<div class="card"><h2>Daily visitors · Last 14 days</h2><div class="chart-wrap"><canvas id="visitorChart"></canvas></div></div>
+<div class="card"><h2>Top pages by views</h2><div id="topPages" class="empty">Loading page data…</div></div>
+</section>
+<p class="note">Note: Daily and page-level analytics start collecting from the date these features are enabled. Historical data before tracking was added is not available. Visitors are session-based counts, not verified unique people.</p>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n||0).toLocaleString("en-IN");
+const dateKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+const keys=days=>{const out=[];for(let i=days-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);out.push(dateKey(d));}return out;};
+let chart=null,db=null;
+function pageLabel(key){if(key==="home")return "Home";return "/"+key.replace(/_/g,"/");}
+async function load(){
+ $("status").textContent="Updating…";
+ try{
+  const cfg=window.CSA_FIREBASE_CONFIG;
+  if(!cfg||!cfg.databaseURL)throw new Error("Firebase configuration unavailable");
+  if(!firebase.apps.length)firebase.initializeApp(cfg);
+  db=firebase.database();
+  const [statsSnap,presenceSnap]=await Promise.all([db.ref("stats").once("value"),db.ref("presence").once("value")]);
+  const stats=statsSnap.val()||{},daily=stats.dailyVisitors||{},paths=stats.pageViewsByPath||{};
+  const todayKey=dateKey(new Date()),dayKeys=keys(14);
+  const last7=keys(7).reduce((s,k)=>s+Number(daily[k]||0),0);
+  const last30=keys(30).reduce((s,k)=>s+Number(daily[k]||0),0);
+  $("online").textContent=fmt(presenceSnap.numChildren());
+  $("today").textContent=fmt(daily[todayKey]||0);
+  $("lifetime").textContent=fmt(stats.lifetimeVisits||0);
+  $("pageviews").textContent=fmt(stats.pageViews||0);
+  $("weekly").textContent=fmt(last7);
+  $("monthly").textContent=fmt(last30);
+  const labels=dayKeys.map(k=>k.slice(5)),values=dayKeys.map(k=>Number(daily[k]||0));
+  if(chart)chart.destroy();
+  chart=new Chart($("visitorChart"),{type:"line",data:{labels,datasets:[{label:"Visitors",data:values,tension:.3,fill:true,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+  const sorted=Object.entries(paths).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,10);
+  $("topPages").innerHTML=sorted.length?'<table><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>'+sorted.map(([k,v])=>'<tr><td>'+pageLabel(k).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))+'</td><td>'+fmt(v)+'</td></tr>').join("")+'</tbody></table>':'No page-level data yet. New visits will appear here.';
+  $("status").textContent="Last updated: "+new Date().toLocaleTimeString("en-IN");
+ }catch(e){console.error(e);$("status").textContent="Could not load analytics. Check Firebase Rules and configuration.";}
+}
+$("refresh").addEventListener("click",load);
+load();
+})();
+</script>
+</body>
+</html>
