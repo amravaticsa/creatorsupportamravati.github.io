@@ -107,6 +107,7 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
   }
 
   function render(root, items) {
+    root.setAttribute("aria-busy", "false");
     root.replaceChildren();
     if (!items.length) {
       root.append(emptyState());
@@ -164,9 +165,11 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
 
   function showError(message) {
     if (homeRoot) {
+      homeRoot.setAttribute("aria-busy", "false");
       homeRoot.replaceChildren(errorState(message));
     }
     if (pageRoot) {
+      pageRoot.setAttribute("aria-busy", "false");
       if (filterRoot) filterRoot.replaceChildren();
       pageRoot.replaceChildren(errorState(message));
     }
