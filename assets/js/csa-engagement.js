@@ -34,13 +34,21 @@ async function boot(){
  if(!ready){setLive("Live visitors setup pending");if(onArticle)renderArticle("Firebase project configuration pending. Article Likes are temporarily unavailable.");return}
  try{
   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
-  await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js");
-  await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js");
-  await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js");
-  const app=firebase.initializeApp(cfg);auth=firebase.auth();db=firebase.firestore();firebaseReady=true;
-  auth.onAuthStateChanged(u=>{currentUser=u;refreshAuthUI();});
+  // Authentication and Firestore are only needed on article pages for the Like feature.
+  // Avoid downloading these unused SDKs on the homepage and other non-article pages.
+  if(onArticle){
+   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js");
+   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js");
+  }
+  if(cfg.databaseURL)await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js");
+  firebase.initializeApp(cfg);
+  firebaseReady=true;
+  if(onArticle){
+   auth=firebase.auth();db=firebase.firestore();
+   auth.onAuthStateChanged(u=>{currentUser=u;refreshAuthUI();});
+   setupArticle();
+  }
   if(cfg.databaseURL){rtdb=firebase.database();setupPresence();}else{setLive("Live visitors setup pending");}
-  if(onArticle)setupArticle();
  }catch(e){console.error("CSA Firebase initialization:",e);setLive("Live visitors temporarily unavailable");if(onArticle)renderArticle("Engagement service is temporarily unavailable. Please try again later.");}
 }
 function setupPresence(){
@@ -108,5 +116,11 @@ async function toggleLike(){
  const ref=db.collection("csaArticles").doc(postId).collection("likes").doc(currentUser.uid);const btn=document.getElementById("csa-like");btn.disabled=true;
  try{const d=await ref.get();if(d.exists){await ref.delete();btn.dataset.liked="false";}else{await ref.set({uid:currentUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});btn.dataset.liked="true";}btn.innerHTML=(d.exists?"👍 Like ":"💚 Liked ")+'<span id="csa-like-count">'+(document.getElementById("csa-like-count")?.textContent||"0")+'</span>';}catch(e){noteText("Like save nahi hua. Firebase rules check karein.");}finally{btn.disabled=false}
 }
-boot();
+// Start non-critical engagement features after the page has loaded and the browser is idle.
+function startEngagement(){
+ if("requestIdleCallback" in window)window.requestIdleCallback(()=>boot(),{timeout:3000});
+ else window.setTimeout(boot,1200);
+}
+if(document.readyState==="complete")startEngagement();
+else window.addEventListener("load",startEngagement,{once:true});
 })();
