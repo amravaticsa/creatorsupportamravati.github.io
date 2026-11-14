@@ -57,13 +57,13 @@ function renderArticle(note){
  box.innerHTML='<h2>आपको यह Article कैसा लगा?</h2><p>अपनी प्रतिक्रिया दें, इसे शेयर करें या सवाल पूछें।</p><div class="csa-eng-actions"><button class="csa-eng-btn primary" id="csa-like" type="button">👍 Like <span id="csa-like-count">0</span></button><button class="csa-eng-btn" id="csa-share" type="button">↗ Share</button><button class="csa-eng-btn" id="csa-google-login" type="button">Continue with Google</button></div><div id="csa-comment-area"><form id="csa-comment-form"><textarea id="csa-comment-text" maxlength="1000" placeholder="अपनी राय या सवाल लिखें (1000 characters तक)" required></textarea><button class="csa-eng-btn primary" id="csa-comment-submit" type="submit">Post Comment</button></form><div id="csa-comment-list" aria-live="polite"></div></div><p class="csa-eng-note" id="csa-eng-note"></p>';
  article.appendChild(box);
  document.getElementById("csa-share").addEventListener("click",async()=>{const data={title:document.title,url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(location.href);noteText("Article link copied.");}}catch(e){}});
- document.getElementById("csa-google-login").addEventListener("click",signIn);
+ document.getElementById("csa-google-login").onclick=signIn;
  document.getElementById("csa-like").addEventListener("click",toggleLike);
  document.getElementById("csa-comment-form").addEventListener("submit",postComment);
  noteText(note||"Google Login is required to Like or Comment. Share is available to everyone.");
 }
 function noteText(t){const el=document.getElementById("csa-eng-note");if(el)el.textContent=t}
-async function signIn(){if(!firebaseReady)return;try{const p=new firebase.auth.GoogleAuthProvider();await auth.signInWithPopup(p);}catch(e){noteText(e.code==="auth/popup-blocked"?"Popup blocked. Please allow popups and try again.":e.message)}}
+async function signIn(){if(!firebaseReady)return;try{const p=new firebase.auth.GoogleAuthProvider();const result=await auth.signInWithPopup(p);currentUser=result.user;refreshAuthUI();}catch(e){noteText(e.code==="auth/popup-blocked"?"Popup blocked. Please allow popups and try again.":e.message)}}
 function refreshAuthUI(){
  const b=document.getElementById("csa-google-login");if(b)b.textContent=currentUser?"Signed in: "+(currentUser.displayName||"Google user")+" · Sign out":"Continue with Google";
  if(b)b.onclick=currentUser?()=>auth.signOut():signIn;
