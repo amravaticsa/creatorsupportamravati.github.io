@@ -67,7 +67,12 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
 
   function card(item) {
     const article = make("article", "csa-event-card");
-    const imageUrl = safeUrl(item.image || "");
+    const defaultImages = {
+      event: "https://images.pexels.com/photos/4342498/pexels-photo-4342498.jpeg?auto=compress&cs=tinysrgb&w=1000&q=80",
+      project: "https://images.pexels.com/photos/29272604/pexels-photo-29272604.jpeg?auto=compress&cs=tinysrgb&w=1000&q=80",
+      workshop: "https://images.pexels.com/photos/7710084/pexels-photo-7710084.jpeg?auto=compress&cs=tinysrgb&w=1000&q=80"
+    };
+    const imageUrl = safeUrl(item.image || defaultImages[String(item.type || "project").toLowerCase()] || defaultImages.project);
     if (imageUrl) {
       const img = make("img", "csa-event-image");
       img.src = imageUrl;
