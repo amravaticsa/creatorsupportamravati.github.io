@@ -26,6 +26,14 @@ The static website remains hosted on GitHub Pages. Firebase is used only for Goo
 2. Open an article page, confirm the online count changes, sign in with Google, test a Like and post a short test comment.
 3. Confirm the same Like/comment appears in a second browser session.
 
+
+## Comment moderation
+- The public comment list is readable by visitors. Posting requires a signed-in, verified Google account.
+- The account `amravati.csa@gmail.com` is configured as the CSA moderator in the website code and Firestore rules. Sign in with this exact verified Google account to see **Delete comment** controls on every article.
+- Authors can delete their own comments. The CSA moderator can delete any comment.
+- IMPORTANT: Updating `firebase/firestore.rules` in GitHub does not automatically publish the rules to Firebase. After pulling this change, open Firebase Console > Firestore Database > Rules, replace the editor contents with the current `firebase/firestore.rules` file, and click **Publish**. Until this is published, the admin delete controls may appear but Firebase can reject the delete.
+- Review public comments regularly. Remove spam, personal information, misleading claims, and copyright-infringing material promptly.
+
 ## Data model
 - Firestore: `csaArticles/{articleId}/likes/{uid}`
 - Firestore: `csaArticles/{articleId}/comments/{commentId}`
