@@ -58,12 +58,12 @@ function setupPresence(){
 function renderArticle(note){
  const article=document.querySelector("main article.article, article.article, .article");if(!article||document.getElementById("csa-engagement"))return;
  const box=document.createElement("section");box.id="csa-engagement";
- box.innerHTML='<h2>आपको यह Article कैसा लगा?</h2><p>अपनी प्रतिक्रिया दें, इसे शेयर करें या सवाल पूछें।</p><div class="csa-eng-actions"><button class="csa-eng-btn primary" id="csa-like" type="button">👍 Like <span id="csa-like-count">0</span></button><button class="csa-eng-btn" id="csa-share" type="button">↗ Share</button><button class="csa-eng-btn" id="csa-google-login" type="button">Continue with Google</button></div><div id="csa-comment-area"><form id="csa-comment-form"><textarea id="csa-comment-text" maxlength="1000" placeholder="अपनी राय या सवाल लिखें (1000 characters तक)" required></textarea><button class="csa-eng-btn primary" id="csa-comment-submit" type="submit">Post Comment</button></form><div id="csa-comment-list" aria-live="polite"></div></div><p class="csa-eng-note" id="csa-eng-note"></p>';
+ box.innerHTML='<h2>आपको यह Article कैसा लगा?</h2><p>अपनी प्रतिक्रिया दें, इसे शेयर करें या सवाल पूछें।</p><div class="csa-eng-actions"><button class="csa-eng-btn primary" id="csa-like" type="button">👍 Like <span id="csa-like-count">0</span></button><button class="csa-eng-btn" id="csa-share" type="button">↗ Share</button><button class="csa-eng-btn" id="csa-google-login" type="button">Continue with Google</button></div><p class="csa-eng-note">Public comments are temporarily paused while we review comment moderation settings.</p><p class="csa-eng-note" id="csa-eng-note"></p>';
  article.appendChild(box);
  document.getElementById("csa-share").addEventListener("click",async()=>{const data={title:document.title,url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(location.href);noteText("Article link copied.");}}catch(e){}});
  document.getElementById("csa-google-login").onclick=signIn;
  document.getElementById("csa-like").addEventListener("click",toggleLike);
- document.getElementById("csa-comment-form").addEventListener("submit",postComment);
+
  noteText(note||"Google Login is required to Like or Comment. Share is available to everyone.");
 }
 function renderComments(){
@@ -98,13 +98,7 @@ function refreshAuthUI(){
 async function setupArticle(){
  renderArticle();
  const likeRef=db.collection("csaArticles").doc(postId).collection("likes");
- const commentRef=db.collection("csaArticles").doc(postId).collection("comments");
  likeRef.onSnapshot(s=>{const el=document.getElementById("csa-like-count");if(el)el.textContent=s.size;});
- commentRef.orderBy("createdAt","desc").limit(30).onSnapshot(s=>{
-  const list=document.getElementById("csa-comment-list");if(!list)return;list.replaceChildren();
-  if(s.empty){latestComments=[];renderComments();return}
-  latestComments=s.docs.map(doc=>({id:doc.id,data:doc.data()}));renderComments();
- },e=>noteText("Comments could not load. Check Firebase security rules."));
  auth.onAuthStateChanged(async u=>{
   const btn=document.getElementById("csa-like");if(!btn)return;
   if(!u){btn.dataset.liked="false";btn.innerHTML='👍 Like <span id="csa-like-count">0</span>';return}
