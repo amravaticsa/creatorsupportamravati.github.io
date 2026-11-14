@@ -26,9 +26,9 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px
 </style>
 </head>
 <body>
-<header><h1>CSA Website Analytics</h1><p>Creator Support Amravati · Visitor and page performance</p></header>
+<header><h1>CSA Website Analytics</h1><p>Creator Support Amravati · Visitor and page performance</p><p id="reportDate" style="font-size:13px;margin-top:8px;color:#e2e8f0">Report date: —</p></header>
 <main>
-<div class="toolbar"><span id="status">Connecting to analytics…</span><button id="refresh" type="button">Refresh data</button></div>
+<div class="toolbar"><span id="status">Connecting to analytics…</span><button id="refresh" type="button">Refresh data</button></div><p id="dateRange" style="font-size:13px;color:#64748b;margin:-8px 0 16px">Date ranges: —</p>
 <section class="grid">
 <div class="card"><div class="metric-label">Live visitors</div><div class="metric" id="online">—</div></div>
 <div class="card"><div class="metric-label">Today visitors</div><div class="metric" id="today">—</div></div>
@@ -52,7 +52,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px
 "use strict";
 const $=id=>document.getElementById(id);
 const fmt=n=>Number(n||0).toLocaleString("en-IN");
-const dateKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+const dateKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);\nconst displayDate=d=>new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"long",year:"numeric"}).format(d);\nconst rangeText=days=>{const end=new Date(),start=new Date();start.setDate(start.getDate()-(days-1));return displayDate(start)+" – "+displayDate(end);};
 const keys=days=>{const out=[];for(let i=days-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);out.push(dateKey(d));}return out;};
 let chart=null,db=null;
 function pageLabel(key){if(key==="home")return "Home";return "/"+key.replace(/_/g,"/");}
@@ -65,16 +65,16 @@ async function load(){
   db=firebase.database();
   const [statsSnap,presenceSnap]=await Promise.all([db.ref("stats").once("value"),db.ref("presence").once("value")]);
   const stats=statsSnap.val()||{},daily=stats.dailyVisitors||{},paths=stats.pageViewsByPath||{};
-  const todayKey=dateKey(new Date()),dayKeys=keys(14);
+  const now=new Date(),todayKey=dateKey(now),dayKeys=keys(14);\n  $("reportDate").textContent="Report date: "+displayDate(now)+" (IST)";\n  $("dateRange").textContent="Last 7 days: "+rangeText(7)+" · Last 30 days: "+rangeText(30)+" · Daily chart: "+rangeText(14);
   const last7=keys(7).reduce((s,k)=>s+Number(daily[k]||0),0);
   const last30=keys(30).reduce((s,k)=>s+Number(daily[k]||0),0);
   $("online").textContent=fmt(presenceSnap.numChildren());
   $("today").textContent=fmt(daily[todayKey]||0);
-  $("lifetime").textContent=fmt(stats.lifetimeVisits||0);
-  $("pageviews").textContent=fmt(stats.pageViews||0);
+  $("lifetime").textContent=fmt(lifetime);
+  $("pageviews").textContent=fmt(pageViews);
   $("weekly").textContent=fmt(last7);
   $("monthly").textContent=fmt(last30);
-  const labels=dayKeys.map(k=>k.slice(5)),values=dayKeys.map(k=>Number(daily[k]||0));
+  const labels=dayKeys.map(k=>{const [y,m,d]=k.split("-").map(Number);return new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short"}).format(new Date(Date.UTC(y,m-1,d,12)));}),values=dayKeys.map(k=>Number(daily[k]||0));
   if(chart)chart.destroy();
   chart=new Chart($("visitorChart"),{type:"line",data:{labels,datasets:[{label:"Visitors",data:values,tension:.3,fill:true,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
   const sorted=Object.entries(paths).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,10);
