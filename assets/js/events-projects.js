@@ -124,6 +124,9 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
   function validItems(data) {
     return (Array.isArray(data) ? data : [])
       .filter(item => item && item.title && String(item.visible).toLowerCase() === "true")
+      // Never publish obvious spreadsheet test/demo rows on the public website.
+      .filter(item => !/sample entry for website testing/i.test(String(item.description || "")) &&
+        !/^CSA Digital Creator Workshop\s*[–-]\s*Demo$/i.test(String(item.title || "")))
       .map(item => ({
         ...item,
         type: String(item.type || "Project"),
