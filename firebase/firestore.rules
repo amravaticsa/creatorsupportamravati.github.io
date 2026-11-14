@@ -34,7 +34,9 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow update: if false;
       allow delete: if request.auth != null
-        && resource.data.uid == request.auth.uid;
+        && (resource.data.uid == request.auth.uid
+          || (request.auth.token.email == "amravati.csa@gmail.com"
+            && request.auth.token.email_verified == true));
     }
   }
 }
