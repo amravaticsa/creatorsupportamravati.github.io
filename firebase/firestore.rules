@@ -18,10 +18,11 @@ service cloud.firestore {
     }
 
     // Comments are public to read. Signed-in users can publish comments
-    // under their own account; only the owner can delete their comment.
+    // under their own account; the owner or verified CSA admin can delete.
     match /csaArticles/{articleId}/comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null
+        && request.auth.token.email_verified == true
         && request.resource.data.keys().hasAll(['uid', 'displayName', 'text', 'createdAt'])
         && request.resource.data.keys().hasOnly(['uid', 'displayName', 'text', 'createdAt'])
         && request.resource.data.uid == request.auth.uid
