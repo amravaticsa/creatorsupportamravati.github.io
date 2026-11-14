@@ -14,6 +14,18 @@
         ".read": true,
         ".write": true,
         ".validate": "newData.isNumber() && (data.val() == null ? newData.val() == 1 : newData.val() == data.val() + 1)"
+      },
+      "dailyVisitors": {
+        "$date": {
+          ".read": true,
+          ".write": true,
+          ".validate": "newData.isNumber() && (data.val() == null ? newData.val() == 1 : newData.val() == data.val() + 1)"
+        }
+      },
+      "pageViews": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.isNumber() && (data.val() == null ? newData.val() == 1 : newData.val() == data.val() + 1)"
       }
     }
   }
