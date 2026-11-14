@@ -21,12 +21,15 @@ const style=`
 .csa-comment{background:#fff;border:1px solid #e3e9f0;border-radius:10px;padding:12px}
 .csa-comment strong{color:#142746}.csa-comment small{color:#8993a3;margin-left:8px}
 .csa-comment p{margin:7px 0 0;white-space:pre-wrap;color:#39485e}
+.csa-comment-delete{margin-top:9px;border:1px solid #dc2626;background:#fff;color:#b91c1c;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer}
 .csa-eng-note{font-size:12px;color:#788397}
 @media(max-width:600px){#csa-live-pill{left:10px;bottom:10px}.csa-eng-actions .csa-eng-btn{flex:1}}
 `;
 const st=document.createElement("style");st.textContent=style;document.head.appendChild(st);
 const pill=document.createElement("div");pill.id="csa-live-pill";pill.innerHTML='<span class="dot"></span><span id="csa-live-text">Live visitors: connecting…</span>';document.body.appendChild(pill);
-let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null;
+let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null,latestComments=[];
+const ADMIN_EMAIL="amravati.csa@gmail.com";
+function isAdmin(){return !!(currentUser&&currentUser.email&&currentUser.email.toLowerCase()===ADMIN_EMAIL&&currentUser.emailVerified);}
 function setLive(s){const el=document.getElementById("csa-live-text");if(el)el.textContent=s}
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
 async function boot(){
@@ -63,9 +66,31 @@ function renderArticle(note){
  document.getElementById("csa-comment-form").addEventListener("submit",postComment);
  noteText(note||"Google Login is required to Like or Comment. Share is available to everyone.");
 }
+function renderComments(){
+ const list=document.getElementById("csa-comment-list");if(!list)return;list.replaceChildren();
+ if(!latestComments.length){const p=document.createElement("p");p.className="csa-eng-note";p.textContent="अभी तक कोई comment नहीं है। पहला comment आप करें।";list.appendChild(p);return}
+ latestComments.forEach(({id,data:d})=>{
+  const item=document.createElement("div");item.className="csa-comment";
+  const h=document.createElement("strong");h.textContent=d.displayName||"Google user";
+  const small=document.createElement("small");small.textContent=d.createdAt&&d.createdAt.toDate?d.createdAt.toDate().toLocaleDateString("en-IN"):"";
+  const p=document.createElement("p");p.textContent=d.text||"";item.append(h,small,p);
+  if(currentUser&&(isAdmin()||currentUser.uid===d.uid)){
+   const del=document.createElement("button");del.type="button";del.className="csa-comment-delete";del.textContent="Delete comment";
+   del.addEventListener("click",async()=>{
+    if(!confirm("Is comment ko permanently delete karna hai?"))return;
+    del.disabled=true;
+    try{await db.collection("csaArticles").doc(postId).collection("comments").doc(id).delete();noteText("Comment delete ho gaya.");}
+    catch(e){noteText("Comment delete nahi hua. Firebase moderation rules check karein.");del.disabled=false;}
+   });
+   item.appendChild(del);
+  }
+  list.appendChild(item);
+ });
+}
 function noteText(t){const el=document.getElementById("csa-eng-note");if(el)el.textContent=t}
 async function signIn(){if(!firebaseReady)return;try{const p=new firebase.auth.GoogleAuthProvider();const result=await auth.signInWithPopup(p);currentUser=result.user;refreshAuthUI();}catch(e){noteText(e.code==="auth/popup-blocked"?"Popup blocked. Please allow popups and try again.":e.message)}}
 function refreshAuthUI(){
+ renderComments();
  const b=document.getElementById("csa-google-login");if(b)b.textContent=currentUser?"Signed in: "+(currentUser.displayName||"Google user")+" · Sign out":"Continue with Google";
  if(b)b.onclick=currentUser?()=>auth.signOut():signIn;
  const form=document.getElementById("csa-comment-form");if(form){form.querySelector("textarea").disabled=!currentUser;form.querySelector("button").disabled=!currentUser;form.querySelector("textarea").placeholder=currentUser?"अपनी राय या सवाल लिखें":"Comment करने के लिए Google से sign in करें";}
@@ -78,7 +103,7 @@ async function setupArticle(){
  commentRef.orderBy("createdAt","desc").limit(30).onSnapshot(s=>{
   const list=document.getElementById("csa-comment-list");if(!list)return;list.replaceChildren();
   if(s.empty){const p=document.createElement("p");p.className="csa-eng-note";p.textContent="अभी तक कोई comment नहीं है। पहला comment आप करें।";list.appendChild(p);return}
-  s.forEach(doc=>{const d=doc.data();const item=document.createElement("div");item.className="csa-comment";const h=document.createElement("strong");h.textContent=d.displayName||"Google user";const small=document.createElement("small");small.textContent=d.createdAt&&d.createdAt.toDate?d.createdAt.toDate().toLocaleDateString("en-IN"):"";const p=document.createElement("p");p.textContent=d.text||"";item.append(h,small,p);list.appendChild(item)});
+  latestComments=s.docs.map(doc=>({id:doc.id,data:doc.data()}));renderComments();
  },e=>noteText("Comments could not load. Check Firebase security rules."));
  auth.onAuthStateChanged(async u=>{
   const btn=document.getElementById("csa-like");if(!btn)return;
