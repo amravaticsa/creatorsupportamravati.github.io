@@ -94,8 +94,8 @@ function enqueueReadyBlogs() {
     }
     // Editorial safeguard: do not queue short or lightly structured drafts.
     const articleText = [title, description].concat(sections.map(s => s[0] + ' ' + s[1])).join(' ');
-    const wordCount = (articleText.match(/[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*/gu) || []).length;
-    const sectionWordCounts = sections.map(s => (String(s[1]).match(/[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*/gu) || []).length);
+    const wordCount = articleText.trim().split(/\\s+/).filter(Boolean).length;
+    const sectionWordCounts = sections.map(s => String(s[1]).trim().split(/\\s+/).filter(Boolean).length);
     if (wordCount < 650 || sections.length < 6 || sectionWordCounts.some(n => n < 45)) {
       sh.getRange(r + 1, col.Status + 1).setNote('Article held for editorial review: currently ' + wordCount + ' words across ' + sections.length + ' sections. Target at least 650 words, 6 sections and 45 words per section. Add original examples, steps or practical detail in Google Docs, then mark Ready again.');
       continue;
