@@ -28,12 +28,11 @@ function setupSheet() {
   ]]);
 }
 
-function doGet() {
+function doGet(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet || sheet.getLastRow() < 2) {
-    return ContentService.createTextOutput(JSON.stringify({items:[]}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return respond_({items:[]}, e);
   }
   const values = sheet.getDataRange().getDisplayValues();
   const headers = values.shift().map(h => String(h).trim());
@@ -42,6 +41,18 @@ function doGet() {
     headers.forEach((header, i) => item[header] = row[i] || "");
     return item;
   }).filter(item => String(item.visible).toLowerCase() === "true");
-  return ContentService.createTextOutput(JSON.stringify({items:items}))
+  return respond_({items:items}, e);
+}
+
+// The website loads this public, read-only feed as JSONP to avoid browser CORS issues.
+// Only allow a simple JavaScript identifier as the callback name.
+function respond_(payload, e) {
+  const params = (e && e.parameter) || {};
+  const callback = String(params.callback || params.prefix || "");
+  if (callback && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)) {
+    return ContentService.createTextOutput(callback + "(" + JSON.stringify(payload) + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
 }
