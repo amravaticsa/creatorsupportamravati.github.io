@@ -27,7 +27,7 @@ const style=`
 `;
 const st=document.createElement("style");st.textContent=style;document.head.appendChild(st);
 const pill=document.createElement("div");pill.id="csa-live-pill";pill.innerHTML='<span class="dot"></span><span id="csa-live-text">Live visitors: connecting…</span>';document.body.appendChild(pill);
-let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null,latestComments=[];
+let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null;
 const ADMIN_EMAIL="amravati.csa@gmail.com";
 function isAdmin(){return !!(currentUser&&currentUser.email&&currentUser.email.toLowerCase()===ADMIN_EMAIL&&currentUser.emailVerified);}
 function setLive(s){const el=document.getElementById("csa-live-text");if(el)el.textContent=s}
@@ -66,34 +66,12 @@ function renderArticle(note){
 
  noteText(note||"Google Login is required to Like or Comment. Share is available to everyone.");
 }
-function renderComments(){
- const list=document.getElementById("csa-comment-list");if(!list)return;list.replaceChildren();
- if(!latestComments.length){const p=document.createElement("p");p.className="csa-eng-note";p.textContent="अभी तक कोई comment नहीं है। पहला comment आप करें।";list.appendChild(p);return}
- latestComments.forEach(({id,data:d})=>{
-  const item=document.createElement("div");item.className="csa-comment";
-  const h=document.createElement("strong");h.textContent=d.displayName||"Google user";
-  const small=document.createElement("small");small.textContent=d.createdAt&&d.createdAt.toDate?d.createdAt.toDate().toLocaleDateString("en-IN"):"";
-  const p=document.createElement("p");p.textContent=d.text||"";item.append(h,small,p);
-  if(currentUser&&(isAdmin()||currentUser.uid===d.uid)){
-   const del=document.createElement("button");del.type="button";del.className="csa-comment-delete";del.textContent="Delete comment";
-   del.addEventListener("click",async()=>{
-    if(!confirm("Is comment ko permanently delete karna hai?"))return;
-    del.disabled=true;
-    try{await db.collection("csaArticles").doc(postId).collection("comments").doc(id).delete();noteText("Comment delete ho gaya.");}
-    catch(e){noteText("Comment delete nahi hua. Firebase moderation rules check karein.");del.disabled=false;}
-   });
-   item.appendChild(del);
-  }
-  list.appendChild(item);
- });
-}
 function noteText(t){const el=document.getElementById("csa-eng-note");if(el)el.textContent=t}
 async function signIn(){if(!firebaseReady)return;try{const p=new firebase.auth.GoogleAuthProvider();const result=await auth.signInWithPopup(p);currentUser=result.user;refreshAuthUI();}catch(e){noteText(e.code==="auth/popup-blocked"?"Popup blocked. Please allow popups and try again.":e.message)}}
 function refreshAuthUI(){
- renderComments();
  const b=document.getElementById("csa-google-login");if(b)b.textContent=currentUser?"Signed in: "+(currentUser.displayName||"Google user")+" · Sign out":"Continue with Google";
  if(b)b.onclick=currentUser?()=>auth.signOut():signIn;
- const form=document.getElementById("csa-comment-form");if(form){form.querySelector("textarea").disabled=!currentUser;form.querySelector("button").disabled=!currentUser;form.querySelector("textarea").placeholder=currentUser?"अपनी राय या सवाल लिखें":"Comment करने के लिए Google से sign in करें";}
+
 }
 async function setupArticle(){
  renderArticle();
@@ -109,13 +87,6 @@ async function toggleLike(){
  if(!currentUser){noteText("Like करने के लिए पहले Google से sign in करें.");await signIn();if(!currentUser)return}
  const ref=db.collection("csaArticles").doc(postId).collection("likes").doc(currentUser.uid);const btn=document.getElementById("csa-like");btn.disabled=true;
  try{const d=await ref.get();if(d.exists){await ref.delete();btn.dataset.liked="false";}else{await ref.set({uid:currentUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});btn.dataset.liked="true";}btn.innerHTML=(d.exists?"👍 Like ":"💚 Liked ")+'<span id="csa-like-count">'+(document.getElementById("csa-like-count")?.textContent||"0")+'</span>';}catch(e){noteText("Like save nahi hua. Firebase rules check karein.");}finally{btn.disabled=false}
-}
-async function postComment(e){
- e.preventDefault();if(!currentUser){noteText("Comment के लिए Google Login जरूरी है.");return}
- const input=document.getElementById("csa-comment-text");const text=input.value.trim();if(!text)return;
- const btn=document.getElementById("csa-comment-submit");btn.disabled=true;
- try{await db.collection("csaArticles").doc(postId).collection("comments").add({uid:currentUser.uid,displayName:currentUser.displayName||"Google user",text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});input.value="";noteText("आपका comment publish हो गया.");}
- catch(e){noteText("Comment publish नहीं हुआ. Firebase rules check करें.");}finally{btn.disabled=false}
 }
 boot();
 })();
