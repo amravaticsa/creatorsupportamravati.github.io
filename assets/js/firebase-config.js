@@ -3,6 +3,7 @@
 window.CSA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDHmtgU34qEhXPME4SpF54BWVHl8V5t34o",
   authDomain: "csa-blog.firebaseapp.com",
+  databaseURL: "https://csa-blog-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "csa-blog",
   storageBucket: "csa-blog.firebasestorage.app",
   messagingSenderId: "125350824053",
