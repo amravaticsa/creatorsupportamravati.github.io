@@ -50,6 +50,18 @@ Example row:
 4. After the first successful test, choose **CSA Blog Manager → Enable daily auto-queue (7 AM)**.
 5. Mark an article `Ready` only after it has been reviewed. The script queues it around 7 AM India time; the existing GitHub publisher runs around 9 AM India time.
 
+## AdSense editorial quality check
+
+The blog manager now holds short drafts instead of sending them to the publishing queue. Before an article can be queued, it must contain:
+- At least 650 words across the title, description and article body.
+- At least 6 distinct sections.
+- At least 45 words in every section.
+- Original explanations, examples, practical steps or observations relevant to the topic.
+
+These are CSA's internal editorial safeguards, not a Google-published word-count rule and not a guarantee of AdSense approval. Word count alone is not enough: review facts, usefulness, originality, spelling, links, image rights and reader experience before marking an article **Ready**.
+
+Five existing queued drafts are currently below this threshold and will remain unpublished until they are expanded and reviewed. Do not mark a short draft Ready just to keep the daily schedule running.
+
 ## Status meanings
 
 - `Draft`: not sent to the website.
