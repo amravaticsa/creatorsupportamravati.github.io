@@ -102,7 +102,7 @@ async function setupArticle(){
  likeRef.onSnapshot(s=>{const el=document.getElementById("csa-like-count");if(el)el.textContent=s.size;});
  commentRef.orderBy("createdAt","desc").limit(30).onSnapshot(s=>{
   const list=document.getElementById("csa-comment-list");if(!list)return;list.replaceChildren();
-  if(s.empty){const p=document.createElement("p");p.className="csa-eng-note";p.textContent="अभी तक कोई comment नहीं है। पहला comment आप करें।";list.appendChild(p);return}
+  if(s.empty){latestComments=[];renderComments();return}
   latestComments=s.docs.map(doc=>({id:doc.id,data:doc.data()}));renderComments();
  },e=>noteText("Comments could not load. Check Firebase security rules."));
  auth.onAuthStateChanged(async u=>{
