@@ -86,3 +86,25 @@
 .csa-helpful-cards .content-card{height:100%;margin:0}
 @media(max-width:850px){.csa-helpful-layout{grid-template-columns:1fr}.csa-helpful-visual>img{height:260px;min-height:260px}.csa-helpful-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.csa-helpful-cards{grid-template-columns:1fr}.csa-helpful-visual>img{height:220px;min-height:220px}}
+
+
+/* Mobile performance: avoid downloading large decorative background photos on small screens.
+   Content images remain available; this only simplifies decorative CSS backgrounds. */
+@media(max-width:680px){
+  .hero,.page-hero{
+    background-image:linear-gradient(120deg,#101b35,#233c63)!important;
+    background-color:#101b35;
+  }
+  .hero-panel{
+    background-image:linear-gradient(145deg,#172746,#101b35)!important;
+    backdrop-filter:none;
+  }
+  .service-icon{
+    background-image:none!important;
+    background:linear-gradient(135deg,#e8edf5,#d8e1ef);
+  }
+  .portfolio-thumb{
+    background-image:linear-gradient(135deg,#172746,#354d73)!important;
+    background-color:#172746;
+  }
+}
