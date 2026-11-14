@@ -1,9 +1,11 @@
-// Public Firebase web-app configuration goes here after creating the CSA Firebase project.
-// These identifiers are not server secrets. Never put service-account private keys in this file.
+// Public Firebase web-app configuration for Creator Support Amravati.
+// These identifiers are intended for browser use. Never add service-account private keys here.
 window.CSA_FIREBASE_CONFIG = {
-  apiKey: "PASTE_FIREBASE_WEB_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://PASTE_DATABASE_URL",
-  projectId: "PASTE_PROJECT_ID",
-  appId: "PASTE_FIREBASE_APP_ID"
+  apiKey: "AIzaSyDHmtgU34qEhXPME4SpF54BWVHl8V5t34o",
+  authDomain: "csa-blog.firebaseapp.com",
+  projectId: "csa-blog",
+  storageBucket: "csa-blog.firebasestorage.app",
+  messagingSenderId: "125350824053",
+  appId: "1:125350824053:web:21a8ba823e791977b7d03c",
+  measurementId: "G-CT0FJ3BL3L"
 };
