@@ -28,12 +28,10 @@ const style=`
 const st=document.createElement("style");st.textContent=style;document.head.appendChild(st);
 const pill=document.createElement("div");pill.id="csa-live-pill";pill.innerHTML='<span class="dot"></span><span id="csa-live-text">Live visitors: connecting…</span>';document.body.appendChild(pill);
 let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null;
-const ADMIN_EMAIL="amravati.csa@gmail.com";
-function isAdmin(){return !!(currentUser&&currentUser.email&&currentUser.email.toLowerCase()===ADMIN_EMAIL&&currentUser.emailVerified);}
 function setLive(s){const el=document.getElementById("csa-live-text");if(el)el.textContent=s}
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
 async function boot(){
- if(!ready){setLive("Live visitors setup pending");if(onArticle)renderArticle("Firebase project configuration pending. Google Login, Likes and Comments will activate after setup.");return}
+ if(!ready){setLive("Live visitors setup pending");if(onArticle)renderArticle("Firebase project configuration pending. Article Likes are temporarily unavailable.");return}
  try{
   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js");
@@ -64,7 +62,7 @@ function renderArticle(note){
  document.getElementById("csa-google-login").onclick=signIn;
  document.getElementById("csa-like").addEventListener("click",toggleLike);
 
- noteText(note||"Google Login is required to Like or Comment. Share is available to everyone.");
+ noteText(note||"Google Login is required to Like. Share is available to everyone.");
 }
 function noteText(t){const el=document.getElementById("csa-eng-note");if(el)el.textContent=t}
 async function signIn(){if(!firebaseReady)return;try{const p=new firebase.auth.GoogleAuthProvider();const result=await auth.signInWithPopup(p);currentUser=result.user;refreshAuthUI();}catch(e){noteText(e.code==="auth/popup-blocked"?"Popup blocked. Please allow popups and try again.":e.message)}}
