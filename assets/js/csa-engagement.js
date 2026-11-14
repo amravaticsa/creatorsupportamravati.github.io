@@ -44,6 +44,8 @@ async function boot(){
  }catch(e){console.error("CSA Firebase initialization:",e);setLive("Live visitors temporarily unavailable");if(onArticle)renderArticle("Engagement service is temporarily unavailable. Please try again later.");}
 }
 function setupPresence(){
+ let onlineCount=0,lifetimeCount="…";
+ function updatePill(){setLive(onlineCount+" online now · "+lifetimeCount+" lifetime visits");}
  const connected=firebase.database().ref(".info/connected");
  connected.on("value",snap=>{
   if(snap.val()!==true)return;
@@ -51,7 +53,18 @@ function setupPresence(){
   const presence=firebase.database().ref("presence/"+session);
   presence.onDisconnect().remove().then(()=>presence.set({connectedAt:firebase.database.ServerValue.TIMESTAMP}));
  });
- rtdb.ref("presence").on("value",snap=>{const count=snap.numChildren();setLive(count+" visitors online now");},()=>setLive("Live visitors unavailable"));
+ rtdb.ref("presence").on("value",snap=>{onlineCount=snap.numChildren();updatePill();},()=>setLive("Live visitors unavailable"));
+ const visitKey="csa_lifetime_visit_counted";
+ let alreadyCounted=false;
+ try{alreadyCounted=sessionStorage.getItem(visitKey)==="1";}catch(e){}
+ const totalRef=rtdb.ref("stats/lifetimeVisits");
+ if(!alreadyCounted){
+  totalRef.transaction(current=>(Number(current)||0)+1).then(result=>{
+   if(result.committed){lifetimeCount=Number(result.snapshot.val()).toLocaleString("en-IN");updatePill();try{sessionStorage.setItem(visitKey,"1");}catch(e){}}
+  }).catch(err=>{console.error("CSA lifetime counter:",err);lifetimeCount="unavailable";updatePill();});
+ }else{
+  totalRef.on("value",snap=>{lifetimeCount=Number(snap.val()||0).toLocaleString("en-IN");updatePill();},()=>{lifetimeCount="unavailable";updatePill();});
+ }
 }
 function renderArticle(note){
  const article=document.querySelector("main article.article, article.article, .article");if(!article||document.getElementById("csa-engagement"))return;
