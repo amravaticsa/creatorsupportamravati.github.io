@@ -40,7 +40,11 @@ out.write_text(page,encoding='utf-8')
 title=esc(post['title'])
 category=esc(post['category'])
 svg=f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101b35"/><stop offset="1" stop-color="#29466f"/></linearGradient></defs><rect width="1200" height="630" rx="28" fill="url(#g)"/><circle cx="1040" cy="120" r="190" fill="#f4bd45" opacity=".12"/><circle cx="1100" cy="540" r="240" fill="#f4bd45" opacity=".08"/><rect x="80" y="82" width="220" height="12" rx="6" fill="#f4bd45"/><text x="80" y="160" fill="#f4bd45" font-family="Arial,sans-serif" font-size="26" font-weight="700">{category}</text><foreignObject x="80" y="205" width="1000" height="260"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;font-size:58px;line-height:1.18;font-weight:800;color:#fff">{title}</div></foreignObject><text x="80" y="555" fill="#dce5f3" font-family="Arial,sans-serif" font-size="28" font-weight="700">CREATOR SUPPORT AMRAVATI</text><text x="1080" y="555" text-anchor="end" fill="#f4bd45" font-family="Arial,sans-serif" font-size="24">CSA BLOG</text></svg>'''
-(ROOT/'assets/blog'/f'{slug}.svg').write_text(svg,encoding='utf-8')
+cover_path=ROOT/'assets/blog'/f'{slug}.svg'
+if not cover_path.exists():
+    cover_path.write_text(svg,encoding='utf-8')
+else:
+    print(f'Keeping existing editorial cover: {cover_path.name}')
 published.insert(0,{k:post[k] for k in ('slug','title','category','description','date')})
 published_path.write_text(json.dumps(published,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 queue_path.write_text(json.dumps(queue,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
