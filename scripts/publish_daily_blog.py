@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Readiness verification: preserve the one-reviewed-article-per-run publishing safeguard.
 import json, pathlib, html, datetime, re
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 queue_path=ROOT/'content/blog_queue.json'
