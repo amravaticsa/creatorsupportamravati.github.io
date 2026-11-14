@@ -72,6 +72,8 @@ function setupPresence(){
  try{dailyDone=sessionStorage.getItem(dailyKey)==="1";}catch(e){}
  if(!dailyDone)dailyRef.transaction(current=>(Number(current)||0)+1).then(result=>{if(result.committed)try{sessionStorage.setItem(dailyKey,"1");}catch(e){}}).catch(err=>console.error("CSA daily counter:",err));
  pageRef.transaction(current=>(Number(current)||0)+1).catch(err=>console.error("CSA page view counter:",err));
+ const pathKey=(location.pathname.replace(/\/$/,"").replace(/[^a-zA-Z0-9_-]/g,"_").replace(/^_+|_+$/g,"")||"home").slice(0,120);
+ rtdb.ref("stats/pageViewsByPath/"+pathKey).transaction(current=>(Number(current)||0)+1).catch(err=>console.error("CSA page path counter:",err));
 }
 function renderArticle(note){
  const article=document.querySelector("main article.article, article.article, .article");if(!article||document.getElementById("csa-engagement"))return;
