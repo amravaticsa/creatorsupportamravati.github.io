@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Publish one reviewed article per run; use the current CSA blog feed closing marker.
 # Trigger an immediate run for the final prepared CSA article when requested.
+# Retry after a concurrent main-branch update prevented the first push.
 import json, pathlib, html, datetime, re
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 queue_path=ROOT/'content/blog_queue.json'
