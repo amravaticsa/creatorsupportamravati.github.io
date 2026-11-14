@@ -1,42 +1,5 @@
 [
   {
-    "slug": "website-seo-basics-small-business",
-    "title": "Small Business Website SEO Basics: Google Search के लिए Step-by-Step Guide",
-    "category": "Website · SEO",
-    "description": "A practical Hindi checklist for small businesses covering page structure, titles, mobile usability, internal links, image accessibility, sitemap and Search Console.",
-    "date": "2026-11-14",
-    "sections": [
-      [
-        "SEO का उद्देश्य और website की बुनियाद",
-        "Search Engine Optimization यानी SEO का उद्देश्य search engines को आपकी website का content समझने में मदद करना और सही जानकारी खोज रहे लोगों तक उसे पहुँचाना है. SEO कोई एक button या instant trick नहीं है. एक small business website में homepage, about, services, contact और helpful blog articles जैसे pages हो सकते हैं. हर page का उद्देश्य साफ होना चाहिए. Visitor को कुछ seconds में समझ आना चाहिए कि business क्या करता है, किस क्षेत्र में सेवा देता है और अगला कदम क्या है. Search ranking की guarantee कोई नहीं दे सकता, इसलिए website को पहले customers के लिए उपयोगी बनाएं. Technical setup, content quality और trust signals को धीरे-धीरे बेहतर करना ज्यादा टिकाऊ तरीका है."
-      ],
-      [
-        "हर page का title, heading और description unique रखें",
-        "हर important page के लिए ऐसा title लिखें जो page का विषय और business identity स्पष्ट करे. Homepage का title services और location का संक्षिप्त परिचय दे सकता है; service page का title उसी service पर केंद्रित होना चाहिए. एक स्पष्ट main heading रखें और उसके नीचे content को logical subheadings में बाँटें. Meta description search result में उपयोगी summary दे सकती है, लेकिन Google उसे हमेशा ज्यों का त्यों दिखाए यह जरूरी नहीं. Titles और descriptions में keywords natural तरीके से शामिल करें. एक ही title सभी pages पर copy न करें और unrelated popular keywords जोड़कर visitor को mislead न करें. Page content title के वादे को पूरा करना चाहिए."
-      ],
-      [
-        "Helpful content और search intent को समझें",
-        "Article लिखने से पहले सोचें कि search करने वाला व्यक्ति क्या जानना चाहता है. 'Video editing charges' खोजने वाला व्यक्ति pricing factors, deliverables और revision policy समझना चाह सकता है; 'podcast setup' खोजने वाला व्यक्ति microphone, room और recording workflow जानना चाहेगा. Article में सीधे सवाल का जवाब दें, फिर examples, steps और practical cautions जोड़ें. केवल शब्दों की संख्या बढ़ाने के लिए repeated paragraphs न लिखें. अपने वास्तविक काम से मिले अनुभव, original examples, clear images और updated details content को अधिक उपयोगी बना सकते हैं. यदि जानकारी बदल सकती है, तो update date और reliable references पर ध्यान दें. AI या templates से तैयार draft को publish करने से पहले human review और fact-check जरूरी है."
-      ],
-      [
-        "Mobile usability, speed और accessibility",
-        "कई visitors phone से website खोलते हैं, इसलिए mobile layout पर विशेष ध्यान दें. Text पढ़ने योग्य हो, navigation आसान हो, buttons पर्याप्त बड़े हों और phone/email links सही काम करें. बहुत बड़ी images page load धीमा कर सकती हैं; उन्हें सही dimensions और compressed format में रखें. जरूरत से ज्यादा animation, third-party scripts और unnecessary widgets हटाने पर विचार करें. Images के लिए descriptive alt text लिखें ताकि screen readers image का उद्देश्य समझ सकें; decorative image में खाली alt attribute उपयोग किया जा सकता है. Colour contrast, keyboard navigation और clear form labels भी usability का हिस्सा हैं. Website को अलग-अलग screen sizes पर test करें, सिर्फ desktop preview पर निर्भर न रहें."
-      ],
-      [
-        "Internal links, URL और image organization",
-        "Internal links visitor को related information तक पहुँचाते हैं और search engines को website structure समझने में मदद करते हैं. Service page से संबंधित blog guide और blog से relevant service page का link दें. Anchor text ऐसा रखें जिससे destination का विषय समझ आए—'यहाँ क्लिक करें' की जगह descriptive text बेहतर रहता है. URLs छोटे, readable और page topic से relevant रखें. Image file names descriptive रखें और original image rights का ध्यान रखें. Broken links, duplicate pages और accidental noindex tags को समय-समय पर check करें. हर page को sitemap में जोड़ने से पहले सुनिश्चित करें कि वह useful, accessible और canonical URL के साथ सही तरह configured है."
-      ],
-      [
-        "Sitemap, robots.txt और Search Console",
-        "XML sitemap website के important canonical URLs की सूची देता है और search engines को pages discover करने में मदद कर सकता है. robots.txt crawler access के बारे में निर्देश देता है; इसे गलती से पूरे site को block करने के लिए configure न करें. Google Search Console में sitemap submit करें, indexing reports और URL Inspection tool से महत्वपूर्ण pages की स्थिति देखें. Sitemap submit करना indexing या ranking की guarantee नहीं है. अगर कोई page index नहीं हो रहा, तो पहले देखें कि वह accessible है, useful content रखता है, सही canonical tag है और noindex directive नहीं लगा. Search Console के data को नियमित अंतराल पर देखें; हर दिन छोटे उतार-चढ़ाव पर प्रतिक्रिया देना जरूरी नहीं."
-      ],
-      [
-        "SEO results को मापें और नियमित सुधार करें",
-        "Analytics में traffic source, landing pages, engagement और enquiries जैसे metrics देखें. Search Console में impressions, clicks, average position और search queries का context समझें. केवल page views को success न मानें—क्या visitor ने service page देखा, contact किया या useful information पाई? महीने में एक बार outdated details, broken links, missing images और thin content review करें. जो article अच्छा perform कर रहा है उसमें नई जानकारी जोड़ें, लेकिन बिना वजह URL न बदलें. अगर URL बदलना जरूरी हो तो appropriate redirect plan करें. SEO में competition, location, relevance और search engine changes का असर होता है. Consistent review और customer-focused improvements long-term approach है."
-      ]
-    ]
-  },
-  {
     "slug": "youtube-video-planning-checklist",
     "title": "YouTube Video Planning Checklist: Shoot से पहले 10 जरूरी Steps",
     "category": "YouTube · Video Planning",
