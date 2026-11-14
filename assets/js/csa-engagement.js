@@ -3,6 +3,7 @@
 const cfg=window.CSA_FIREBASE_CONFIG||{};
 const ready=cfg.apiKey && !String(cfg.apiKey).includes("PASTE_") && cfg.projectId && !String(cfg.projectId).includes("PASTE_");
 const onArticle=!!document.querySelector("main article.article, article.article, .article");
+if(!onArticle)return;
 const postId=location.pathname.replace(/\/$/,"").replace(/[^a-zA-Z0-9_-]/g,"_").replace(/^_+|_+$/g,"")||"home";
 const style=`
 #csa-live-pill{position:fixed;left:14px;bottom:14px;z-index:9998;background:#10233f;color:#fff;border:1px solid #2b466b;border-radius:999px;padding:9px 13px;font:600 12px Inter,Arial,sans-serif;box-shadow:0 5px 22px #10233f30}
