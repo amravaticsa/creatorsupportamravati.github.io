@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Readiness verification: preserve the one-reviewed-article-per-run publishing safeguard.
+# Publish one reviewed article per run; use the current CSA blog feed closing marker.
 import json, pathlib, html, datetime, re
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 queue_path=ROOT/'content/blog_queue.json'
@@ -11,7 +11,7 @@ if not queue:
     raise SystemExit(0)
 blog_path=ROOT/'blog.html'
 blog=blog_path.read_text(encoding='utf-8')
-marker='</div></div><footer class="site-footer">'
+marker='</div></div></main><footer class="site-footer">'
 if marker not in blog:
     raise SystemExit('Could not locate the .cards feed closing tag in blog.html; no files were changed.')
 post=queue[0]
