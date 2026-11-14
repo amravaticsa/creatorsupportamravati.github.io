@@ -36,9 +36,10 @@ async function boot(){
   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js");
   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js");
   await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js");
-  const app=firebase.initializeApp(cfg);auth=firebase.auth();db=firebase.firestore();rtdb=firebase.database();firebaseReady=true;
+  const app=firebase.initializeApp(cfg);auth=firebase.auth();db=firebase.firestore();firebaseReady=true;
   auth.onAuthStateChanged(u=>{currentUser=u;refreshAuthUI();});
-  setupPresence();if(onArticle)setupArticle();
+  if(cfg.databaseURL){rtdb=firebase.database();setupPresence();}else{setLive("Live visitors setup pending");}
+  if(onArticle)setupArticle();
  }catch(e){console.error("CSA Firebase initialization:",e);setLive("Live visitors temporarily unavailable");if(onArticle)renderArticle("Engagement service is temporarily unavailable. Please try again later.");}
 }
 function setupPresence(){
