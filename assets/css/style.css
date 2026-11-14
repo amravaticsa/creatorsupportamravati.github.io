@@ -74,3 +74,15 @@
 
 /* CSA Events & Projects */
 .csa-event-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.csa-event-card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}.csa-event-image{width:100%;height:180px;object-fit:cover;background:linear-gradient(135deg,#172746,#344d73)}.csa-event-body{padding:19px;display:flex;flex-direction:column;flex:1}.csa-event-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.csa-event-tag{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:#fff4dc;color:#80580d;padding:5px 9px;border-radius:20px}.csa-event-tag.status{background:#e8f4ee;color:#216344}.csa-event-card h3{font-size:18px;line-height:1.35;margin:0 0 8px;color:var(--navy)}.csa-event-card p{font-size:13px;color:var(--muted);margin:0 0 14px}.csa-event-details{font-size:12px;color:#596579;display:grid;gap:5px;margin-top:auto;padding-top:6px}.csa-event-link{display:inline-flex;margin-top:15px;font-size:13px;font-weight:800;color:#17345e}.csa-filter-row{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 22px}.csa-filter{border:1px solid var(--line);background:#fff;color:#344054;border-radius:30px;padding:8px 15px;font:700 13px Inter,Arial,sans-serif;cursor:pointer}.csa-filter[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}.csa-empty{background:#fff;border:1px dashed #cbd3df;border-radius:14px;padding:30px;text-align:center;color:var(--muted);grid-column:1/-1}.csa-empty h3{color:var(--navy);margin:0 0 7px}.csa-events-note{font-size:12px;color:#788397;margin-top:18px}@media(max-width:900px){.csa-event-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.csa-event-grid{grid-template-columns:1fr}.csa-event-image{height:190px}}
+
+
+/* Helpful information section with project-planning image */
+.csa-helpful-layout{display:grid;grid-template-columns:minmax(260px,.82fr) minmax(0,1.5fr);gap:22px;align-items:stretch}
+.csa-helpful-visual{position:relative;min-height:100%;border-radius:16px;overflow:hidden;background:#172746;box-shadow:var(--shadow)}
+.csa-helpful-visual>img{display:block;width:100%;height:100%;min-height:420px;object-fit:cover}
+.csa-helpful-caption{position:absolute;left:0;right:0;bottom:0;padding:48px 22px 22px;color:#fff;background:linear-gradient(transparent,rgba(10,22,42,.9));display:grid;gap:6px}
+.csa-helpful-caption strong{font-size:19px;line-height:1.3}.csa-helpful-caption span{font-size:13px;line-height:1.5;color:#edf2f8}
+.csa-helpful-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.csa-helpful-cards .content-card{height:100%;margin:0}
+@media(max-width:850px){.csa-helpful-layout{grid-template-columns:1fr}.csa-helpful-visual>img{height:260px;min-height:260px}.csa-helpful-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.csa-helpful-cards{grid-template-columns:1fr}.csa-helpful-visual>img{height:220px;min-height:220px}}
