@@ -140,7 +140,7 @@ function ensureCompleteFooter(){
 // Start non-critical engagement features after the page has loaded and the browser is idle.
 function startEngagement(){
  ensureCompleteFooter();
- if((document.querySelector("main article.article")||document.querySelector(".blog-grid"))&&!document.querySelector("script[data-csa-blog-recommendations]")){const s=document.createElement("script");s.src="/assets/js/csa-blog-recommendations.js?v=20261115-7";s.defer=true;s.dataset.csaBlogRecommendations="1";document.head.appendChild(s);}
+ if((document.querySelector("main article.article")||document.querySelector(".blog-grid"))&&!document.querySelector("script[data-csa-blog-recommendations]")){const s=document.createElement("script");s.src="/assets/js/csa-blog-recommendations.js?v=20261115-8";s.defer=true;s.dataset.csaBlogRecommendations="1";document.head.appendChild(s);}
  if("requestIdleCallback" in window)window.requestIdleCallback(()=>boot(),{timeout:3000});
  else window.setTimeout(boot,1200);
 }
