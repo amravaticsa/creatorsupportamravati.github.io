@@ -317,3 +317,54 @@
 .blog-grid .blog-card .text-link:hover{text-decoration:underline;text-underline-offset:4px}
 @media(max-width:900px){.blog-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}}
 @media(max-width:600px){.blog-grid{grid-template-columns:1fr;gap:17px;margin-top:22px}.blog-grid .blog-card{border-radius:14px}.blog-grid .blog-card-body{padding:17px 18px 19px}.blog-grid .blog-card h3{font-size:18px}}
+
+/* CSA Knowledge Hub — one premium article template across legacy and new posts */
+main.container.section > .article,
+main.container.section > .article-pro{
+  width:100%;max-width:900px;box-sizing:border-box;margin:0 auto;
+  padding:clamp(22px,4vw,48px);border:1px solid #e4e9ef;border-radius:18px;
+  background:#fff;box-shadow:0 12px 34px rgba(15,35,55,.065);
+  color:#273548;font-size:16px;line-height:1.9;
+}
+main.container.section > .article .article-cover,
+main.container.section > .article-pro > img.article-cover{
+  display:block;width:100%;height:auto;max-height:none;aspect-ratio:16/9;
+  object-fit:cover;border-radius:14px;margin:0 0 22px;background:#edf2f5;
+}
+main.container.section > .article h1,
+main.container.section > .article-pro h1{color:#102b43;line-height:1.25;letter-spacing:-.5px}
+main.container.section > .article h2,
+main.container.section > .article-pro h2{
+  margin:38px 0 13px;color:#102b43;font-size:clamp(22px,2.8vw,29px);
+  line-height:1.32;letter-spacing:-.4px;
+}
+main.container.section > .article h3,
+main.container.section > .article-pro h3{
+  margin:25px 0 9px;color:#183b55;font-size:19px;line-height:1.4;
+}
+main.container.section > .article p,
+main.container.section > .article li,
+main.container.section > .article-pro p,
+main.container.section > .article-pro li{color:#465568}
+main.container.section > .article a:not(.button),
+main.container.section > .article-pro a:not(.button){
+  color:#087e70;text-underline-offset:3px;
+}
+main.container.section > .article table,
+main.container.section > .article-pro table{width:100%;max-width:100%;border-collapse:collapse;margin:22px 0;font-size:14px;display:block;overflow-x:auto}
+main.container.section > .article th,
+main.container.section > .article-pro th{background:#102d45;color:#fff;text-align:left}
+main.container.section > .article td,
+main.container.section > .article th,
+main.container.section > .article-pro td,
+main.container.section > .article-pro th{padding:11px 13px;border:1px solid #dce4eb;vertical-align:top}
+main.container.section > .article blockquote,
+main.container.section > .article-pro blockquote{margin:22px 0;padding:16px 20px;border-left:4px solid #0d9f91;border-radius:8px;background:#f4f8f8}
+@media(max-width:680px){
+  main.container.section > .article,main.container.section > .article-pro{
+    padding:20px 17px;border-radius:14px;font-size:15px;line-height:1.8;
+  }
+  main.container.section > .article .article-cover,
+  main.container.section > .article-pro > img.article-cover{border-radius:11px;margin-bottom:18px}
+  main.container.section > .article h2,main.container.section > .article-pro h2{margin-top:30px}
+}
