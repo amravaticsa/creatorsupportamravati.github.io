@@ -130,8 +130,16 @@ async function toggleLike(){
  catch(e){console.error("CSA like save failed:",e);noteText("Like save nahi hua. Firebase Firestore rules check karein.");}
  finally{btn.disabled=false;}
 }
+function ensureCompleteFooter(){
+ const markup='<div class="container"><div class="footer-grid"><div><a class="brand" href="/index.html"><img src="/assets/images/logo.png" alt="Creator Support Amravati" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><p>Creative production and digital growth support for businesses, creators and brands.</p><p>Vyankatesh Complex, Shop No. F-101, Mahendra Colony, Amravati</p></div><div><h3>Explore</h3><div class="footer-links"><a href="/about.html">About Us</a><a href="/services.html">Our Services</a><a href="/portfolio.html">Portfolio</a><a href="/blog.html">Blog &amp; Insights</a><a href="/contact.html">Contact</a></div></div><div><h3>Contact</h3><div class="footer-links"><a href="tel:+919225515679">92255 15679</a><a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a><span>Mon–Sat · 10:00 AM–7:00 PM</span></div></div></div><div class="footer-bottom"><span>© 2026 Creator Support Amravati. All rights reserved.</span><span><a href="/privacy-policy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/refund-policy.html">Refund</a> · <a href="/disclaimer.html">Disclaimer</a> · <a href="/copyright-policy.html">Copyright</a></span></div></div>';
+ let footer=document.querySelector("footer.site-footer");
+ if(!footer){footer=document.createElement("footer");footer.className="site-footer";document.body.appendChild(footer);}
+ const complete=footer.querySelector(".footer-grid")&&footer.textContent.includes("Creative production and digital growth support")&&footer.textContent.includes("Copyright");
+ if(!complete)footer.innerHTML=markup;
+}
 // Start non-critical engagement features after the page has loaded and the browser is idle.
 function startEngagement(){
+ ensureCompleteFooter();
  if("requestIdleCallback" in window)window.requestIdleCallback(()=>boot(),{timeout:3000});
  else window.setTimeout(boot,1200);
 }
