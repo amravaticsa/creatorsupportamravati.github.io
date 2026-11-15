@@ -25,12 +25,38 @@ async function user(req,env,roles){
  if(!roles.includes(u.role))throw Error("Role is not permitted.");
  return u;
 }
-async function log(env,actor,action,type,entity,meta={}){
+async function hmacHex(secret,message){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(message)));return [...sig].map(x=>x.toString(16).padStart(2,"0")).join("");}\nfunction constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length)return false;let v=0;for(let i=0;i<a.length;i++)v|=a.charCodeAt(i)^b.charCodeAt(i);return v===0;}\nasync function log(env,actor,action,type,entity,meta={}){
  await env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,?,?,?,?)").bind(uid("log"),actor,action,type,entity,JSON.stringify(meta)).run();
 }
 async function handle(req,env){
  const u=new URL(req.url),p=u.pathname.replace(/\/$/,""),m=req.method;
- if(m==="GET"&&p==="/health")return out({ok:true,service:"CSA Global API",status:"healthy",payments:"disabled_until_provider_setup"});
+ if(m==="GET"&&p==="/health")return out({ok:true,service:"CSA Global API",status:"healthy",google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
+ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
+ if(m==="POST"&&p==="/v1/auth/google"){
+  const b=await req.json(),role=b.role,credential=txt(b.credential,10000),nonce=txt(b.nonce,200);
+  if(!credential||!nonce||!["client","editor"].includes(role))return bad("Google credential, login nonce and account type are required.");
+  const c=await claims(new Request(req.url,{headers:{Authorization:"Bearer "+credential}}),env);
+  if(c.nonce!==nonce)return bad("Google login nonce validation failed. Please retry sign-in.",401,"nonce_invalid");
+  const old=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=?").bind(c.sub).first();
+  if(old){
+   if(old.role!==role)return bad("This Google account is already registered under a different account type. Please use the existing account type.",409,"role_conflict");
+   return out({ok:true,user_id:old.id,role:old.role,status:old.account_status,email:old.email});
+  }
+  const byEmail=await env.DB.prepare("SELECT id,role,auth_subject FROM users WHERE email=? COLLATE NOCASE").bind(c.email).first();
+  if(byEmail)return bad("This email already has an account. Contact CSA support to securely link Google sign-in.",409,"email_exists");
+  const profile=b.profile||{},name=txt(profile.display_name,120)||txt(c.name,120)||txt(c.email,254).split("@")[0],newId=uid("usr");
+  if(role==="client"){
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
+   await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
+  }else{
+   const country=txt(profile.country,100),portfolio=txt(profile.portfolio_url,500),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
+   if(!country||!portfolio||!skills.length)return bad("Editor country, portfolio URL and at least one specialization are required.");
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
+   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),portfolio,txt(profile.sample_url,500)||null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
+  }
+  await log(env,newId,"google_account_registered",role,newId,{email_domain:c.email.split("@")[1]});
+  return out({ok:true,user_id:newId,role,status:role==="editor"?"pending":"active",email:c.email},201);
+ }
  if(m==="POST"&&p==="/v1/onboarding/editor"){
   const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),country=txt(b.country,100);
   if(!name||!country||!Array.isArray(b.specializations)||!b.specializations.length||!txt(b.portfolio_url,500))return bad("Name, country, specializations and portfolio are required.");
