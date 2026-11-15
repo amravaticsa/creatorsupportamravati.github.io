@@ -105,6 +105,16 @@ async function handle(req,env){
   await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
   return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
  }
+ const projectFiles=p.match(/^\\/v1\\/projects\\/([\\w-]+)\\/files$/);
+ if(m==="GET"&&projectFiles){
+  const a=await user(req,env,["client","editor","admin","staff"]),project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectFiles[1]).first();
+  if(!project)return bad("Project not found.",404);
+  let allowed=a.role==="admin"||a.role==="staff"||a.id===project.client_id;
+  if(a.role==="editor"){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(project.id,a.id).first();allowed=!!assignment;}
+  if(!allowed)return bad("You cannot view files for this project.",403);
+  const r=await env.DB.prepare("SELECT id,original_filename,mime_type,size_bytes,created_at FROM project_files WHERE project_id=? ORDER BY created_at ASC").bind(project.id).all();
+  return out({ok:true,files:r.results||[]});
+ }
  const deliver=p.match(/^\/v1\/client\/projects\/([\w-]+)\/deliverables$/);
  if(m==="GET"&&deliver){
   const a=await user(req,env,["client"]),project=await env.DB.prepare("SELECT id FROM projects WHERE id=? AND client_id=?").bind(deliver[1],a.id).first();
