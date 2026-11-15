@@ -1,8 +1,8 @@
 const ORIGIN = "https://creatorsupportamravati.in";
-const PART = 8 * 1024 * 1024;
+const PART = 16 * 1024 * 1024;
 const MAX = 100 * 1024 * 1024 * 1024;
 const STATUSES = ["Order Received","Files Under Review","Editing in Progress","Preview Ready","Revision Requested","Final Editing","Completed – Download Available","On Hold","Cancelled"];
-const CORS = {"access-control-allow-origin":ORIGIN,"access-control-allow-methods":"GET,POST,PUT,PATCH,OPTIONS","access-control-allow-headers":"Content-Type,Authorization","cache-control":"no-store","vary":"Origin"};
+const CORS = {"access-control-allow-origin":ORIGIN,"access-control-allow-methods":"GET,POST,PUT,PATCH,OPTIONS","access-control-allow-headers":"Content-Type,Authorization,X-Part-Number","cache-control":"no-store","vary":"Origin"};
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{...CORS,"content-type":"application/json"}});
 const bearer=r=>(r.headers.get("authorization")||"").replace(/^Bearer\\s+/i,"");
 const digest=async s=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s))),b=>b.toString(16).padStart(2,"0")).join("");
@@ -38,12 +38,12 @@ export default {async fetch(req,env){
    const a=await customer(env,p[2],req);if(!a)return json({error:"Unauthorized"},401);const order=await env.CSA_VIDEO_DB.prepare("SELECT id,order_code FROM video_editing_orders WHERE id=?").bind(a.id).first();return json({ok:true,...await beginUpload(env,order,await req.json(),"raw","customer")},201);
   }
   if(p[0]==="api"&&p[1]==="uploads"&&p.length===3&&req.method==="PUT"){
-   const f=await env.CSA_VIDEO_DB.prepare("SELECT f.*,o.customer_access_hash FROM video_editing_files f JOIN video_editing_orders o ON o.id=f.order_id WHERE f.id=?").bind(p[2]).first();if(!f||f.upload_state!=="uploading"||f.uploaded_by!=="customer")return json({error:"Upload not found"},404);const t=bearer(req);if(!t||await digest(t)!==f.customer_access_hash)return json({error:"Unauthorized"},401);
+   const f=await env.CSA_VIDEO_DB.prepare("SELECT f.*,o.customer_access_hash FROM video_editing_files f JOIN video_editing_orders o ON o.id=f.order_id WHERE f.id=?").bind(p[2]).first();if(!f||f.upload_state!=="uploading")return json({error:"Upload not found"},404);const t=bearer(req),adm=await isAdmin(req,env);if(f.uploaded_by==="customer"){if(!t||await digest(t)!==f.customer_access_hash)return json({error:"Unauthorized"},401);}else if(!adm)return json({error:"Unauthorized"},401);
    const n=Number(req.headers.get("x-part-number")),body=await req.arrayBuffer();if(!Number.isInteger(n)||n<1||n>Math.ceil(f.file_size_bytes/PART)||body.byteLength<1||body.byteLength>PART)return json({error:"Invalid part"},400);
    const mp=env.CSA_VIDEO_BUCKET.resumeMultipartUpload(f.object_key,f.multipart_upload_id),r=await mp.uploadPart(n,body);await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_upload_parts (id,file_id,part_number,etag) VALUES (?,?,?,?) ON CONFLICT(file_id,part_number) DO UPDATE SET etag=excluded.etag").bind(crypto.randomUUID(),f.id,n,r.etag).run();return json({ok:true,partNumber:n,etag:r.etag});
   }
   if(p[0]==="api"&&p[1]==="uploads"&&p.length===3&&req.method==="POST"){
-   const f=await env.CSA_VIDEO_DB.prepare("SELECT f.*,o.customer_access_hash FROM video_editing_files f JOIN video_editing_orders o ON o.id=f.order_id WHERE f.id=?").bind(p[2]).first();if(!f||f.upload_state!=="uploading"||f.uploaded_by!=="customer")return json({error:"Upload not found"},404);const t=bearer(req);if(!t||await digest(t)!==f.customer_access_hash)return json({error:"Unauthorized"},401);
+   const f=await env.CSA_VIDEO_DB.prepare("SELECT f.*,o.customer_access_hash FROM video_editing_files f JOIN video_editing_orders o ON o.id=f.order_id WHERE f.id=?").bind(p[2]).first();if(!f||f.upload_state!=="uploading")return json({error:"Upload not found"},404);const t=bearer(req),adm=await isAdmin(req,env);if(f.uploaded_by==="customer"){if(!t||await digest(t)!==f.customer_access_hash)return json({error:"Unauthorized"},401);}else if(!adm)return json({error:"Unauthorized"},401);
    const r=await env.CSA_VIDEO_DB.prepare("SELECT part_number,etag FROM video_editing_upload_parts WHERE file_id=? ORDER BY part_number").bind(f.id).all(),total=Math.ceil(f.file_size_bytes/PART);if((r.results||[]).length!==total)return json({error:"Upload incomplete",received:(r.results||[]).length,expected:total},400);
    const mp=env.CSA_VIDEO_BUCKET.resumeMultipartUpload(f.object_key,f.multipart_upload_id);await mp.complete(r.results.map(x=>({partNumber:x.part_number,etag:x.etag})));await env.CSA_VIDEO_DB.prepare("UPDATE video_editing_files SET upload_state='complete',multipart_upload_id=NULL WHERE id=?").bind(f.id).run();return json({ok:true,fileId:f.id,status:"complete"});
   }
