@@ -105,6 +105,50 @@ async function handle(req,env){
   await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
   return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
  }
+ if(m==="GET"&&p==="/v1/editor/assignments"){
+  const a=await user(req,env,["editor"]);
+  const r=await env.DB.prepare("SELECT a.id,a.project_id,a.due_at,a.status,p.public_project_code,p.title,p.category,p.brief,o.delivery_days FROM assignments a JOIN projects p ON p.id=a.project_id JOIN project_offers o ON o.id=a.offer_id WHERE a.editor_id=? AND a.status IN ('active','submitted','quality_check','revision') ORDER BY a.due_at ASC").bind(a.id).all();
+  return out({ok:true,assignments:r.results||[]});
+ }
+ if(m==="PUT"&&p.startsWith("/v1/assignments/")&&p.endsWith("/submissions")){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const assignmentId=p.split("/")[3],a=await user(req,env,["editor"]);
+  const assignment=await env.DB.prepare("SELECT id,project_id,status FROM assignments WHERE id=? AND editor_id=? AND status IN ('active','revision')").bind(assignmentId,a.id).first();
+  if(!assignment)return bad("Assignment is not active for this editor.",403);
+  const size=Number(req.headers.get("content-length")||0),mime=txt(req.headers.get("content-type"),100).split(";")[0].toLowerCase();
+  if(!size||size>90*1024*1024)return bad("Submission must be 90 MB or smaller in this staging uploader.",413);
+  const allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
+  if(!allowed.includes(mime))return bad("Submission file type is not allowed.",415);
+  const last=await env.DB.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM work_submissions WHERE assignment_id=?").bind(assignmentId).first(),version=Number(last.n)+1;
+  const rawName=txt(req.headers.get("x-file-name"),180)||"submission.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"submission.bin",submissionId=uid("sub"),key="assignments/"+assignmentId+"/submissions/"+version+"/"+submissionId+"/"+name;
+  await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  await env.DB.batch([
+   env.DB.prepare("INSERT INTO work_submissions(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status) VALUES(?,?,?,?,?,?,'pending')").bind(submissionId,assignmentId,a.id,key,version,txt(req.headers.get("x-submission-notes"),2000)||null),
+   env.DB.prepare("UPDATE assignments SET status='submitted' WHERE id=?").bind(assignmentId),
+   env.DB.prepare("UPDATE projects SET status='quality_check',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(assignment.project_id)
+  ]);
+  await log(env,a.id,"work_submission_uploaded","submission",submissionId,{assignment_id:assignmentId,version});
+  return out({ok:true,submission_id:submissionId,version,status:"pending_quality_check"},201);
+ }
+ if(m==="GET"&&p==="/v1/admin/submissions/pending"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' ORDER BY s.submitted_at ASC LIMIT 100").all();
+  return out({ok:true,submissions:r.results||[]});
+ }
+ const qc=p.match(/^\\/v1\\/admin\\/submissions\\/([\\w-]+)\\/review$/);
+ if(m==="POST"&&qc){
+  const a=await user(req,env,["admin"]),b=await req.json(),status=b.status;
+  if(!["approved","changes_requested","rejected"].includes(status))return bad("Invalid QC decision.");
+  const sub=await env.DB.prepare("SELECT s.id,s.assignment_id,a.project_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=? AND s.qc_status='pending'").bind(qc[1]).first();
+  if(!sub)return bad("Submission is not awaiting QC.",409);
+  await env.DB.batch([
+   env.DB.prepare("UPDATE work_submissions SET qc_status=? WHERE id=?").bind(status,qc[1]),
+   env.DB.prepare("UPDATE assignments SET status=? WHERE id=?").bind(status==="approved"?"approved":status==="changes_requested"?"revision":"active",sub.assignment_id),
+   env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(status==="approved"?"client_review":status==="changes_requested"?"revision":"in_progress",status==="approved"?"reviewing":"in_progress",sub.project_id)
+  ]);
+  await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
+  return out({ok:true,status});
+ }
  const fileMatch=p.match(/^\\/v1\\/files\\/([\\w-]+)$/);
  if(m==="GET"&&fileMatch){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
