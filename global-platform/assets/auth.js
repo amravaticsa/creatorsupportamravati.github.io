@@ -27,7 +27,7 @@ async function onGoogleCredential(response){
   experience_level:$("exp").value,software:$("software").value.split(",").map(x=>x.trim()).filter(Boolean),
   specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),
   portfolio_url:$("portfolio").value.trim(),sample_url:$("sample").value.trim(),bio:$("bio").value.trim(),availability:"project-based"
- }:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
+ }:role.value==="admin"?{}:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
  if(isEditor&&(!profile.country||!profile.portfolio_url||!profile.specializations.length)){status.textContent="Editor ke liye Country, Specializations aur Portfolio URL required hain. Form complete karke dobara Google sign-in karein.";return;}
  try{
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
