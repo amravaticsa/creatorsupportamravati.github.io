@@ -4,7 +4,7 @@ const MAX = 100 * 1024 * 1024 * 1024;
 const STATUSES = ["Order Received","Files Under Review","Editing in Progress","Preview Ready","Revision Requested","Final Editing","Completed – Download Available","On Hold","Cancelled"];
 const CORS = {"access-control-allow-origin":ORIGIN,"access-control-allow-methods":"GET,POST,PUT,PATCH,OPTIONS","access-control-allow-headers":"Content-Type,Authorization,X-Part-Number","cache-control":"no-store","vary":"Origin"};
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{...CORS,"content-type":"application/json"}});
-const bearer=r=>(r.headers.get("authorization")||"").replace(/^Bearer\\s+/i,"");
+const bearer=r=>(r.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");
 const digest=async s=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s))),b=>b.toString(16).padStart(2,"0")).join("");
 const random=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),b=>b.toString(16).padStart(2,"0")).join("");
 const clean=(v,n=1000)=>String(v??"").trim().slice(0,n);
@@ -21,7 +21,7 @@ export default {async fetch(req,env){
  try{
   if(u.pathname==="/api/orders"&&req.method==="POST"){
    const b=await req.json(),name=clean(b.name,100),email=clean(b.email,160).toLowerCase(),phone=clean(b.phone,30);
-   if(name.length<2||!/^\\S+@\\S+\\.\\S+$/.test(email)||phone.replace(/\\D/g,"").length<7)return json({error:"Enter valid name, email and phone."},400);
+   if(name.length<2||!/^\S+@\S+\.\S+$/.test(email)||phone.replace(/\D/g,"").length<7)return json({error:"Enter valid name, email and phone."},400);
    const id=crypto.randomUUID(),orderCode="CSA-VE-"+random(4).toUpperCase(),accessToken=random(32);
    await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_orders (id,order_code,customer_name,customer_email,customer_phone,country,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,currency,payment_status,order_status,customer_access_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,'INR','quote_pending','Order Received',?)").bind(id,orderCode,name,email,phone,clean(b.country,80),clean(b.package,100),clean(b.projectType,100),clean(b.duration,60),clean(b.aspectRatio,30),clean(b.deadline,60),clean(b.instructions,3000),await digest(accessToken)).run();
    await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_status_history (id,order_id,old_status,new_status,note,changed_by) VALUES (?,?,NULL,'Order Received','Order created by customer','customer')").bind(crypto.randomUUID(),id).run();
