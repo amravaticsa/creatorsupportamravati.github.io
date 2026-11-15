@@ -12,7 +12,7 @@
     document.head.appendChild(css);
   }
 
-  const currentPath = location.pathname.replace(/^\\//, '');
+  const currentPath = location.pathname.replace(/^\//, '');
   const title = (article.querySelector('.article-title')?.textContent || document.title).toLowerCase();
   const bodyText = (article.innerText || '').toLowerCase();
   const stop = new Set(['about','after','also','amravati','and','are','before','best','can','content','from','guide','how','into','india','its','more','need','our','that','the','their','this','tips','video','with','your','you']);
@@ -47,7 +47,7 @@
     a.href = item.href;
     if (item.image && !compact) {
       const img = document.createElement('img');
-      img.src = item.image.startsWith('http') ? item.image : '../' + item.image.replace(/^\\.\\//, '');
+      img.src = item.image.startsWith('http') ? item.image : '../' + item.image.replace(/^\.\//, '');
       img.alt = '';
       img.loading = 'lazy';
       a.append(img);
@@ -86,7 +86,7 @@
           description: card.querySelector('p')?.textContent.trim() || '',
           image: image?.getAttribute('src') || ''
         } : null;
-      }).filter(Boolean).filter(item => item.href.replace(/^\\//, '') !== currentPath);
+      }).filter(Boolean).filter(item => item.href.replace(/^\//, '') !== currentPath);
 
       const score = item => {
         const words = (item.title + ' ' + item.description).toLowerCase().match(/[a-z]{3,}/g) || [];
