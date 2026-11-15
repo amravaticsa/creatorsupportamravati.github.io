@@ -28,6 +28,7 @@ jobs:
           test -s global-platform/client-project.html
           test -s global-platform/editor-register.html
           test -s global-platform/admin-preview.html
+          test -s global-platform/admin-login.html
           test -s global-platform/login.html
           test -s global-platform/portal.html
           test -s global-platform/assets/auth.js
