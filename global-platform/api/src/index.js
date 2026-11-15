@@ -102,7 +102,68 @@ async function handle(req,env){
   await log(env,a.id,"project_terms_accepted","offer",tm[1],{agreement_version_id:ag.id});return out({ok:true,next_step:"security_deposit_payment"});
  }
  const pay=p.match(/^\/v1\/offers\/([\w-]+)\/deposit\/checkout$/);
- if(m==="POST"&&pay){await user(req,env,["editor"]);return bad("Payment provider is not configured. No money has been collected. Enable checkout only after provider, legal and cross-border approval.",503,"payment_not_configured");}
+ if(m==="POST"&&p.startsWith("/v1/offers/")&&p.endsWith("/deposit/checkout")){
+  const offerId=p.split("/")[3],a=await user(req,env,["editor"]);
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay API keys are not configured in Cloudflare secrets.",503,"razorpay_not_configured");
+  const offer=await env.DB.prepare("SELECT o.id,o.project_id,o.status,o.deposit_amount_minor,o.deposit_currency,p.title FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.id=? AND o.editor_id=?").bind(offerId,a.id).first();
+  if(!offer||!["terms_accepted_pending_deposit","deposit_pending"].includes(offer.status))return bad("Accept the offer and project agreement before paying the deposit.",409);
+  if(!Number.isSafeInteger(offer.deposit_amount_minor)||offer.deposit_amount_minor<=0)return bad("Invalid deposit amount.",409);
+  const idem="editor-deposit:"+offer.id,prior=await env.DB.prepare("SELECT id,provider_order_id,amount_minor,currency,status FROM payments WHERE idempotency_key=?").bind(idem).first();
+  if(prior?.provider_order_id)return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:prior.provider_order_id,amount:prior.amount_minor,currency:prior.currency,payment_id:prior.id,checkout_name:"CSA Global",description:"Project-specific editor security deposit"});
+  const orderRes=await fetch("https://api.razorpay.com/v1/orders",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"content-type":"application/json"},body:JSON.stringify({amount:offer.deposit_amount_minor,currency:offer.deposit_currency,receipt:offer.id.slice(0,40),notes:{offer_id:offer.id,project_id:offer.project_id,payment_type:"editor_security_deposit"}})});
+  const order=await orderRes.json();
+  if(!orderRes.ok||!order.id||order.amount!==offer.deposit_amount_minor||order.currency!==offer.deposit_currency)return bad("Razorpay order creation failed or amount/currency mismatch.",502,"razorpay_order_failed");
+  const paymentId=uid("pay");
+  await env.DB.prepare("INSERT INTO payments(id,user_id,project_id,offer_id,payment_type,amount_minor,currency,provider,provider_order_id,idempotency_key,status) VALUES(?,?,?,?, 'editor_security_deposit',?,?, 'razorpay',?,?, 'created')").bind(paymentId,a.id,offer.project_id,offer.id,offer.deposit_amount_minor,offer.deposit_currency,order.id,idem).run();
+  await env.DB.prepare("UPDATE project_offers SET status='deposit_pending' WHERE id=?").bind(offer.id).run();
+  await log(env,a.id,"razorpay_deposit_order_created","payment",paymentId,{offer_id:offer.id});
+  return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:order.id,amount:order.amount,currency:order.currency,payment_id:paymentId,checkout_name:"CSA Global",description:"Project-specific editor security deposit"},201);
+ }
+ if(m==="POST"&&p==="/v1/payments/razorpay/verify"){
+  const a=await user(req,env,["editor"]),b=await req.json(),orderId=txt(b.razorpay_order_id,100),paymentId=txt(b.razorpay_payment_id,100),signature=txt(b.razorpay_signature,200);
+  if(!orderId||!paymentId||!signature||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID)return bad("Payment verification details or Razorpay keys are missing.",503);
+  const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND user_id=? AND payment_type='editor_security_deposit'").bind(orderId,a.id).first();
+  if(!record)return bad("Payment order does not belong to this editor.",404);
+  const expected=await hmacHex(env.RAZORPAY_KEY_SECRET,orderId+"|"+paymentId);
+  if(!constantTime(expected,signature))return bad("Razorpay payment signature did not match.",400,"signature_invalid");
+  const pr=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(paymentId),{headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET)}});
+  const payment=await pr.json();
+  if(!pr.ok||payment.order_id!==orderId||payment.amount!==record.amount_minor||payment.currency!==record.currency||payment.status!=="captured")return bad("Razorpay has not confirmed a captured payment. Assignment remains locked.",409,"payment_not_captured");
+  if(record.status!=="succeeded"){
+   await env.DB.batch([
+    env.DB.prepare("UPDATE payments SET provider_payment_id=?,status='succeeded',verified_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(paymentId,record.id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),a.id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay captured payment",a.id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_locked',?,?,?,?)").bind(uid("dep"),a.id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Locked to project pending CSA release/refund decision",a.id),
+    env.DB.prepare("UPDATE project_offers SET status='ready_for_assignment' WHERE id=? AND status='deposit_pending'").bind(record.offer_id)
+   ]);
+   await log(env,a.id,"razorpay_deposit_verified","payment",record.id,{provider_payment_id:paymentId});
+  }
+  return out({ok:true,status:"captured",next_step:"await_csa_assignment"});
+ }
+ if(m==="POST"&&p==="/v1/webhooks/razorpay"){
+  if(!env.RAZORPAY_WEBHOOK_SECRET)return bad("Razorpay webhook secret is not configured.",503);
+  const raw=await req.text(),sig=req.headers.get("x-razorpay-signature")||"",eventId=req.headers.get("x-razorpay-event-id")||"";
+  if(!sig||!eventId||!constantTime(await hmacHex(env.RAZORPAY_WEBHOOK_SECRET,raw),sig))return bad("Webhook signature verification failed.",401,"webhook_signature_invalid");
+  const body=JSON.parse(raw),event=txt(body.event,100),entity=body.payload?.payment?.entity||body.payload?.order?.entity,orderId=entity?.order_id||entity?.id;
+  if(!orderId)return out({ok:true,ignored:true});
+  const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND provider='razorpay'").bind(orderId).first();
+  if(!record)return out({ok:true,ignored:true});
+  try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,record.id,JSON.stringify({event,order_id:orderId,provider_payment_id:entity.id||null})).run();}
+  catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
+  if(event==="payment.captured"||event==="order.paid"){
+   const pid=entity.id||record.provider_payment_id;
+   if(event==="payment.captured"&&(!pid||entity.status!=="captured"||entity.amount!==record.amount_minor||entity.currency!==record.currency))return bad("Captured webhook amount or currency mismatch.",409);
+   await env.DB.batch([
+    env.DB.prepare("UPDATE payments SET provider_payment_id=COALESCE(provider_payment_id,?),status='succeeded',verified_at=COALESCE(verified_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pid,record.id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay webhook captured payment",record.user_id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_locked',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Locked to project pending CSA release/refund decision",record.user_id),
+    env.DB.prepare("UPDATE project_offers SET status='ready_for_assignment' WHERE id=? AND status='deposit_pending'").bind(record.offer_id)
+   ]);
+  }else if(event==="payment.failed"){
+   await env.DB.prepare("UPDATE payments SET status='failed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(record.id).run();
+  }
+  return out({ok:true,processed:true});
+ }
  if(m==="GET"&&p==="/v1/admin/overview"){
   await user(req,env,["admin","staff"]);
   const q=await env.DB.batch([env.DB.prepare("SELECT COUNT(*) n FROM projects WHERE status IN ('submitted','under_review','matching')"),env.DB.prepare("SELECT COUNT(*) n FROM users WHERE role='editor' AND account_status='pending'"),env.DB.prepare("SELECT COUNT(*) n FROM assignments WHERE status IN ('active','submitted','quality_check','revision')"),env.DB.prepare("SELECT COUNT(*) n FROM project_disputes WHERE status IN ('open','under_review')")]);
