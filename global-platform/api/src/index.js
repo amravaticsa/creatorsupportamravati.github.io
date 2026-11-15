@@ -83,6 +83,11 @@ async function handle(req,env){
   await log(env,a.id,"project_submitted","project",pid);
   return out({ok:true,project_id:pid,project_code:code,status:"submitted"},201);
  }
+ if(m==="GET"&&p==="/v1/editor/agreements"){
+  await user(req,env,["editor"]);
+  const r=await env.DB.prepare("SELECT id,version,title,body_markdown FROM agreement_versions WHERE agreement_type='project_specific' AND active=1 ORDER BY created_at DESC").all();
+  return out({ok:true,agreements:r.results||[]});
+ }
  if(m==="GET"&&p==="/v1/editor/offers"){
   const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT o.id,o.offer_message,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.offer_expires_at,o.status,p.public_project_code,p.title,p.category,p.brief,p.preferred_deadline,p.revisions_included FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.editor_id=? AND o.status IN ('offered','accepted_pending_terms','terms_accepted_pending_deposit') ORDER BY o.created_at DESC").bind(a.id).all();
   return out({ok:true,offers:r.results||[]});
