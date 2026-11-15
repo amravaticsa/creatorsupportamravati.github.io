@@ -9,8 +9,8 @@ const statusList=["Order Received","Files Under Review","Editing in Progress","P
 let currentOrder=null;
 let currentToken=null;
 let adminToken=null;
-let latestOrders=[];
-function saveAccess(code,token){try{localStorage.setItem("csa_video_order_"+code,token);}catch(e){}}
+let latestOrders=[];\ntry{const last=localStorage.getItem("csa_video_last_order");if(last){$("trackForm").elements.orderCode.value=last;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+last)||"";}}catch(e){}
+function saveAccess(code,token){try{localStorage.setItem("csa_video_order_"+code,token);localStorage.setItem("csa_video_last_order",code);}catch(e){}}
 async function api(path,options={}){const r=await fetch(API+path,options);let data={};try{data=await r.json();}catch(e){}if(!r.ok)throw Error(data.error||("Request failed ("+r.status+")"));return data;}
 $("orderForm").addEventListener("submit",async e=>{
  e.preventDefault();const form=e.currentTarget,btn=$("createOrderBtn"),msg=$("orderMessage");btn.disabled=true;hide(msg);
