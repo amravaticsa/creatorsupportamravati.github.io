@@ -193,6 +193,11 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,status,created_at FROM projects WHERE status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY created_at DESC LIMIT 100").all();
   return out({ok:true,projects:r.results||[]});
  }
+ if(m==="GET"&&p==="/v1/admin/editors/verified"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.display_name,e.country,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND u.account_status='active' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
+  return out({ok:true,editors:r.results||[]});
+ }
  if(m==="GET"&&p==="/v1/admin/editors/pending"){
   await user(req,env,["admin","staff"]);
   const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.country,e.city,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
