@@ -653,3 +653,30 @@ main.container.section > article.article-pro > article.article{
 .blog-grid .blog-card:first-child .meta:before{content:"EDITOR'S PICK";display:block;margin-bottom:10px;color:#a0aab2;font-size:9px;letter-spacing:1.5px}
 @media(max-width:900px){.blog-masthead{padding:58px 0}.blog-masthead-inner{gap:20px}.blog-masthead-copy h1{font-size:52px}.cards.blog-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.blog-grid .blog-card:first-child{grid-column:span 2!important}}
 @media(max-width:650px){.blog-masthead{padding:48px 0 40px}.blog-masthead-inner{grid-template-columns:1fr;gap:10px}.blog-masthead-copy h1{font-size:44px;letter-spacing:-1.8px}.blog-masthead-copy>p{font-size:15px}.blog-trust-line{gap:8px 14px;font-size:10px}.blog-masthead-art{min-height:230px;margin-top:0}.blog-art-card{width:260px;height:175px;padding:18px 21px}.blog-art-mark{font-size:68px}.blog-art-orbit.orbit-one{width:290px;height:130px}.blog-art-orbit.orbit-two{width:240px;height:190px}.chip-top{right:4px;top:10px}.chip-bottom{left:4px;bottom:8px}.blog-home-section{padding-top:36px!important}.blog-intro-row{display:block}.blog-intro-note{margin-top:18px;max-width:none}.blog-toolbar{display:block;margin-top:25px}.blog-controls{display:grid;grid-template-columns:1fr;gap:9px;margin-top:14px}.blog-search{min-width:0;width:100%;box-sizing:border-box}.blog-controls select{width:100%}.cards.blog-grid{grid-template-columns:1fr!important;gap:16px!important}.blog-grid .blog-card:first-child{grid-column:auto!important;display:flex!important;min-height:0!important}.blog-grid .blog-card:first-child .blog-cover{height:auto!important;min-height:0!important;aspect-ratio:16/9!important}.blog-grid .blog-card:first-child .blog-card-body{padding:19px 20px!important}.blog-grid .blog-card:first-child h3{font-size:18px!important}}
+
+
+/* CSA article recommendations */
+.csa-article-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:28px;align-items:start}
+.csa-article-layout>.article{min-width:0}
+.csa-suggested-sidebar{position:sticky;top:100px;background:#fff;border:1px solid #e6eaf0;border-radius:14px;padding:20px;box-shadow:0 12px 34px rgba(16,27,53,.07)}
+.csa-suggested-sidebar h2{font-size:19px;line-height:1.3;margin:0 0 14px;color:#101b35}
+.csa-suggested-list{display:grid;gap:0}
+.csa-suggested-item{display:grid;grid-template-columns:minmax(0,1fr) 20px;gap:8px;align-items:center;padding:13px 0;border-top:1px solid #edf0f4;color:#172033}
+.csa-suggested-item:first-child{border-top:0;padding-top:0}
+.csa-suggested-item strong{display:block;font-size:13px;line-height:1.45}
+.csa-suggested-arrow{color:#a87518;font-weight:800}
+.csa-suggested-item:hover strong,.csa-related-card:hover strong{color:#9b6b13}
+.csa-related-blogs{padding:36px 0 12px}
+.csa-related-heading{margin-bottom:18px}
+.csa-related-heading>span{font-size:11px;letter-spacing:.14em;font-weight:850;color:#9b6b13}
+.csa-related-heading h2{font-size:28px;line-height:1.2;margin:5px 0;color:#101b35}
+.csa-related-heading p{color:#667085;margin:0;font-size:14px}
+.csa-related-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.csa-related-card{display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid #e6eaf0;border-radius:13px;box-shadow:0 8px 24px rgba(16,27,53,.06);color:#172033;transition:transform .2s,box-shadow .2s}
+.csa-related-card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(16,27,53,.1)}
+.csa-related-card>img{display:block;width:100%;height:140px;object-fit:cover}
+.csa-recommendation-copy{display:block;padding:15px}
+.csa-recommendation-copy strong{display:block;font-size:15px;line-height:1.4}
+.csa-recommendation-copy small{display:block;margin-top:7px;color:#667085;font-size:12px;line-height:1.5}
+@media(max-width:900px){.csa-article-layout{grid-template-columns:minmax(0,1fr) 250px;gap:18px}.csa-suggested-sidebar{padding:16px}}
+@media(max-width:680px){.csa-article-layout{grid-template-columns:1fr}.csa-suggested-sidebar{position:static}.csa-suggested-list{grid-template-columns:1fr}.csa-related-grid{grid-template-columns:1fr}.csa-related-card{display:grid;grid-template-columns:112px minmax(0,1fr);flex-direction:row;align-items:center}.csa-related-card>img{height:100%;min-height:100px}.csa-recommendation-copy{padding:12px}.csa-related-heading h2{font-size:24px}}
