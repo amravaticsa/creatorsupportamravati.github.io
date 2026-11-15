@@ -105,6 +105,13 @@ async function handle(req,env){
   await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
   return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
  }
+ const deliver=p.match(/^\\/v1\\/client\\/projects\\/([\\w-]+)\\/deliverables$/);
+ if(m==="GET"&&deliver){
+  const a=await user(req,env,["client"]),project=await env.DB.prepare("SELECT id FROM projects WHERE id=? AND client_id=?").bind(deliver[1],a.id).first();
+  if(!project)return bad("Project not found.",404);
+  const r=await env.DB.prepare("SELECT s.id,s.version_number,s.original_filename,s.mime_type,s.size_bytes,s.submitted_at FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=? AND s.qc_status='approved' ORDER BY s.version_number DESC").bind(project.id).all();
+  return out({ok:true,deliverables:r.results||[]});
+ }
  if(m==="GET"&&p==="/v1/editor/assignments"){
   const a=await user(req,env,["editor"]);
   const r=await env.DB.prepare("SELECT a.id,a.project_id,a.due_at,a.status,p.public_project_code,p.title,p.category,p.brief,o.delivery_days FROM assignments a JOIN projects p ON p.id=a.project_id JOIN project_offers o ON o.id=a.offer_id WHERE a.editor_id=? AND a.status IN ('active','submitted','quality_check','revision') ORDER BY a.due_at ASC").bind(a.id).all();
@@ -343,7 +350,7 @@ async function handle(req,env){
  return bad("Route not found.",404,"not_found");
 }
 export default {async fetch(req,env){
- const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name","access-control-max-age":"86400"};
+ const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes","access-control-max-age":"86400"};
  if(allowed.includes(origin))ch["access-control-allow-origin"]=origin;
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:ch});
  try{const r=await handle(req,env),h=new Headers(r.headers);Object.entries(ch).forEach(([k,v])=>h.set(k,v));return new Response(r.body,{status:r.status,headers:h});}
