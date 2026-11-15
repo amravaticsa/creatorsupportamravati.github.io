@@ -16,7 +16,7 @@ This directory is a front-end design foundation for the CSA Global managed editi
 - `editor-register.html`: free worldwide editor registration form.
 - `admin-preview.html`: illustrative internal dashboard.
 
-## Important implementation status
+## Cloudflare D1 foundation\n- Database created: `csa-global-platform`\n- Database UUID: `23462947-5ab9-41ea-a25a-0fac0e6349d7`\n- Primary location: APAC; read replication: automatic\n- Applied migrations: `0001_initial.sql` and `0002_editor_payout_and_disputes.sql`\n- Tables cover users, clients, editors, skills, portfolios, projects, files, offers, agreements, acceptances, payments, deposit ledger, assignments, milestones, submissions, revisions, messages, notifications, disputes and audit logs.\n- This database is separate from the existing `csa-orders` database.\n\n## Important implementation status
 These pages are static UI previews. Forms intentionally do not submit or persist data. Authentication, authorization, database, file storage, payment gateway, payment webhooks, email/WhatsApp notifications, legal agreement acceptance records and secure editor/client separation are NOT implemented.
 
 Do not collect real personal information, client footage, bank details or deposits through these preview pages.
