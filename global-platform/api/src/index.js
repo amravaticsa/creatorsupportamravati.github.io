@@ -105,7 +105,7 @@ async function handle(req,env){
   await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
   return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
  }
- const projectFiles=p.match(/^\\/v1\\/projects\\/([\\w-]+)\\/files$/);
+ const projectFiles=p.match(/^\/v1\/projects\/([\w-]+)\/files$/);
  if(m==="GET"&&projectFiles){
   const a=await user(req,env,["client","editor","admin","staff"]),project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectFiles[1]).first();
   if(!project)return bad("Project not found.",404);
