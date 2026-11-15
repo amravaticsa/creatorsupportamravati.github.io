@@ -573,3 +573,19 @@ main.container.section > article.article-pro .content-card{
   main.container.section > article.article table,
   main.container.section > article.article-pro table{display:block!important;overflow-x:auto!important}
 }
+
+
+/* Visible article headline, including legacy nested article markup */
+main.container.section > article.article .article-title,
+main.container.section > article.article-pro .article-title,
+main.container.section > article.article-pro > article.article .article-title{
+  display:block!important;margin:0 0 20px!important;
+  color:#142d43!important;font-size:clamp(30px,4vw,43px)!important;
+  line-height:1.16!important;letter-spacing:-1.1px!important;
+  font-weight:800!important;
+}
+main.container.section > article.article-pro > article.article{
+  margin:0!important;padding:0!important;border:0!important;
+  border-radius:0!important;box-shadow:none!important;background:transparent!important;
+  width:100%!important;max-width:none!important;
+}
