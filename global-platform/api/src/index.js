@@ -121,9 +121,10 @@ async function handle(req,env){
   if(!allowed.includes(mime))return bad("Submission file type is not allowed.",415);
   const last=await env.DB.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM work_submissions WHERE assignment_id=?").bind(assignmentId).first(),version=Number(last.n)+1;
   const rawName=txt(req.headers.get("x-file-name"),180)||"submission.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"submission.bin",submissionId=uid("sub"),key="assignments/"+assignmentId+"/submissions/"+version+"/"+submissionId+"/"+name;
-  await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  const saved=await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  if(saved.size>90*1024*1024){await env.MEDIA.delete(key);return bad("Submission exceeds the staging upload size limit.",413);}
   await env.DB.batch([
-   env.DB.prepare("INSERT INTO work_submissions(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status) VALUES(?,?,?,?,?,?,'pending')").bind(submissionId,assignmentId,a.id,key,version,txt(req.headers.get("x-submission-notes"),2000)||null),
+   env.DB.prepare("INSERT INTO work_submissions(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status,original_filename,mime_type,size_bytes) VALUES(?,?,?,?,?,?,'pending',?,?,?)").bind(submissionId,assignmentId,a.id,key,version,txt(req.headers.get("x-submission-notes"),2000)||null,name,mime,saved.size),
    env.DB.prepare("UPDATE assignments SET status='submitted' WHERE id=?").bind(assignmentId),
    env.DB.prepare("UPDATE projects SET status='quality_check',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(assignment.project_id)
   ]);
@@ -152,13 +153,16 @@ async function handle(req,env){
  const fileMatch=p.match(/^\\/v1\\/files\\/([\\w-]+)$/);
  if(m==="GET"&&fileMatch){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
-  const a=await user(req,env,["client","editor","admin","staff"]),file=await env.DB.prepare("SELECT f.*,p.client_id FROM project_files f JOIN projects p ON p.id=f.project_id WHERE f.id=?").bind(fileMatch[1]).first();
+  const a=await user(req,env,["client","editor","admin","staff"]);
+  let file=await env.DB.prepare("SELECT f.id,f.project_id,f.uploaded_by,f.r2_object_key,f.original_filename,f.mime_type,f.size_bytes,f.access_scope,p.client_id,'source' AS kind FROM project_files f JOIN projects p ON p.id=f.project_id WHERE f.id=?").bind(fileMatch[1]).first();
+  if(!file)file=await env.DB.prepare("SELECT s.id,a.project_id,s.submitted_by AS uploaded_by,s.r2_object_key,s.original_filename,s.mime_type,s.size_bytes,'admin_only' AS access_scope,p.client_id,'submission' AS kind,s.qc_status,a.editor_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id WHERE s.id=?").bind(fileMatch[1]).first();
   if(!file)return bad("File not found.",404);
   let allowed=a.role==="admin"||a.role==="staff"||a.id===file.client_id||a.id===file.uploaded_by;
   if(a.role==="editor"&&!allowed){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(file.project_id,a.id).first();allowed=!!assignment&&file.access_scope==="assigned_editor";}
+  if(a.role==="client"&&file.kind==="submission")allowed=allowed&&file.qc_status==="approved";
   if(!allowed)return bad("You do not have permission to access this file.",403);
   const object=await env.MEDIA.get(file.r2_object_key);if(!object)return bad("Stored object is missing.",404);
-  return new Response(object.body,{status:200,headers:{"content-type":file.mime_type||"application/octet-stream","content-length":String(file.size_bytes||object.size||0),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(file.original_filename),"x-content-type-options":"nosniff","cache-control":"private, no-store"}});
+  return new Response(object.body,{status:200,headers:{"content-type":file.mime_type||"application/octet-stream","content-length":String(file.size_bytes||object.size||0),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(file.original_filename||"download"),"x-content-type-options":"nosniff","cache-control":"private, no-store"}});
  }
  if(m==="POST"&&p==="/v1/projects"){
   const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
