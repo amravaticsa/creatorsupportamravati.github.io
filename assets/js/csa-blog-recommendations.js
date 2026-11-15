@@ -2,7 +2,23 @@
 (() => {
   const main = document.querySelector('main.container.section');
   const article = main && main.querySelector(':scope > article.article');
-  if (!main || !article) return;
+  const blogGrid = document.querySelector('.blog-grid');
+  if (!main) return;
+  if (!article && blogGrid) {
+    if (document.querySelector('.csa-blog-discovery')) return;
+    const cards = [...blogGrid.querySelectorAll('.blog-card')].map(card => {
+      const link=card.querySelector('a[href]'), heading=card.querySelector('h3'), img=card.querySelector('img');
+      return link&&heading?{href:new URL(link.getAttribute('href'),location.origin+'/').pathname,title:heading.textContent.trim(),image:img?.getAttribute('src')||'',category:card.querySelector('.meta')?.textContent.trim()||''}:null;
+    }).filter(Boolean);
+    if(!cards.length)return;
+    const section=document.createElement('section'); section.className='csa-blog-discovery';
+    section.innerHTML='<div class="csa-discovery-section"><div class="csa-related-heading"><span>EXPLORE MORE</span><h2>Suggested Blogs</h2><p>Hand-picked guides to help you create, publish and grow.</p></div><div class="csa-discovery-grid csa-suggested-grid"></div></div><div class="csa-discovery-section"><div class="csa-related-heading"><span>KEEP LEARNING</span><h2>Related Blogs</h2><p>More useful reads from the CSA knowledge hub.</p></div><div class="csa-discovery-grid csa-related-grid"></div></div>';
+    const make=(item)=>{const a=document.createElement('a');a.className='csa-discovery-card';a.href=item.href;if(item.image){const im=document.createElement('img');im.src=new URL(item.image,location.origin+'/').href;im.alt='';im.loading='lazy';a.append(im)}const copy=document.createElement('span');copy.className='csa-recommendation-copy';const cat=document.createElement('small');cat.textContent=item.category;const title=document.createElement('strong');title.textContent=item.title;copy.append(cat,title);a.append(copy);return a};
+    section.querySelector('.csa-suggested-grid').replaceChildren(...cards.slice(0,5).map(make));
+    section.querySelector('.csa-related-grid').replaceChildren(...cards.slice(5,8).map(make));
+    blogGrid.parentNode.insertBefore(section,blogGrid.nextSibling); return;
+  }
+  if (!article) return;
 
   if (!document.querySelector('link[data-csa-recommendation-css]')) {
     const css = document.createElement('link');
