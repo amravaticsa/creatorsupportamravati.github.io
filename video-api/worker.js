@@ -39,7 +39,7 @@ export default {async fetch(req,env){
   }
   if(p[0]==="api"&&p[1]==="uploads"&&p.length===3&&req.method==="PUT"){
    const f=await env.CSA_VIDEO_DB.prepare("SELECT f.*,o.customer_access_hash FROM video_editing_files f JOIN video_editing_orders o ON o.id=f.order_id WHERE f.id=?").bind(p[2]).first();if(!f||f.upload_state!=="uploading")return json({error:"Upload not found"},404);const t=bearer(req),adm=await isAdmin(req,env);if(f.uploaded_by==="customer"){if(!t||await digest(t)!==f.customer_access_hash)return json({error:"Unauthorized"},401);}else if(!adm)return json({error:"Unauthorized"},401);
-   const n=Number(req.headers.get("x-part-number")),body=await req.arrayBuffer();if(!Number.isInteger(n)||n<1||n>Math.ceil(f.file_size_bytes/PART)||body.byteLength<1||body.byteLength>PART)return json({error:"Invalid part"},400);
+   const n=Number(req.headers.get("x-part-number")),body=await req.arrayBuffer();const expected=Math.min(PART,f.file_size_bytes-(n-1)*PART);if(!Number.isInteger(n)||n<1||n>Math.ceil(f.file_size_bytes/PART)||body.byteLength!==expected)return json({error:"Invalid part size or number"},400);
    const mp=env.CSA_VIDEO_BUCKET.resumeMultipartUpload(f.object_key,f.multipart_upload_id),r=await mp.uploadPart(n,body);await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_upload_parts (id,file_id,part_number,etag) VALUES (?,?,?,?) ON CONFLICT(file_id,part_number) DO UPDATE SET etag=excluded.etag").bind(crypto.randomUUID(),f.id,n,r.etag).run();return json({ok:true,partNumber:n,etag:r.etag});
   }
   if(p[0]==="api"&&p[1]==="uploads"&&p.length===3&&req.method==="POST"){
