@@ -4,6 +4,14 @@
   const article = main && main.querySelector(':scope > article.article');
   if (!main || !article) return;
 
+  if (!document.querySelector('link[data-csa-recommendation-css]')) {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = '/assets/css/style.css?v=20261115-5';
+    css.dataset.csaRecommendationCss = '1';
+    document.head.appendChild(css);
+  }
+
   const currentPath = location.pathname.replace(/^\\//, '');
   const title = (article.querySelector('.article-title')?.textContent || document.title).toLowerCase();
   const bodyText = (article.innerText || '').toLowerCase();
