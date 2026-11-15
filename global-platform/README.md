@@ -16,7 +16,15 @@ This directory is a front-end design foundation for the CSA Global managed editi
 - `editor-register.html`: free worldwide editor registration form.
 - `admin-preview.html`: illustrative internal dashboard.
 
-## Cloudflare D1 foundation\n- Database created: `csa-global-platform`\n- Database UUID: `23462947-5ab9-41ea-a25a-0fac0e6349d7`\n- Primary location: APAC; read replication: automatic\n- Applied migrations: `0001_initial.sql` and `0002_editor_payout_and_disputes.sql`\n- Tables cover users, clients, editors, skills, portfolios, projects, files, offers, agreements, acceptances, payments, deposit ledger, assignments, milestones, submissions, revisions, messages, notifications, disputes and audit logs.\n- This database is separate from the existing `csa-orders` database.\n\n## Important implementation status
+## Cloudflare D1 foundation
+- Database created: `csa-global-platform`
+- Database UUID: `23462947-5ab9-41ea-a25a-0fac0e6349d7`
+- Primary location: APAC; read replication: automatic
+- Applied migrations: `0001_initial.sql` and `0002_editor_payout_and_disputes.sql`
+- Tables cover users, clients, editors, skills, portfolios, projects, files, offers, agreements, acceptances, payments, deposit ledger, assignments, milestones, submissions, revisions, messages, notifications, disputes and audit logs.
+- This database is separate from the existing `csa-orders` database.
+
+## Important implementation status
 These pages are static UI previews. Forms intentionally do not submit or persist data. Authentication, authorization, database, file storage, payment gateway, payment webhooks, email/WhatsApp notifications, legal agreement acceptance records and secure editor/client separation are NOT implemented.
 
 Do not collect real personal information, client footage, bank details or deposits through these preview pages.
@@ -40,3 +48,11 @@ Do not collect real personal information, client footage, bank details or deposi
 7. Deploy to staging, test end-to-end, then launch only after approval.
 
 No credentials, API keys or secrets belong in this repository.
+
+
+## Current staging build
+- API Worker: `csa-global-api` at `https://csa-global-api.creatorsupportamravati.workers.dev`
+- Separate D1 database with migrations 0001–0003 applied.
+- Google sign-in and Razorpay deposit routes are implemented in the staging Worker source; activation awaits client ID and Razorpay credentials.
+- Client/editor Google login page and authenticated portal source are in this development branch. The UI is not published to the main website.
+- Test-mode Razorpay is required before any live deposit collection.
