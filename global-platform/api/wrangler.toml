@@ -10,3 +10,7 @@ database_id = "23462947-5ab9-41ea-a25a-0fac0e6349d7"
 [vars]
 ENVIRONMENT = "staging"
 # Configure AUTH_JWKS_URL, AUTH_ISSUER, AUTH_AUDIENCE and ALLOWED_ORIGINS in Cloudflare.
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "csa-global-media-staging"
