@@ -302,3 +302,18 @@
 .article-pro .article-checklist li{margin:8px 0}
 .article-pro .article-disclaimer{font-size:13px;color:#718096;border-top:1px solid #e5eaf0;padding-top:15px}
 @media(max-width:680px){.article-pro{padding:20px 17px;font-size:16px}.article-pro .article-lead{font-size:17px}.article-pro .article-table{font-size:13px}.article-pro .article-table th,.article-pro .article-table td{padding:9px 8px}.article-pro .article-toc{padding:16px}}
+
+
+/* CSA Blog — consistent premium editorial card system */
+.blog-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;align-items:stretch;margin-top:30px}
+.blog-grid .blog-card{display:flex;flex-direction:column;min-width:0;height:100%;padding:0;overflow:hidden;border:1px solid #e4e9ef;border-radius:16px;background:#fff;box-shadow:0 8px 26px rgba(16,27,53,.065);transition:transform .22s ease,box-shadow .22s ease}
+.blog-grid .blog-card:hover{transform:translateY(-5px);box-shadow:0 16px 36px rgba(16,27,53,.12)}
+.blog-grid .blog-cover{display:block;width:100%;height:auto;aspect-ratio:16/9;max-height:none;object-fit:cover;background:#edf1f5;margin:0}
+.blog-grid .blog-card-body{display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:20px 21px 22px}
+.blog-grid .blog-card .meta{margin:0 0 10px;color:#087e70;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.blog-grid .blog-card h3{margin:0 0 10px;color:#172746;font-size:19px;line-height:1.38;letter-spacing:-.25px}
+.blog-grid .blog-card p{flex:1;margin:0 0 18px;color:#667085;font-size:14px;line-height:1.7}
+.blog-grid .blog-card .text-link{display:inline-flex;margin:0;padding-top:4px;color:#087e70;font-size:13px;font-weight:800}
+.blog-grid .blog-card .text-link:hover{text-decoration:underline;text-underline-offset:4px}
+@media(max-width:900px){.blog-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}}
+@media(max-width:600px){.blog-grid{grid-template-columns:1fr;gap:17px;margin-top:22px}.blog-grid .blog-card{border-radius:14px}.blog-grid .blog-card-body{padding:17px 18px 19px}.blog-grid .blog-card h3{font-size:18px}}
