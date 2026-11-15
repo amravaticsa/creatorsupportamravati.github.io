@@ -84,6 +84,38 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT id,public_project_code,title,category,budget_amount_minor,budget_currency,status,client_visible_status,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
   return out({ok:true,projects:r.results||[]});
  }
+ if(m==="PUT"&&p.startsWith("/v1/projects/")&&p.endsWith("/files")){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const projectId=p.split("/")[3],a=await user(req,env,["client","editor","admin"]);
+  const project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectId).first();
+  if(!project)return bad("Project not found.",404);
+  if(a.role==="client"&&project.client_id!==a.id)return bad("You cannot upload to this project.",403);
+  if(a.role==="editor"){
+   const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision')").bind(projectId,a.id).first();
+   if(!assignment)return bad("Only the assigned editor can upload to this project.",403);
+  }
+  const size=Number(req.headers.get("content-length")||0),mime=txt(req.headers.get("content-type"),100).split(";")[0].toLowerCase();
+  if(!size||size>90*1024*1024)return bad("File must include Content-Length and be 90 MB or smaller for this staging uploader.",413);
+  const allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
+  if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
+  const rawName=txt(req.headers.get("x-file-name"),180)||"upload.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
+  const fileId=uid("file"),key="projects/"+projectId+"/source/"+fileId+"/"+name;
+  await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(fileId,projectId,a.id,key,name,mime,size).run();
+  await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
+  return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
+ }
+ const fileMatch=p.match(/^\\/v1\\/files\\/([\\w-]+)$/);
+ if(m==="GET"&&fileMatch){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor","admin","staff"]),file=await env.DB.prepare("SELECT f.*,p.client_id FROM project_files f JOIN projects p ON p.id=f.project_id WHERE f.id=?").bind(fileMatch[1]).first();
+  if(!file)return bad("File not found.",404);
+  let allowed=a.role==="admin"||a.role==="staff"||a.id===file.client_id||a.id===file.uploaded_by;
+  if(a.role==="editor"&&!allowed){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(file.project_id,a.id).first();allowed=!!assignment&&file.access_scope==="assigned_editor";}
+  if(!allowed)return bad("You do not have permission to access this file.",403);
+  const object=await env.MEDIA.get(file.r2_object_key);if(!object)return bad("Stored object is missing.",404);
+  return new Response(object.body,{status:200,headers:{"content-type":file.mime_type||"application/octet-stream","content-length":String(file.size_bytes||object.size||0),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(file.original_filename),"x-content-type-options":"nosniff","cache-control":"private, no-store"}});
+ }
  if(m==="POST"&&p==="/v1/projects"){
   const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
   if(!title||!cat||!brief||!budget||!/^[A-Z]{3}$/.test(cur))return bad("Project title, category, brief, budget and ISO currency are required.");
@@ -263,7 +295,7 @@ async function handle(req,env){
  return bad("Route not found.",404,"not_found");
 }
 export default {async fetch(req,env){
- const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"Authorization,Content-Type","access-control-max-age":"86400"};
+ const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name","access-control-max-age":"86400"};
  if(allowed.includes(origin))ch["access-control-allow-origin"]=origin;
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:ch});
  try{const r=await handle(req,env),h=new Headers(r.headers);Object.entries(ch).forEach(([k,v])=>h.set(k,v));return new Response(r.body,{status:r.status,headers:h});}
