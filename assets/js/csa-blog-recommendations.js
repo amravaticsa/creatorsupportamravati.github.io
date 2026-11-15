@@ -1,0 +1,98 @@
+/* CSA blog recommendations: related articles below the story, suggested articles in the right rail. */
+(() => {
+  const main = document.querySelector('main.container.section');
+  const article = main && main.querySelector(':scope > article.article');
+  if (!main || !article) return;
+
+  const currentPath = location.pathname.replace(/^\\//, '');
+  const title = (article.querySelector('.article-title')?.textContent || document.title).toLowerCase();
+  const bodyText = (article.innerText || '').toLowerCase();
+  const stop = new Set(['about','after','also','amravati','and','are','before','best','can','content','from','guide','how','into','india','its','more','need','our','that','the','their','this','tips','video','with','your','you']);
+  const tokens = (title + ' ' + bodyText.slice(0, 1800)).match(/[a-z]{3,}/g) || [];
+  const keywords = [...new Set(tokens.filter(w => !stop.has(w)))].slice(0, 45);
+
+  const layout = document.createElement('div');
+  layout.className = 'csa-article-layout';
+  const sidebar = document.createElement('aside');
+  sidebar.className = 'csa-suggested-sidebar';
+  sidebar.setAttribute('aria-label', 'Suggested blogs');
+  const suggestedHeading = document.createElement('h2');
+  suggestedHeading.textContent = 'Suggested Blogs';
+  const suggestedList = document.createElement('div');
+  suggestedList.className = 'csa-suggested-list';
+  sidebar.append(suggestedHeading, suggestedList);
+
+  main.insertBefore(layout, article);
+  layout.append(article, sidebar);
+
+  const relatedSection = document.createElement('section');
+  relatedSection.className = 'csa-related-blogs';
+  relatedSection.setAttribute('aria-labelledby', 'csa-related-heading');
+  relatedSection.innerHTML = '<div class="csa-related-heading"><span>KEEP EXPLORING</span><h2 id="csa-related-heading">Related Blogs</h2><p>More practical reads selected for this topic.</p></div><div class="csa-related-grid"></div>';
+  const existingRelated = main.querySelector(':scope > .related-guides');
+  if (existingRelated) existingRelated.replaceWith(relatedSection);
+  else main.append(relatedSection);
+
+  const makeCard = (item, compact) => {
+    const a = document.createElement('a');
+    a.className = compact ? 'csa-suggested-item' : 'csa-related-card';
+    a.href = item.href;
+    if (item.image && !compact) {
+      const img = document.createElement('img');
+      img.src = item.image.startsWith('http') ? item.image : '../' + item.image.replace(/^\\.\\//, '');
+      img.alt = '';
+      img.loading = 'lazy';
+      a.append(img);
+    }
+    const copy = document.createElement('span');
+    copy.className = 'csa-recommendation-copy';
+    const h = document.createElement('strong');
+    h.textContent = item.title;
+    copy.append(h);
+    if (!compact && item.description) {
+      const p = document.createElement('small');
+      p.textContent = item.description;
+      copy.append(p);
+    }
+    a.append(copy);
+    if (compact) {
+      const arrow = document.createElement('span');
+      arrow.className = 'csa-suggested-arrow';
+      arrow.textContent = '↗';
+      a.append(arrow);
+    }
+    return a;
+  };
+
+  fetch('../blog.html', { credentials: 'same-origin' })
+    .then(response => response.ok ? response.text() : Promise.reject())
+    .then(html => {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const items = [...doc.querySelectorAll('.blog-grid .blog-card')].map(card => {
+        const link = card.querySelector('a[href]');
+        const heading = card.querySelector('h3');
+        const image = card.querySelector('img');
+        return link && heading ? {
+          href: new URL(link.getAttribute('href'), location.origin + '/').pathname,
+          title: heading.textContent.trim(),
+          description: card.querySelector('p')?.textContent.trim() || '',
+          image: image?.getAttribute('src') || ''
+        } : null;
+      }).filter(Boolean).filter(item => item.href.replace(/^\\//, '') !== currentPath);
+
+      const score = item => {
+        const words = (item.title + ' ' + item.description).toLowerCase().match(/[a-z]{3,}/g) || [];
+        return words.reduce((sum, word) => sum + (keywords.includes(word) ? 1 : 0), 0);
+      };
+      items.sort((a, b) => score(b) - score(a));
+      const ranked = items.slice(0, 8);
+      const related = ranked.slice(0, 3);
+      const suggested = ranked.slice(3, 8).length ? ranked.slice(3, 8) : ranked.slice(0, 5);
+      relatedSection.querySelector('.csa-related-grid').replaceChildren(...related.map(item => makeCard(item, false)));
+      suggestedList.replaceChildren(...suggested.map(item => makeCard(item, true)));
+    })
+    .catch(() => {
+      sidebar.hidden = true;
+      relatedSection.hidden = true;
+    });
+})();
