@@ -104,18 +104,31 @@ function refreshAuthUI(){
 }
 async function setupArticle(){
  renderArticle();
- const likeRef=db.collection("csaArticles").doc(postId).collection("likes");
- likeRef.onSnapshot(s=>{const el=document.getElementById("csa-like-count");if(el)el.textContent=s.size;});
+ const articleRef=db.collection("csaArticles").doc(postId);
+ const likeRef=articleRef.collection("likes");
+ likeRef.onSnapshot(s=>{const el=document.getElementById("csa-like-count");if(el)el.textContent=s.size;},e=>console.error("CSA likes count:",e));
+ articleRef.collection("comments").onSnapshot(s=>{const el=document.getElementById("csa-comment-count");if(el)el.textContent=s.size;},e=>console.error("CSA comments count:",e));
+ articleRef.collection("shares").onSnapshot(s=>{const el=document.getElementById("csa-share-count");if(el)el.textContent=s.size;},e=>console.error("CSA shares count:",e));
  auth.onAuthStateChanged(async u=>{
   const btn=document.getElementById("csa-like");if(!btn)return;
-  if(!u){btn.dataset.liked="false";btn.innerHTML='👍 Like <span id="csa-like-count">0</span>';return}
-  try{const d=await likeRef.doc(u.uid).get();btn.dataset.liked=d.exists?"true":"false";btn.innerHTML=(d.exists?"💚 Liked ":"👍 Like ")+'<span id="csa-like-count">0</span>';}catch(e){}
+  if(!u){btn.dataset.liked="false";return;}
+  try{const d=await likeRef.doc(u.uid).get();btn.dataset.liked=d.exists?"true":"false";btn.innerHTML=(d.exists?"💚 Liked ":"👍 Like ")+"<span id=\"csa-like-count\">"+(document.getElementById("csa-like-count")?.textContent||"0")+"</span>";}catch(e){console.error(e);}
  });
 }
-async function recordShare(source){if(!db)return;try{await db.collection("csaArticles").doc(postId).collection("shares").add({source:source,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.error("CSA share count save failed:",e);noteText("Share count save nahi hua. Firebase Firestore rules check karein.");}}\nasync function submitComment(e){e.preventDefault();const field=document.getElementById("csa-comment-text");const comment=field.value.trim();if(!comment||!db)return;const submit=e.submitter; if(submit)submit.disabled=true;try{await db.collection("csaArticles").doc(postId).collection("comments").add({text:comment,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:"pending"});field.value="";noteText("Comment submit ho gaya. Count update ho raha hai.");const msg="CSA Blog Comment\\nArticle: "+document.title+"\\nLink: "+location.href+"\\nComment: "+comment;window.open("https://wa.me/919225515679?text="+encodeURIComponent(msg),"_blank","noopener");}catch(err){console.error("CSA comment save failed:",err);noteText("Comment save nahi hua. Firebase Firestore rules check karein.");}finally{if(submit)submit.disabled=false;}}\nasync function toggleLike(){
- if(!currentUser){noteText("Like करने के लिए पहले Google से sign in करें.");await signIn();if(!currentUser)return}
+async function recordShare(source){if(!db)return;try{await db.collection("csaArticles").doc(postId).collection("shares").add({source:source,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.error("CSA share count save failed:",e);noteText("Share count save nahi hua. Firebase Firestore rules check karein.");}}
+async function submitComment(e){
+ e.preventDefault();const field=document.getElementById("csa-comment-text");const comment=field.value.trim();if(!comment||!db)return;
+ const submit=e.submitter;if(submit)submit.disabled=true;
+ try{await db.collection("csaArticles").doc(postId).collection("comments").add({text:comment,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:"pending"});field.value="";noteText("Comment submit ho gaya.");const msg="CSA Blog Comment\nArticle: "+document.title+"\nLink: "+location.href+"\nComment: "+comment;window.open("https://wa.me/919225515679?text="+encodeURIComponent(msg),"_blank","noopener");}
+ catch(err){console.error("CSA comment save failed:",err);noteText("Comment save nahi hua. Firebase Firestore rules check karein.");}
+ finally{if(submit)submit.disabled=false;}
+}
+async function toggleLike(){
+ if(!currentUser){noteText("Like karne ke liye Google sign-in zaroori hai.");await signIn();if(!currentUser)return;}
  const ref=db.collection("csaArticles").doc(postId).collection("likes").doc(currentUser.uid);const btn=document.getElementById("csa-like");btn.disabled=true;
- try{const d=await ref.get();if(d.exists){await ref.delete();btn.dataset.liked="false";}else{await ref.set({uid:currentUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});btn.dataset.liked="true";}btn.innerHTML=(d.exists?"👍 Like ":"💚 Liked ")+'<span id="csa-like-count">'+(document.getElementById("csa-like-count")?.textContent||"0")+'</span>';}catch(e){noteText("Like save nahi hua. Firebase rules check karein.");}finally{btn.disabled=false}
+ try{const d=await ref.get();if(d.exists){await ref.delete();}else{await ref.set({uid:currentUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}}
+ catch(e){console.error("CSA like save failed:",e);noteText("Like save nahi hua. Firebase Firestore rules check karein.");}
+ finally{btn.disabled=false;}
 }
 // Start non-critical engagement features after the page has loaded and the browser is idle.
 function startEngagement(){
