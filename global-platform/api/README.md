@@ -1,38 +1,50 @@
-# CSA Global API foundation
+# CSA Global API — staging
 
-Cloudflare Worker API source bound to the dedicated csa-global-platform D1 database.
+Cloudflare Worker: `csa-global-api`
+Endpoint: https://csa-global-api.creatorsupportamravati.workers.dev
+Database binding: `DB` → `csa-global-platform`
+Private media binding: `MEDIA` → `csa-global-media-staging`
 
-Implemented routes: GET /health; POST /v1/onboarding/editor; POST /v1/onboarding/client; POST /v1/projects; GET /v1/editor/offers; POST /v1/offers/:id/accept; POST /v1/offers/:id/terms; POST /v1/offers/:id/deposit/checkout (deliberately disabled); GET /v1/admin/overview; POST /v1/admin/editors/:id/verify; POST /v1/admin/projects/:id/offers.
+## Implemented routes
+- `GET /health`, `GET /v1/config`
+- `POST /v1/auth/google` — Google Identity Services credential + nonce verification; client/editor/admin role onboarding (admin requires `ADMIN_EMAILS` allowlist).
+- `POST /v1/projects`, `GET /v1/client/projects`, `GET /v1/client/projects/:id/deliverables`
+- `PUT /v1/projects/:id/files`, `GET /v1/projects/:id/files`, `GET /v1/files/:id`
+- `GET /v1/editor/offers`, `GET /v1/editor/agreements`, `GET /v1/editor/assignments`
+- `POST /v1/offers/:id/accept`, `POST /v1/offers/:id/terms`
+- `POST /v1/offers/:id/deposit/checkout`, `POST /v1/payments/razorpay/verify`, `POST /v1/webhooks/razorpay`
+- `PUT /v1/assignments/:id/submissions`
+- Admin: overview, tender queue, editor queues, offer creation, agreement draft/activation, assignment confirmation, QC queue and QC decisions.
 
-Authentication expects RS256 OIDC JWTs with verified email and matching issuer, audience and JWKS. Set AUTH_JWKS_URL, AUTH_ISSUER, AUTH_AUDIENCE and exact ALLOWED_ORIGINS as Worker variables. D1 binding DB is defined in wrangler.toml. Admin accounts must be provisioned out-of-band.
+## Authentication
+Google RS256 ID tokens are verified using Google's JWKS. The Worker validates issuer, exact audience, expiry, issued-at, verified email and per-login nonce. Protected routes check account status and role on every request.
 
-No real payment checkout, refunds, payouts, private R2 file access, messaging, rate limiting or production launch is enabled. Do not collect real deposits until a provider, legal/cross-border rules, webhook verification, operational controls and security testing are complete.
+Required plain-text variables:
+- `GOOGLE_CLIENT_ID` and `AUTH_AUDIENCE` (same OAuth Web client ID)
+- `ADMIN_EMAILS` (comma-separated admin Google email allowlist)
+- `RAZORPAY_KEY_ID`
+- Existing: `AUTH_JWKS_URL`, `AUTH_ISSUER`, `ALLOWED_ORIGINS`, `ENVIRONMENT`
 
-## Staging deployment
-- Worker name: `csa-global-api`
-- Staging endpoint: https://csa-global-api.creatorsupportamravati.workers.dev
-- Public health route: https://csa-global-api.creatorsupportamravati.workers.dev/health
-- D1 binding attached: `DB` → `csa-global-platform`
-- Worker deployment uploaded successfully; workers.dev subdomain enabled; preview URLs disabled.
-- GitHub Actions syntax validation: passed.
+Required encrypted secrets:
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
 
-The API is a staging foundation, not a production launch. Identity provider variables are not configured, so authenticated routes are intentionally unavailable. Payment checkout is explicitly disabled.
+## Razorpay safety
+- Server creates Razorpay Orders; browser does not decide amount.
+- Server verifies HMAC signature and fetches payment status; only captured, amount/currency-matched payments unlock assignment.
+- Webhook signatures are checked against the raw request body; duplicate webhook event IDs are rejected.
+- Configure `payment.captured` and `payment.failed` webhook events.
+- Checkout is disabled/fails closed until valid keys and webhook secret are configured.
+- Test Mode only until deposit/refund/legal/cross-border review is complete.
 
-## Google Identity setup
-1. Create a Google OAuth 2.0 Web application client in Google Cloud Console.
-2. Add Authorized JavaScript origins: `https://creatorsupportamravati.in` and `https://www.creatorsupportamravati.in` (plus the exact staging origin if the UI is hosted elsewhere).
-3. Set Worker plain-text variables `GOOGLE_CLIENT_ID` and `AUTH_AUDIENCE` to the same Web client ID. The Worker already has Google's JWKS URL and issuer configured.
-4. The login page uses Google Identity Services and a per-login nonce. The Worker verifies RS256 signature, issuer, exact audience, expiry, issued-at and verified email.
+## Private file handling
+- R2 bucket is private and not publicly exposed.
+- Client source files are only available to the project owner, CSA admins and the assigned editor.
+- Editor submissions are private until QC approval; clients can download approved deliverables only.
+- Current direct staging upload limit is 90 MB per file. Implement resumable/multipart upload before handling large camera originals.
 
-## Razorpay setup
-1. Activate Razorpay account and obtain a Test Mode Key ID and Key Secret first.
-2. Set Worker variable `RAZORPAY_KEY_ID`; add `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` as encrypted Worker secrets.
-3. Configure webhook URL `https://csa-global-api.creatorsupportamravati.workers.dev/v1/webhooks/razorpay` and subscribe to `payment.captured` and `payment.failed`. Copy the webhook secret into the Worker secret binding.
-4. Test order creation, payment capture, signature verification, duplicate webhook handling and deposit ledger updates in Test Mode before enabling Live Mode.
-5. Razorpay account must be approved for the currencies/cross-border payments intended for international editors. Payment capture must be enabled. Never rely on the browser success callback alone.
-
-## Important controls
-- Registration is free; deposit is project-specific and requested only after offer acceptance and active project terms.
-- Deposit is held against a single project in the ledger; assignment remains blocked until captured payment is confirmed.
-- Client-facing UI must not expose editor email, phone, payout or personal identity fields.
-- Do not use Live keys until legal review of security-deposit, refund, dispute, tax and cross-border requirements is complete.
+## Staging-only limitations
+- No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
+- No automatic email/WhatsApp notifications, payout automation, refund automation, client final sign-off or large-file multipart upload yet.
+- Google OAuth client ID, admin allowlist and Razorpay credentials are not configured yet.
+- Do not collect live deposits or publish to production until credentials, legal review, end-to-end tests and independent security review are complete.
