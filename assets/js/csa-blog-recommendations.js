@@ -23,7 +23,7 @@
   if (!document.querySelector('link[data-csa-recommendation-css]')) {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
-    css.href = '/assets/css/style.css?v=20261115-5';
+    css.href = '/assets/css/style.css?v=20261115-6';
     css.dataset.csaRecommendationCss = '1';
     document.head.appendChild(css);
   }
