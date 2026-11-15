@@ -48,6 +48,16 @@
 
   main.insertBefore(layout, article);
   layout.append(article, sidebar);
+  // Never let recommendations sit above or overlap the article text.
+  layout.style.display = 'flex';
+  layout.style.flexDirection = 'column';
+  layout.style.alignItems = 'stretch';
+  article.style.order = '0';
+  sidebar.style.order = '1';
+  sidebar.style.position = 'static';
+  sidebar.style.width = '100%';
+  sidebar.style.maxWidth = '100%';
+  sidebar.style.boxSizing = 'border-box';
 
   const relatedSection = document.createElement('section');
   relatedSection.className = 'csa-related-blogs';
