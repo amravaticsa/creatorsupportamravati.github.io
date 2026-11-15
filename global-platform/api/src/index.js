@@ -15,7 +15,7 @@ async function claims(req,env){
  const sig=Uint8Array.from(atob(p[2].replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-p[2].length%4)%4)),x=>x.charCodeAt(0));
  if(!await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,sig,new TextEncoder().encode(p[0]+"."+p[1])))throw Error("Invalid token signature.");
  const now=Math.floor(Date.now()/1000);
- if(c.iss!==env.AUTH_ISSUER||!(c.aud===env.AUTH_AUDIENCE||c.aud?.includes?.(env.AUTH_AUDIENCE))||c.exp<=now||c.email_verified!==true||!c.sub||!c.email)throw Error("Token claims or verified email are invalid.");
+ if(c.iss!==env.AUTH_ISSUER||!(c.aud===env.AUTH_AUDIENCE||(Array.isArray(c.aud)&&c.aud.includes(env.AUTH_AUDIENCE)))||c.exp<=now||c.iat>now+60||c.email_verified!==true||!c.sub||!c.email)throw Error("Token claims or verified email are invalid.");
  return c;
 }
 async function user(req,env,roles){
@@ -115,8 +115,9 @@ async function handle(req,env){
   const offer=await env.DB.prepare("SELECT o.id,o.project_id,o.status,o.deposit_amount_minor,o.deposit_currency,p.title FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.id=? AND o.editor_id=?").bind(offerId,a.id).first();
   if(!offer||!["terms_accepted_pending_deposit","deposit_pending"].includes(offer.status))return bad("Accept the offer and project agreement before paying the deposit.",409);
   if(!Number.isSafeInteger(offer.deposit_amount_minor)||offer.deposit_amount_minor<=0)return bad("Invalid deposit amount.",409);
-  const idem="editor-deposit:"+offer.id,prior=await env.DB.prepare("SELECT id,provider_order_id,amount_minor,currency,status FROM payments WHERE idempotency_key=?").bind(idem).first();
+  const prior=await env.DB.prepare("SELECT id,provider_order_id,amount_minor,currency,status FROM payments WHERE offer_id=? AND payment_type='editor_security_deposit' AND status IN ('created','pending') ORDER BY created_at DESC LIMIT 1").bind(offer.id).first();
   if(prior?.provider_order_id)return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:prior.provider_order_id,amount:prior.amount_minor,currency:prior.currency,payment_id:prior.id,checkout_name:"CSA Global",description:"Project-specific editor security deposit"});
+  const idem="editor-deposit:"+offer.id+":"+uid("try");
   const orderRes=await fetch("https://api.razorpay.com/v1/orders",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"content-type":"application/json"},body:JSON.stringify({amount:offer.deposit_amount_minor,currency:offer.deposit_currency,receipt:offer.id.slice(0,40),notes:{offer_id:offer.id,project_id:offer.project_id,payment_type:"editor_security_deposit"}})});
   const order=await orderRes.json();
   if(!orderRes.ok||!order.id||order.amount!==offer.deposit_amount_minor||order.currency!==offer.deposit_currency)return bad("Razorpay order creation failed or amount/currency mismatch.",502,"razorpay_order_failed");
@@ -157,9 +158,9 @@ async function handle(req,env){
   if(!record)return out({ok:true,ignored:true});
   try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,record.id,JSON.stringify({event,order_id:orderId,provider_payment_id:entity.id||null})).run();}
   catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
-  if(event==="payment.captured"||event==="order.paid"){
+  if(event==="payment.captured"){
    const pid=entity.id||record.provider_payment_id;
-   if(event==="payment.captured"&&(!pid||entity.status!=="captured"||entity.amount!==record.amount_minor||entity.currency!==record.currency))return bad("Captured webhook amount or currency mismatch.",409);
+   if(!pid||entity.status!=="captured"||entity.amount!==record.amount_minor||entity.currency!==record.currency)return bad("Captured webhook amount or currency mismatch.",409);
    await env.DB.batch([
     env.DB.prepare("UPDATE payments SET provider_payment_id=COALESCE(provider_payment_id,?),status='succeeded',verified_at=COALESCE(verified_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pid,record.id),
     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay webhook captured payment",record.user_id),
