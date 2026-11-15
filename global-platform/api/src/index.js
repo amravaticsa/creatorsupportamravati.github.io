@@ -36,9 +36,11 @@ async function handle(req,env){
  if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
  if(m==="POST"&&p==="/v1/auth/google"){
   const b=await req.json(),role=b.role,credential=txt(b.credential,10000),nonce=txt(b.nonce,200);
-  if(!credential||!nonce||!["client","editor"].includes(role))return bad("Google credential, login nonce and account type are required.");
+  if(!credential||!nonce||!["client","editor","admin"].includes(role))return bad("Google credential, login nonce and account type are required.");
   const c=await claims(new Request(req.url,{headers:{Authorization:"Bearer "+credential}}),env);
   if(c.nonce!==nonce)return bad("Google login nonce validation failed. Please retry sign-in.",401,"nonce_invalid");
+  const adminAllowlist=(env.ADMIN_EMAILS||"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
+  if(role==="admin"&&!adminAllowlist.includes(String(c.email).toLowerCase()))return bad("This Google account is not authorized for CSA administration.",403,"admin_not_allowed");
   const old=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=?").bind(c.sub).first();
   if(old){
    if(old.role!==role)return bad("This Google account is already registered under a different account type. Please use the existing account type.",409,"role_conflict");
@@ -47,7 +49,9 @@ async function handle(req,env){
   const byEmail=await env.DB.prepare("SELECT id,role,auth_subject FROM users WHERE email=? COLLATE NOCASE").bind(c.email).first();
   if(byEmail)return bad("This email already has an account. Contact CSA support to securely link Google sign-in.",409,"email_exists");
   const profile=b.profile||{},name=txt(profile.display_name,120)||txt(c.name,120)||txt(c.email,254).split("@")[0],newId=uid("usr");
-  if(role==="client"){
+  if(role==="admin"){
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status) VALUES(?,?, 'admin',?,?, 'active')").bind(newId,c.sub,c.email,new Date().toISOString()).run();
+  }else if(role==="client"){
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
    await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
   }else{
@@ -109,6 +113,18 @@ async function handle(req,env){
   await log(env,a.id,"project_terms_accepted","offer",tm[1],{agreement_version_id:ag.id});return out({ok:true,next_step:"security_deposit_payment"});
  }
  const pay=p.match(/^\/v1\/offers\/([\w-]+)\/deposit\/checkout$/);
+ if(m==="POST"&&p.startsWith("/v1/admin/offers/")&&p.endsWith("/assign")){
+  const a=await user(req,env,["admin"]),offerId=p.split("/")[4],o=await env.DB.prepare("SELECT id,project_id,editor_id,delivery_days,status FROM project_offers WHERE id=?").bind(offerId).first();
+  if(!o||o.status!=="ready_for_assignment")return bad("Offer is not paid and ready for assignment.",409);
+  const due=new Date(Date.now()+o.delivery_days*86400000).toISOString(),assignmentId=uid("asn");
+  await env.DB.batch([
+   env.DB.prepare("INSERT INTO assignments(id,project_id,offer_id,editor_id,assigned_by,due_at,status) VALUES(?,?,?,?,?,?,'active')").bind(assignmentId,o.project_id,o.id,o.editor_id,a.id,due),
+   env.DB.prepare("UPDATE project_offers SET status='assigned' WHERE id=? AND status='ready_for_assignment'").bind(o.id),
+   env.DB.prepare("UPDATE projects SET status='assigned',client_visible_status='in_progress',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(o.project_id)
+  ]);
+  await log(env,a.id,"project_assignment_confirmed","assignment",assignmentId,{project_id:o.project_id,offer_id:o.id});
+  return out({ok:true,assignment_id:assignmentId,status:"assigned",due_at:due},201);
+ }
  if(m==="POST"&&p.startsWith("/v1/offers/")&&p.endsWith("/deposit/checkout")){
   const offerId=p.split("/")[3],a=await user(req,env,["editor"]);
   if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay API keys are not configured in Cloudflare secrets.",503,"razorpay_not_configured");
@@ -171,6 +187,21 @@ async function handle(req,env){
    await env.DB.prepare("UPDATE payments SET status='failed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(record.id).run();
   }
   return out({ok:true,processed:true});
+ }
+ if(m==="GET"&&p==="/v1/admin/projects"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,status,created_at FROM projects WHERE status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY created_at DESC LIMIT 100").all();
+  return out({ok:true,projects:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/admin/editors/pending"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.country,e.city,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
+  return out({ok:true,editors:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/admin/offers/ready"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT o.id,o.project_id,o.editor_id,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.status,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM project_offers o JOIN projects p ON p.id=o.project_id JOIN editor_profiles e ON e.user_id=o.editor_id WHERE o.status='ready_for_assignment' ORDER BY o.created_at ASC LIMIT 100").all();
+  return out({ok:true,offers:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/overview"){
   await user(req,env,["admin","staff"]);
