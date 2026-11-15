@@ -9,15 +9,19 @@ $("logout").onclick=()=>{sessionStorage.removeItem("csa_global_token");sessionSt
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});const d=await r.json();if(r.status===401){$("account-status").textContent="Session expired. Please sign in again.";sessionStorage.clear();setTimeout(()=>location.href="login.html",1200);}if(!r.ok)throw Error(d.error?.message||"Request failed");return d;}
 if(user.role==="client"){
  $("client-panel").hidden=false;
- $("project-form").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:f.get("title"),category:f.get("category"),brief:f.get("brief"),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
- $("project-message").textContent="Submitting…";try{const d=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});$("project-message").textContent="Project submitted successfully: "+d.project_code+". CSA team will review it.";e.target.reset();}catch(err){$("project-message").textContent=err.message;}
+ loadClientProjects();\n $("project-form").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:f.get("title"),category:f.get("category"),brief:f.get("brief"),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
+ $("project-message").textContent="Submitting…";try{const d=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});$("project-message").textContent="Project submitted successfully: "+d.project_code+". CSA team will review it.";e.target.reset();loadClientProjects();}catch(err){$("project-message").textContent=err.message;}
  };
 }else if(user.role==="editor"){
  $("editor-panel").hidden=false;loadOffers();
 }else if(user.role==="admin"){
  $("admin-panel").hidden=false;loadAdmin();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
-async function loadAdmin(){
+async function loadClientProjects(){
+ const root=$("client-projects");if(!root)return;root.textContent="Loading your project submissions…";
+ try{const d=await api("/v1/client/projects");root.replaceChildren();if(!d.projects.length){root.textContent="You have not submitted any projects yet.";return;}for(const p of d.projects){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;const m=document.createElement("p");m.className="muted";m.textContent=p.category+" · "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.status+" · Deadline: "+(p.preferred_deadline||"Not set");c.append(h,m);root.append(c);}}catch(e){root.textContent=e.message;}
+}
+$("agreement-form").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);$("agreement-message").textContent="Saving inactive draft…";try{const d=await api("/v1/admin/agreements",{method:"POST",body:JSON.stringify({agreement_type:f.get("agreement_type"),version:f.get("version"),title:f.get("title"),body_markdown:f.get("body_markdown")})});$("agreement-message").textContent="Draft saved. Agreement ID: "+d.agreement_id+" (inactive until legal review and activation).";e.target.reset();loadAdmin();}catch(err){$("agreement-message").textContent=err.message;}};\nasync function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  try{
   const [overview,pj,pe,ve,ro]=await Promise.all([
