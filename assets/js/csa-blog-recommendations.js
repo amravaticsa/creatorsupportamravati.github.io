@@ -3,7 +3,7 @@
   const main = document.querySelector('main.container.section');
   const article = main && main.querySelector(':scope > article.article');
   const blogGrid = document.querySelector('.blog-grid');
-  if (!main) return;
+  if (!main && !blogGrid) return;
   if (!article && blogGrid) {
     if (document.querySelector('.csa-blog-discovery')) return;
     const brandImage = img => {
@@ -37,7 +37,7 @@
   if (!document.querySelector('link[data-csa-recommendation-css]')) {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
-    css.href = '/assets/css/style.css?v=20261115-6';
+    css.href = '/assets/css/style.css?v=20261115-7';
     css.dataset.csaRecommendationCss = '1';
     document.head.appendChild(css);
   }
