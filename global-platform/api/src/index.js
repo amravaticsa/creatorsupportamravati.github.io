@@ -105,7 +105,7 @@ async function handle(req,env){
   await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
   return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
  }
- const deliver=p.match(/^\\/v1\\/client\\/projects\\/([\\w-]+)\\/deliverables$/);
+ const deliver=p.match(/^\/v1\/client\/projects\/([\w-]+)\/deliverables$/);
  if(m==="GET"&&deliver){
   const a=await user(req,env,["client"]),project=await env.DB.prepare("SELECT id FROM projects WHERE id=? AND client_id=?").bind(deliver[1],a.id).first();
   if(!project)return bad("Project not found.",404);
@@ -143,7 +143,7 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' ORDER BY s.submitted_at ASC LIMIT 100").all();
   return out({ok:true,submissions:r.results||[]});
  }
- const qc=p.match(/^\\/v1\\/admin\\/submissions\\/([\\w-]+)\\/review$/);
+ const qc=p.match(/^\/v1\/admin\/submissions\/([\w-]+)\/review$/);
  if(m==="POST"&&qc){
   const a=await user(req,env,["admin"]),b=await req.json(),status=b.status;
   if(!["approved","changes_requested","rejected"].includes(status))return bad("Invalid QC decision.");
@@ -157,7 +157,7 @@ async function handle(req,env){
   await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
   return out({ok:true,status});
  }
- const fileMatch=p.match(/^\\/v1\\/files\\/([\\w-]+)$/);
+ const fileMatch=p.match(/^\/v1\/files\/([\w-]+)$/);
  if(m==="GET"&&fileMatch){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const a=await user(req,env,["client","editor","admin","staff"]);
