@@ -684,3 +684,15 @@ main.container.section > article.article-pro > article.article{
 
 /* CSA blog listing discovery sections */
 .csa-blog-discovery{display:grid;gap:42px;margin:48px 0 10px;padding-top:34px;border-top:1px solid #e8edf2}.csa-discovery-section{min-width:0}.csa-discovery-grid{display:grid;gap:16px}.csa-suggested-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.csa-discovery-card{display:flex;flex-direction:column;overflow:hidden;border:1px solid #e6eaf0;border-radius:13px;background:#fff;color:#172033;box-shadow:0 8px 24px rgba(16,27,53,.06);transition:transform .2s,box-shadow .2s}.csa-discovery-card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(16,27,53,.1)}.csa-discovery-card>img{display:block;width:100%;height:120px;object-fit:cover}.csa-discovery-card .csa-recommendation-copy{display:grid;gap:7px;padding:13px}.csa-discovery-card .csa-recommendation-copy small{margin:0;color:#9b6b13;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.csa-discovery-card .csa-recommendation-copy strong{font-size:13px;line-height:1.4}.csa-related-grid{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:900px){.csa-suggested-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:650px){.csa-blog-discovery{gap:32px;margin-top:34px}.csa-suggested-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.csa-related-grid{grid-template-columns:1fr}.csa-discovery-card>img{height:105px}}
+
+/* CSA thumbnail branding */
+.csa-thumb-frame{position:relative;display:block;width:100%;overflow:hidden;aspect-ratio:16/9;background:#eef1f5}
+.csa-thumb-frame>img:first-child{display:block;width:100%;height:100%;object-fit:cover}
+.csa-thumb-frame>.csa-thumb-logo{position:absolute;right:10px;bottom:10px;width:38px;height:38px;max-width:18%;object-fit:contain;padding:3px;background:#fff;border:1px solid #ffffffcc;border-radius:8px;box-shadow:0 2px 9px #101b3540}
+.blog-card .csa-thumb-frame{aspect-ratio:16/9}
+.csa-discovery-card>.csa-thumb-frame{height:120px;aspect-ratio:auto}
+.csa-related-card>.csa-thumb-frame{height:140px;aspect-ratio:auto}
+.csa-suggested-item{grid-template-columns:88px minmax(0,1fr) 20px;gap:10px}
+.csa-suggested-item>.csa-thumb-frame{height:58px;aspect-ratio:16/9;border-radius:7px}
+.csa-suggested-item .csa-thumb-logo{width:21px;height:21px;right:4px;bottom:4px;padding:2px;border-radius:5px}
+@media(max-width:650px){.csa-discovery-card>.csa-thumb-frame{height:105px}.csa-related-card>.csa-thumb-frame{height:150px}}
