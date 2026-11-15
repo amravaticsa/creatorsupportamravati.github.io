@@ -1,58 +1,76 @@
-# CSA Global — Platform Foundation
+# CSA Global — Managed Worldwide Editing Platform
 
-This directory is a front-end design foundation for the CSA Global managed editing network.
-
-## Current decisions
-- Project allocation: CSA-managed.
+## Operating decisions
+- Project allocation: CSA-managed; clients do not select or contact freelancers directly.
 - Editor registration: open worldwide and free.
 - Client payment: collected by CSA.
-- Editor project flow: project offer → accept → review project-specific agreement → pay/verify refundable security deposit → assignment confirmation.
-- Deposit is not charged at registration or merely for receiving an offer.
-- Client-facing service and quality management remain with CSA; editors are independent contractors, not to be misrepresented as employees.
+- Editor flow: Google sign-in → profile verification → project offer → accept → review project-specific agreement → project-specific security deposit → CSA confirms assignment.
+- A deposit is never charged at editor registration or simply for receiving an offer.
+- CSA remains the client-facing service manager and performs quality review before client delivery.
+- Editors are independent contractors; client-facing messaging must not falsely describe them as CSA employees.
 
-## Pages
-- `index.html`: platform landing page.
-- `client-project.html`: detailed client tender brief form.
-- `editor-register.html`: free worldwide editor registration form.
-- `admin-preview.html`: illustrative internal dashboard.
+## Staging URLs
+- Frontend: https://csa-global-staging.pages.dev
+- Latest deployment snapshot: https://c106a3f4.csa-global-staging.pages.dev
+- API: https://csa-global-api.creatorsupportamravati.workers.dev
+- API health: https://csa-global-api.creatorsupportamravati.workers.dev/health
+- Client/editor sign-in: `/login.html`
+- Admin sign-in: `/admin-login.html`
+- Staff/admin portal: `/portal.html`
 
-## Cloudflare D1 foundation
-- Database created: `csa-global-platform`
-- Database UUID: `23462947-5ab9-41ea-a25a-0fac0e6349d7`
-- Primary location: APAC; read replication: automatic
-- Applied migrations: `0001_initial.sql` and `0002_editor_payout_and_disputes.sql`
-- Tables cover users, clients, editors, skills, portfolios, projects, files, offers, agreements, acceptances, payments, deposit ledger, assignments, milestones, submissions, revisions, messages, notifications, disputes and audit logs.
-- This database is separate from the existing `csa-orders` database.
+## Cloudflare staging resources
+- Worker: `csa-global-api`
+- D1 database: `csa-global-platform` (21 application tables; migrations 0001–0004 applied)
+- R2 bucket: `csa-global-media-staging` (private, APAC location hint; Worker binding `MEDIA`)
+- Pages project: `csa-global-staging` (Direct Upload staging deployment)
+- Existing production CSA website and `csa-orders` database were not changed.
 
-## Important implementation status
-These pages are static UI previews. Forms intentionally do not submit or persist data. Authentication, authorization, database, file storage, payment gateway, payment webhooks, email/WhatsApp notifications, legal agreement acceptance records and secure editor/client separation are NOT implemented.
+## Implemented API and UI foundations
+- Google Identity Services UI and backend RS256 ID-token validation with nonce, issuer, exact audience, expiry, issued-at and verified-email checks.
+- Client onboarding and detailed project tender submission, client-set budget and project history.
+- Worldwide editor onboarding and verification queue.
+- Admin allowlist gate using `ADMIN_EMAILS`.
+- Admin tender queue, editor verification, managed offers, agreement draft creation/activation, deposit verification and assignment confirmation.
+- Editor offer inbox, agreement acceptance, Razorpay order creation and server-side payment verification.
+- Razorpay webhook signature verification and duplicate-event protection.
+- Private R2 source-file upload/download with role and assignment checks (90 MB per-file staging request limit).
+- Editor assignment inbox, source-file access and work submission.
+- Admin QC approve/request-changes flow and client access to approved deliverables.
+- Audit log, payment ledger and deposit ledger.
 
-Do not collect real personal information, client footage, bank details or deposits through these preview pages.
+## Required Cloudflare Worker variables
+Set under Workers & Pages → csa-global-api → Settings → Variables and Secrets:
+- `GOOGLE_CLIENT_ID`: Google OAuth Web Client ID (public identifier).
+- `AUTH_AUDIENCE`: same Google OAuth Web Client ID.
+- `RAZORPAY_KEY_ID`: Razorpay Test Mode Key ID (public identifier).
+- `ADMIN_EMAILS`: comma-separated Google email(s) authorized for admin access.
+- Existing variables `AUTH_ISSUER`, `AUTH_JWKS_URL`, `ALLOWED_ORIGINS`, `ENVIRONMENT` are already configured.
 
-## Production architecture proposal
-- Frontend: current static website / dedicated application.
-- API: Cloudflare Workers.
-- Database: Cloudflare D1.
-- Private media: Cloudflare R2 with short-lived signed access.
-- Authentication: secure identity provider or properly implemented passwordless/session authentication.
-- Payments: a provider that expressly supports the business model, currencies, cross-border collections and permitted payouts.
-- Security: role-based access, MFA for staff, audit logs, rate limiting, CSRF protections, strict server-side authorization and verified payment webhooks.
+## Required encrypted Worker secrets
+Add using Secret type, never as plain text:
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
 
-## Required production gates
-1. Confirm legal entity, terms, privacy, contractor agreement, deposit/refund policy and cross-border compliance.
-2. Confirm supported payment collection and editor payout countries with payment provider and professional adviser.
-3. Implement backend and database migrations.
-4. Implement role-scoped APIs and secure file access.
-5. Implement idempotent payment webhooks and deposit ledger.
-6. Add automated tests, security review and backups.
-7. Deploy to staging, test end-to-end, then launch only after approval.
+## Google OAuth setup
+Create a Google OAuth 2.0 Web application client. Add Authorized JavaScript origins:
+- `https://csa-global-staging.pages.dev`
+- `https://creatorsupportamravati.in` only if the application will also be served there.
+Set the client ID in both `GOOGLE_CLIENT_ID` and `AUTH_AUDIENCE`. Add the admin's exact Google email to `ADMIN_EMAILS`.
 
-No credentials, API keys or secrets belong in this repository.
+## Razorpay test setup
+- Start with Test Mode keys only.
+- Configure webhook URL: `https://csa-global-api.creatorsupportamravati.workers.dev/v1/webhooks/razorpay`
+- Subscribe to `payment.captured` and `payment.failed`.
+- Store the webhook signing secret as `RAZORPAY_WEBHOOK_SECRET`.
+- Confirm payment capture and currency/cross-border activation with Razorpay before international testing.
+- Do not switch to Live Mode until legal review of deposit, refunds, disputes, tax and cross-border rules is complete.
 
+## Remaining production gates
+- Google OAuth client ID and admin email allowlist have not yet been supplied/configured.
+- Razorpay test credentials and webhook secret have not yet been added; checkout is fail-closed until then.
+- No active project agreement is seeded. Admin must save a legally reviewed agreement draft and explicitly activate it before editor terms acceptance can proceed.
+- Large video uploads need resumable/multipart upload support; current staging uploader is limited to 90 MB per file.
+- End-to-end browser testing with real Google and Razorpay test accounts, operational policies, backup/restore, rate limiting/abuse controls and an independent security review are still required.
+- Frontend is on a separate staging Pages project and is not merged into the live CSA website.
 
-## Current staging build
-- API Worker: `csa-global-api` at `https://csa-global-api.creatorsupportamravati.workers.dev`
-- Separate D1 database with migrations 0001–0003 applied.
-- Google sign-in and Razorpay deposit routes are implemented in the staging Worker source; activation awaits client ID and Razorpay credentials.
-- Client/editor Google login page and authenticated portal source are in this development branch. The UI is not published to the main website.
-- Test-mode Razorpay is required before any live deposit collection.
+Never commit secrets or ask users to enter real payment credentials into the public forms or repository.
