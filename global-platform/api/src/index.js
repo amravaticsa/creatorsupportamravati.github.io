@@ -79,6 +79,11 @@ async function handle(req,env){
   await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(idu,name,txt(b.company_name,160)||null,txt(b.country,100)||null,txt(b.timezone,80)||null,txt(b.language,40)||null).run();
   return out({ok:true,status:"active"},201);
  }
+ if(m==="GET"&&p==="/v1/client/projects"){
+  const a=await user(req,env,["client"]);
+  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,budget_amount_minor,budget_currency,status,client_visible_status,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  return out({ok:true,projects:r.results||[]});
+ }
  if(m==="POST"&&p==="/v1/projects"){
   const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
   if(!title||!cat||!brief||!budget||!/^[A-Z]{3}$/.test(cur))return bad("Project title, category, brief, budget and ISO currency are required.");
@@ -93,7 +98,7 @@ async function handle(req,env){
   return out({ok:true,agreements:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/editor/offers"){
-  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT o.id,o.offer_message,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.offer_expires_at,o.status,p.public_project_code,p.title,p.category,p.brief,p.preferred_deadline,p.revisions_included FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.editor_id=? AND o.status IN ('offered','accepted_pending_terms','terms_accepted_pending_deposit') ORDER BY o.created_at DESC").bind(a.id).all();
+  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT o.id,o.offer_message,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.offer_expires_at,o.status,p.public_project_code,p.title,p.category,p.brief,p.preferred_deadline,p.revisions_included FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.editor_id=? AND o.status IN ('offered','accepted_pending_terms','terms_accepted_pending_deposit','deposit_pending','ready_for_assignment','assigned') ORDER BY o.created_at DESC").bind(a.id).all();
   return out({ok:true,offers:r.results||[]});
  }
  const ac=p.match(/^\/v1\/offers\/([\w-]+)\/accept$/);
@@ -187,6 +192,30 @@ async function handle(req,env){
    await env.DB.prepare("UPDATE payments SET status='failed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(record.id).run();
   }
   return out({ok:true,processed:true});
+ }
+ if(m==="GET"&&p==="/v1/admin/agreements"){
+  await user(req,env,["admin"]);
+  const r=await env.DB.prepare("SELECT id,agreement_type,version,title,active,created_at FROM agreement_versions ORDER BY created_at DESC LIMIT 100").all();
+  return out({ok:true,agreements:r.results||[]});
+ }
+ if(m==="POST"&&p==="/v1/admin/agreements"){
+  const a=await user(req,env,["admin"]),b=await req.json(),type=txt(b.agreement_type,40),version=txt(b.version,40),title=txt(b.title,180),body=txt(b.body_markdown,30000);
+  if(!["editor_master","project_specific","client_service"].includes(type)||!version||!title||!body)return bad("Agreement type, version, title and full text are required.");
+  const idg=uid("agrv");
+  await env.DB.prepare("INSERT INTO agreement_versions(id,agreement_type,version,title,body_markdown,active) VALUES(?,?,?,?,?,0)").bind(idg,type,version,title,body).run();
+  await log(env,a.id,"agreement_version_created","agreement",idg,{agreement_type:type,version});
+  return out({ok:true,agreement_id:idg,active:false,requires_legal_review:true},201);
+ }
+ const activateAgreement=p.match(/^\/v1\/admin\/agreements\/([\w-]+)\/activate$/);
+ if(m==="POST"&&activateAgreement){
+  const a=await user(req,env,["admin"]),ag=await env.DB.prepare("SELECT id,agreement_type FROM agreement_versions WHERE id=?").bind(activateAgreement[1]).first();
+  if(!ag)return bad("Agreement version not found.",404);
+  await env.DB.batch([
+   env.DB.prepare("UPDATE agreement_versions SET active=0 WHERE agreement_type=?").bind(ag.agreement_type),
+   env.DB.prepare("UPDATE agreement_versions SET active=1 WHERE id=?").bind(ag.id)
+  ]);
+  await log(env,a.id,"agreement_version_activated","agreement",ag.id,{agreement_type:ag.agreement_type});
+  return out({ok:true,active:true,agreement_id:ag.id});
  }
  if(m==="GET"&&p==="/v1/admin/projects"){
   await user(req,env,["admin","staff"]);
