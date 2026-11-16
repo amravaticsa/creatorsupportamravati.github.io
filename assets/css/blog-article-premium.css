@@ -28,3 +28,14 @@
 .csa-article-toc a{text-decoration:none}
 @media(max-width:640px){.article{font-size:1rem}.csa-article-toc ol{columns:1}.article h2{margin-top:1.8rem}.csa-article-meta{gap:.4rem .75rem}}
 @media print{.csa-article-progress,.csa-article-toc{display:none!important}}
+
+/* CSA Premium Blog v2: topic chips and readable FAQ blocks */
+.csa-article-tags{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:1rem 0 1.5rem;padding:.9rem 1rem;background:#f6f9fa;border:1px solid #e5ecef;border-radius:12px;font-size:.9rem}
+.csa-article-tags strong{margin-right:.2rem;color:#304650}
+.csa-article-tags span{display:inline-block;padding:.28rem .65rem;border-radius:999px;background:#e8f5f3;color:#126b65;border:1px solid #d3ebe7;font-size:.84rem}
+.csa-faq{margin:2.4rem 0;padding:1.25rem 1.3rem;background:#f8fafb;border:1px solid #e4ebef;border-radius:16px}
+.csa-faq h2{margin-top:.2rem}
+.csa-faq-item{padding:.65rem 0;border-top:1px solid #e5ecef}
+.csa-faq-item:first-of-type{border-top:0}
+.csa-faq-item h3{margin:.7rem 0 .25rem;font-size:1.08rem}
+.csa-faq-item p{margin:.25rem 0 .65rem}
