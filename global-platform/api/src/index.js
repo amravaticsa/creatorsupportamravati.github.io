@@ -164,7 +164,7 @@ async function handle(req,env){
   if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
   if(!Number.isInteger(partNumber)||partNumber<1||partNumber>session.expected_parts)return bad("Invalid part number.");
   const expected=Math.min(session.part_size_bytes,session.total_size_bytes-(partNumber-1)*session.part_size_bytes);
-  if(Number(req.headers.get("content-length")||0)!==expected)return bad("Part Content-Length does not match the expected chunk size.",400,"part_size_mismatch");
+  const declared=Number(req.headers.get("content-length")||0);if(declared&&declared!==expected)return bad("Part Content-Length does not match the expected chunk size.",400,"part_size_mismatch");
   let actual=0;
   const body=req.body.pipeThrough(new TransformStream({transform(chunk,controller){actual+=chunk.byteLength;if(actual>expected){controller.error(new Error("part_too_large"));return;}controller.enqueue(chunk);}}));
   let uploaded;
