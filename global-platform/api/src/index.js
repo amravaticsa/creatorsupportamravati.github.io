@@ -170,7 +170,7 @@ async function handle(req,env){
   return out({ok:true,session:{...session,total_size_bytes:Number(session.total_size_bytes),part_size_bytes:Number(session.part_size_bytes),expected_parts:expected,age_minutes:Math.max(0,Math.floor((Date.now()-new Date(session.created_at).getTime())/60000)),expired:session.status==="open"&&new Date(session.expires_at).getTime()<=Date.now()},parts,missing_parts:missing,integrity:{parts_with_checksum:parts.filter(x=>x.checksum_present).length,parts_without_checksum:parts.filter(x=>!x.checksum_present).length}});
  }
  // Append-only admin incident and resolution history for a multipart upload.
- const multipartIncidents=p.match(/^\/v1\/admin\/multipart-uploads\/([\\w-]+)\/incidents$/);
+ const multipartIncidents=p.match(/^\/v1\/admin\/multipart-uploads\/([\w-]+)\/incidents$/);
  if(multipartIncidents&&(m==="GET"||m==="POST")){
   const actor=await user(req,env,["admin","staff"]),sessionId=multipartIncidents[1];
   const session=await env.DB.prepare("SELECT id FROM multipart_upload_sessions WHERE id=?").bind(sessionId).first();
