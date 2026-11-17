@@ -157,7 +157,7 @@ async function handle(req,env){
   return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
  }
  // Read-only inspection for a single multipart session. Never returns R2 object keys or provider upload IDs.
- const multipartInspect=p.match(/^\\/v1\\/admin\\/multipart-uploads\\/([\\w-]+)\\/inspect$/);
+ const multipartInspect=p.match(/^\/v1\/admin\/multipart-uploads\/([\w-]+)\/inspect$/);
  if(m==="GET"&&multipartInspect){
   await user(req,env,["admin","staff"]);
   const id=multipartInspect[1];
