@@ -163,9 +163,10 @@ async function handle(req,env){
   const recent=await env.DB.prepare("SELECT s.id,s.purpose,s.original_filename,s.total_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,COALESCE(x.parts_uploaded,0) AS parts_uploaded,COALESCE(x.bytes_uploaded,0) AS bytes_uploaded,u.email,u.role,COALESCE(cp.display_name,ep.display_name,u.email) AS uploader_name,p.public_project_code,p.title AS project_title FROM multipart_upload_sessions s JOIN users u ON u.id=s.uploaded_by LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id LEFT JOIN projects p ON p.id=s.project_id LEFT JOIN (SELECT session_id,COUNT(*) AS parts_uploaded,SUM(size_bytes) AS bytes_uploaded FROM multipart_upload_parts GROUP BY session_id) x ON x.session_id=s.id ORDER BY s.created_at DESC LIMIT 50").all();
   const totals={open:0,completed:0,aborted:0,unknown:0,completing:0,expired_open:0,total_bytes:0};
   for(const row of stats.results||[]){totals[row.status]=Number(row.sessions);totals.total_bytes+=Number(row.bytes||0);}
-  const now=Date.now();
-  const uploads=(recent.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),parts_uploaded:Number(r.parts_uploaded),bytes_uploaded:Number(r.bytes_uploaded),expired_open:r.status==="open"&&new Date(r.expires_at).getTime()<=now}));
-  totals.expired_open=uploads.filter(x=>x.expired_open).length;
+  const now=new Date().toISOString();
+  const expired=await env.DB.prepare("SELECT COUNT(*) AS n FROM multipart_upload_sessions WHERE status='open' AND expires_at<=?").bind(now).first();
+  const uploads=(recent.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),parts_uploaded:Number(r.parts_uploaded),bytes_uploaded:Number(r.bytes_uploaded),expired_open:r.status==="open"&&new Date(r.expires_at).getTime()<=Date.now()}));
+  totals.expired_open=Number(expired?.n||0);
   return out({ok:true,totals,uploads});
  }
  // Recent multipart upload history is limited to the authenticated account.
