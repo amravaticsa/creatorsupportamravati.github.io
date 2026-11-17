@@ -156,6 +156,18 @@ async function handle(req,env){
   await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
   return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
  }
+ // Admin-only operational view of multipart upload sessions; no R2 credentials or object keys returned.
+ if(m==="GET"&&p==="/v1/admin/multipart-uploads"){
+  await user(req,env,["admin","staff"]);
+  const stats=await env.DB.prepare("SELECT status,COUNT(*) AS sessions,COALESCE(SUM(total_size_bytes),0) AS bytes FROM multipart_upload_sessions GROUP BY status").all();
+  const recent=await env.DB.prepare("SELECT s.id,s.purpose,s.original_filename,s.total_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,COALESCE(x.parts_uploaded,0) AS parts_uploaded,COALESCE(x.bytes_uploaded,0) AS bytes_uploaded,u.email,u.role,COALESCE(cp.display_name,ep.display_name,u.email) AS uploader_name,p.public_project_code,p.title AS project_title FROM multipart_upload_sessions s JOIN users u ON u.id=s.uploaded_by LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id LEFT JOIN projects p ON p.id=s.project_id LEFT JOIN (SELECT session_id,COUNT(*) AS parts_uploaded,SUM(size_bytes) AS bytes_uploaded FROM multipart_upload_parts GROUP BY session_id) x ON x.session_id=s.id ORDER BY s.created_at DESC LIMIT 50").all();
+  const totals={open:0,completed:0,aborted:0,unknown:0,completing:0,expired_open:0,total_bytes:0};
+  for(const row of stats.results||[]){totals[row.status]=Number(row.sessions);totals.total_bytes+=Number(row.bytes||0);}
+  const now=Date.now();
+  const uploads=(recent.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),parts_uploaded:Number(r.parts_uploaded),bytes_uploaded:Number(r.bytes_uploaded),expired_open:r.status==="open"&&new Date(r.expires_at).getTime()<=now}));
+  totals.expired_open=uploads.filter(x=>x.expired_open).length;
+  return out({ok:true,totals,uploads});
+ }
  // Recent multipart upload history is limited to the authenticated account.
  if(m==="GET"&&p==="/v1/uploads/multipart/history"){
   const a=await user(req,env,["client","editor"]);
