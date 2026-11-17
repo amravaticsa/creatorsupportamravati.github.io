@@ -57,8 +57,30 @@ if(user.role==="client"){
 }else if(user.role==="editor"){
  $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
- $("admin-panel").hidden=false;loadAdmin();
+ $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
+async function loadAdminMultipartUploads(){
+ const metrics=$("admin-multipart-metrics"),root=$("admin-multipart-uploads");if(!root)return;
+ root.textContent="Loading upload operations…";
+ try{
+  const d=await api("/v1/admin/multipart-uploads");
+  metrics.replaceChildren();
+  const labels=[["Open sessions",d.totals.open||0],["Completed",d.totals.completed||0],["Aborted",d.totals.aborted||0],["Expired but open",d.totals.expired_open||0]];
+  for(const [label,value] of labels){const card=document.createElement("div");card.className="stat";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;card.append(small,strong);metrics.append(card);}
+  root.replaceChildren();
+  if(!d.uploads.length){root.textContent="No multipart upload sessions recorded yet.";return;}
+  for(const u of d.uploads){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h4");h.textContent=u.original_filename+" · "+(u.public_project_code||"No project code");
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=u.uploader_name+" ("+u.role+") · "+u.email+" · "+u.purpose.replaceAll("_"," ");
+   const progress=document.createElement("p");progress.textContent=(u.total_size_bytes/1024/1024).toFixed(1)+" MB · "+u.parts_uploaded+"/"+u.expected_parts+" parts · "+(u.total_size_bytes?Math.round(u.bytes_uploaded/u.total_size_bytes*100):0)+"% · "+u.status.replaceAll("_"," ");
+   const date=document.createElement("small");date.textContent="Created "+new Date(u.created_at).toLocaleString()+" · Expires "+new Date(u.expires_at).toLocaleString();
+   card.append(h,meta,progress,date);
+   if(u.expired_open){const warning=document.createElement("p");warning.className="muted";warning.textContent="Expired session awaiting scheduled R2 cleanup.";card.append(warning);}
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
 async function loadUploadHistory(targetId){
  const root=$(targetId);if(!root)return;root.textContent="Loading recent upload history…";
  try{
