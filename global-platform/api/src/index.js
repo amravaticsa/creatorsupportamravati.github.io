@@ -169,6 +169,25 @@ async function handle(req,env){
   const missing=[];for(let n=1;n<=expected;n++)if(!present.has(n))missing.push(n);
   return out({ok:true,session:{...session,total_size_bytes:Number(session.total_size_bytes),part_size_bytes:Number(session.part_size_bytes),expected_parts:expected,age_minutes:Math.max(0,Math.floor((Date.now()-new Date(session.created_at).getTime())/60000)),expired:session.status==="open"&&new Date(session.expires_at).getTime()<=Date.now()},parts,missing_parts:missing,integrity:{parts_with_checksum:parts.filter(x=>x.checksum_present).length,parts_without_checksum:parts.filter(x=>!x.checksum_present).length}});
  }
+ // Append-only admin incident and resolution history for a multipart upload.
+ const multipartIncidents=p.match(/^\/v1\/admin\/multipart-uploads\/([\\w-]+)\/incidents$/);
+ if(multipartIncidents&&(m==="GET"||m==="POST")){
+  const actor=await user(req,env,["admin","staff"]),sessionId=multipartIncidents[1];
+  const session=await env.DB.prepare("SELECT id FROM multipart_upload_sessions WHERE id=?").bind(sessionId).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(m==="GET"){
+   const rows=await env.DB.prepare("SELECT i.id,i.incident_type,i.resolution_status,i.notes,i.created_at,u.email AS actor_email,COALESCE(cp.display_name,ep.display_name,u.email) AS actor_name FROM multipart_upload_incidents i JOIN users u ON u.id=i.actor_user_id LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id WHERE i.session_id=? ORDER BY i.created_at DESC LIMIT 50").bind(sessionId).all();
+   return out({ok:true,incidents:rows.results||[]});
+  }
+  const body=await req.json(),incidentType=txt(body.incident_type,40),resolution=txt(body.resolution_status,40),notes=txt(body.notes,1000);
+  if(!["upload_failed","unknown_completion","stale_completion","expired_session","integrity_issue","other"].includes(incidentType))return bad("Invalid incident type.");
+  if(!["reviewed","awaiting_user","reupload_requested","resolved","escalated"].includes(resolution))return bad("Invalid resolution status.");
+  if(!notes)return bad("A short resolution note is required.");
+  const id=uid("inc");
+  await env.DB.prepare("INSERT INTO multipart_upload_incidents(id,session_id,actor_user_id,incident_type,resolution_status,notes) VALUES(?,?,?,?,?,?)").bind(id,sessionId,actor.id,incidentType,resolution,notes).run();
+  await log(env,actor.id,"multipart_upload_incident_recorded","multipart_upload",sessionId,{incident_id:id,incident_type:incidentType,resolution_status:resolution});
+  return out({ok:true,incident_id:id,recorded:true},201);
+ }
  // Admin-only operational view of multipart upload sessions; no R2 credentials or object keys returned.
  if(m==="GET"&&p==="/v1/admin/multipart-uploads"){
   await user(req,env,["admin","staff"]);
