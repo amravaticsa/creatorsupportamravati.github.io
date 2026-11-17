@@ -1,0 +1,40 @@
+name: Deploy CSA Global staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - "global-platform/**"
+      - ".github/workflows/deploy-csa-staging.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: csa-global-staging-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy-staging:
+    name: Deploy only to csa-global-staging Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+
+      - name: Validate platform JavaScript
+        run: |
+          node --check global-platform/api/src/index.js
+          node --check global-platform/assets/auth.js
+          node --check global-platform/assets/portal.js
+
+      - name: Deploy staging Pages project
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: "9a6f6dbd52dcdcf349fb011ad8783773"
+          command: pages deploy global-platform --project-name=csa-global-staging --branch=staging
