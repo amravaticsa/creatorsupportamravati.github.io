@@ -50,6 +50,9 @@ async function handle(req,env){
  let policy=null;
  if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
  else if(m==="POST"&&["/v1/onboarding/editor","/v1/onboarding/client"].includes(p))policy={scope:"onboarding",limit:5,window:60};
+ else if(m==="POST"&&p==="/v1/uploads/multipart")policy={scope:"multipart-create",limit:5,window:60};
+ else if(m==="PUT"&&/^\\/v1\\/uploads\\/multipart\\/[\\w-]+\\/parts\\/\\d+$/.test(p))policy={scope:"multipart-part",limit:120,window:300};
+ else if(m==="POST"&&/^\\/v1\\/uploads\\/multipart\\/[\\w-]+\\/(complete|abort)$/.test(p))policy={scope:"multipart-finish",limit:10,window:300};
  else if(m==="PUT"&&(p.startsWith("/v1/projects/")&&p.endsWith("/files")||p.startsWith("/v1/assignments/")&&p.endsWith("/submissions")))policy={scope:"media-upload",limit:6,window:300};
  if(policy){
   const rl=await rateLimit(env,req,policy.scope,policy.limit,policy.window);
