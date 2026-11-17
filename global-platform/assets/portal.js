@@ -186,9 +186,15 @@ async function loadClientProjects(){
  const root=$("client-projects");if(!root)return;root.textContent="Loading your projects with CSA…";
  const statusInfo={
   submitted:{label:"Received by CSA",step:1,detail:"Your project brief has been received. Our team will review your requirements and confirm the scope."},
+  under_review:{label:"CSA reviewing your brief",step:1,detail:"Our team is reviewing your requirements and preparing the next steps."},
+  approved:{label:"CSA planning production",step:2,detail:"The project scope is being prepared by CSA before production begins."},
+  matching:{label:"CSA planning production",step:2,detail:"The CSA team is organizing the production workflow for your project."},
+  assigned:{label:"Production in progress",step:3,detail:"The CSA production team is working on your project. We will keep you updated as it progresses."},
   client_review:{label:"Ready for your review",step:5,detail:"CSA has completed its quality review. Your approved files are ready below."},
   in_progress:{label:"Production in progress",step:3,detail:"The CSA production team is working on your project. We will keep you updated as it progresses."},
+  quality_check:{label:"CSA quality review",step:4,detail:"Your video is going through CSA's quality and brief-compliance checks before delivery."},
   quality_review:{label:"CSA quality review",step:4,detail:"Your video is going through CSA's quality and brief-compliance checks before delivery."},
+  revision:{label:"CSA finalizing your video",step:3,detail:"CSA is coordinating final refinements to make sure the video meets your approved brief."},
   completed:{label:"Completed and delivered",step:5,detail:"Your project has been completed by CSA. You can access the approved deliverables below."},
   closed:{label:"Project closed",step:5,detail:"This project is closed. Please contact CSA if you need any clarification."}
  };
