@@ -323,16 +323,27 @@ async function handle(req,env){
   if(event.startsWith("refund.")&&refundEntity?.payment_id){
    const payment=await env.DB.prepare("SELECT * FROM payments WHERE provider='razorpay' AND provider_payment_id=? AND payment_type='editor_security_deposit'").bind(refundEntity.payment_id).first();
    if(!payment)return out({ok:true,ignored:true});
-   try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,payment.id,JSON.stringify({event,refund_id:refundEntity.id,payment_id:refundEntity.payment_id})).run();}
+   const refund=await env.DB.prepare("SELECT id,provider_refund_id,status FROM editor_deposit_refunds WHERE payment_id=?").bind(payment.id).first();
+   try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,payment.id,JSON.stringify({event,refund_id:refundEntity.id,payment_id:refundEntity.payment_id,amount:refundEntity.amount??null,currency:refundEntity.currency??null})).run();}
    catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
+   if(!refund)return out({ok:true,ignored:true,reason:"No CSA refund request exists for this payment."});
+   const amountMatches=Number(refundEntity.amount)===Number(payment.amount_minor);
+   const currencyMatches=String(refundEntity.currency||"").toUpperCase()===String(payment.currency||"").toUpperCase();
+   const refundIdMatches=!refund.provider_refund_id||refund.provider_refund_id===refundEntity.id;
+   if(!amountMatches||!currencyMatches||!refundIdMatches){
+    const detail={event,refund_id:refundEntity.id,received_amount:refundEntity.amount??null,received_currency:refundEntity.currency??null,expected_amount:payment.amount_minor,expected_currency:payment.currency,refund_id_conflict:!refundIdMatches};
+    await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(JSON.stringify(detail).slice(0,3000),payment.id).run();
+    await log(env,payment.user_id,"editor_deposit_refund_unknown","deposit_refund",payment.id,detail);
+    return out({ok:true,processed:false,refund_status:"unknown",reason:"Refund amount, currency or provider reference did not match the full CSA deposit."});
+   }
    const status=event==="refund.processed"?"processed":event==="refund.failed"?"failed":"pending";
-   await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=COALESCE(provider_refund_id,?),status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(refundEntity.id,status,JSON.stringify({event,refund_id:refundEntity.id}).slice(0,3000),payment.id).run();
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=COALESCE(provider_refund_id,?),status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(refundEntity.id,status,JSON.stringify({event,refund_id:refundEntity.id,amount:refundEntity.amount,currency:refundEntity.currency}).slice(0,3000),payment.id).run();
    if(status==="processed"){
     const existing=await env.DB.prepare("SELECT id FROM deposit_ledger WHERE payment_id=? AND entry_type='deposit_refunded' LIMIT 1").bind(payment.id).first();
-    if(!existing)await env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Razorpay refund processed: "+refundEntity.id,payment.user_id).run();
+    if(!existing)await env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full Razorpay refund processed: "+refundEntity.id,payment.user_id).run();
     await env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id).run();
    }
-   await log(env,payment.user_id,"editor_deposit_refund_"+status,"deposit_refund",payment.id,{provider_refund_id:refundEntity.id});
+   await log(env,payment.user_id,"editor_deposit_refund_"+status,"deposit_refund",payment.id,{provider_refund_id:refundEntity.id,amount_minor:refundEntity.amount,currency:refundEntity.currency});
    return out({ok:true,processed:true,refund_status:status});
   }
   const entity=body.payload?.payment?.entity||body.payload?.order?.entity,orderId=entity?.order_id||entity?.id;
