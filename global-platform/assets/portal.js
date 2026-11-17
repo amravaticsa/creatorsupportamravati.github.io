@@ -1,5 +1,5 @@
 (()=>{"use strict";
-const API="https://csa-global-api.creatorsupportamravati.workers.dev",token=sessionStorage.getItem("csa_global_token"),user=JSON.parse(sessionStorage.getItem("csa_global_user")||"null");
+const API="https://csa-global-api-staging.creatorsupportamravati.workers.dev",token=sessionStorage.getItem("csa_global_token"),user=JSON.parse(sessionStorage.getItem("csa_global_user")||"null");
 const $=id=>document.getElementById(id);
 if(!token||!user){location.href="login.html";return;}
 const headers={"content-type":"application/json","authorization":"Bearer "+token};
@@ -7,17 +7,181 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+user.email+" · "+user.role+" · "+user.status;
 $("logout").onclick=()=>{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");location.href="login.html";};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});const d=await r.json();if(r.status===401){$("account-status").textContent="Session expired. Please sign in again.";sessionStorage.clear();setTimeout(()=>location.href="login.html",1200);}if(!r.ok)throw Error(d.error?.message||"Request failed");return d;}
+async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
+ const report=state=>{try{onStatus(state);}catch{}};
+ const identity=[details.purpose,details.project_id||details.assignment_id||"",file.name,file.size,file.lastModified].join("|");
+ const resumeKey="csa_multipart_"+btoa(unescape(encodeURIComponent(identity))).replace(/[^a-zA-Z0-9]/g,"").slice(0,100);
+ let start=null;
+ const saved=resumeUploadId||localStorage.getItem(resumeKey);
+ if(resumeUploadId)localStorage.setItem(resumeKey,resumeUploadId);
+ if(saved){
+  const check=await fetch(API+"/v1/uploads/multipart/"+encodeURIComponent(saved),{headers:{authorization:"Bearer "+token}});
+  const status=await check.json();
+  if(check.ok&&status.filename===file.name&&Number(status.total_size_bytes)===file.size){
+   for(const part of status.uploaded_parts||[]){
+    if(!part.sha256)throw Error("This older upload session has no integrity checksum. It cannot be safely resumed; please start a fresh upload.");
+    const from=(Number(part.part_number)-1)*Number(status.part_size_bytes),to=Math.min(file.size,from+Number(status.part_size_bytes));
+    const digest=await crypto.subtle.digest("SHA-256",await file.slice(from,to).arrayBuffer());
+    const localHash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+    if(localHash!==part.sha256)throw Error("Selected file content does not match the previously uploaded parts. Choose the original file to resume.");
+   }
+   start=status;onProgress(0,file.size,0,status.expected_parts);
+  }
+  else if(check.status===404||check.status===410){localStorage.removeItem(resumeKey);}
+  else if(!check.ok)throw Error(status.error?.message||"Could not resume the previous upload.");
+ }
+ if(!start){
+  start=await api("/v1/uploads/multipart",{method:"POST",body:JSON.stringify({purpose:details.purpose,project_id:details.project_id,assignment_id:details.assignment_id,filename:file.name,mime_type:file.type||"application/octet-stream",size_bytes:file.size,notes:details.notes||""})});
+  localStorage.setItem(resumeKey,start.upload_id);
+ }
+ try{
+  const completed=new Set((start.uploaded_parts||[]).map(x=>Number(x.part_number)));
+  let sent=(start.uploaded_parts||[]).reduce((n,x)=>n+Number(x.size_bytes||0),0);
+  for(let part=1;part<=start.expected_parts;part++){
+   if(completed.has(part))continue;
+   const from=(part-1)*start.part_size_bytes,to=Math.min(file.size,from+start.part_size_bytes),chunk=file.slice(from,to);
+   let done=false,lastError;
+   for(let attempt=1;attempt<=3&&!done;attempt++){
+    try{
+     if(typeof navigator!=="undefined"&&navigator.onLine===false)throw Object.assign(Error("Your internet connection is offline."),{retryable:true});
+     report({type:"sending",part,total:start.expected_parts,attempt});
+     const r=await fetch(API+"/v1/uploads/multipart/"+start.upload_id+"/parts/"+part,{method:"PUT",headers:{authorization:"Bearer "+token,"content-type":"application/octet-stream"},body:chunk});
+     let d;try{d=await r.json();}catch{const parseError=Error("Upload server returned an unreadable response.");parseError.retryable=r.status===408||r.status===429||r.status>=500;parseError.status=r.status;throw parseError;}
+     if(!r.ok){const requestError=Error(d.error?.message||"Upload part "+part+" failed");requestError.status=r.status;requestError.retryable=r.status===408||r.status===429||r.status>=500;const retryAfter=r.headers.get("Retry-After");if(retryAfter){const seconds=Number(retryAfter);const dateDelay=Date.parse(retryAfter)-Date.now();requestError.retryAfterMs=Number.isFinite(seconds)?Math.max(0,seconds*1000):Number.isFinite(dateDelay)?Math.max(0,dateDelay):0;}throw requestError;}
+     done=true;
+    }catch(err){lastError=err;if(err.retryable===false)throw err;if(attempt<3){const backoff=Math.min(10000,700*Math.pow(2,attempt-1));const jitter=Math.floor(Math.random()*300);const delay=Math.min(30000,Math.max(backoff+jitter,Number(err.retryAfterMs)||0));report({type:"retry",part,total:start.expected_parts,attempt,delay,message:err.message});await new Promise(resolve=>setTimeout(resolve,delay));}}
+   }
+   if(!done)throw lastError||Error("Upload part "+part+" failed");
+   sent+=chunk.size;onProgress(sent,file.size,part,start.expected_parts);report({type:"progress",part,total:start.expected_parts,sent,totalBytes:file.size});
+  }
+  report({type:"completing",part:start.expected_parts,total:start.expected_parts});
+  const result=await api("/v1/uploads/multipart/"+start.upload_id+"/complete",{method:"POST",body:"{}"});
+  localStorage.removeItem(resumeKey);report({type:"complete"});
+  return result;
+ }catch(err){
+  report({type:"error",message:err.message||"Upload failed"});
+  throw Error((err.message||"Upload failed")+". Upload session is saved; select the same file again to resume.");
+ }
+}
+
 if(user.role==="client"){
  $("client-panel").hidden=false;
- loadClientProjects();
+ loadClientProjects();loadUploadHistory("client-upload-history");
  $("project-form").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:f.get("title"),category:f.get("category"),brief:f.get("brief"),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
- $("project-message").textContent="Submitting…";try{const d=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});$("project-message").textContent="Project submitted: "+d.project_code+". Uploading selected files…";const files=Array.from(e.target.elements.project_files.files||[]);for(const file of files){if(file.size>90*1024*1024)throw Error(file.name+" is over the 90 MB staging limit.");const up=await fetch(API+"/v1/projects/"+d.project_id+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});const result=await up.json();if(!up.ok)throw Error(result.error?.message||"Upload failed for "+file.name);} $("project-message").textContent="Project "+d.project_code+" submitted and "+files.length+" file(s) uploaded privately to CSA.";e.target.reset();loadClientProjects();}catch(err){$("project-message").textContent=err.message;}
+ $("project-message").textContent="Submitting…";try{const d=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});$("project-message").textContent="Project submitted: "+d.project_code+". Uploading selected files…";const files=Array.from(e.target.elements.project_files.files||[]);for(const file of files){if(file.size>5*1024*1024*1024)throw Error(file.name+" is over the 5 GB staging limit.");if(file.size>90*1024*1024){await multipartUpload(file,{purpose:"project_file",project_id:d.project_id},(sent,total,part,count)=>{$("project-message").textContent="Uploading "+file.name+" · Part "+part+"/"+count+" · "+Math.round(sent/total*100)+"%";},null,state=>{if(state.type==="retry")$("project-message").textContent="Connection issue · retry "+state.attempt+"/3 · waiting "+Math.ceil(state.delay/1000)+"s · "+file.name;if(state.type==="completing")$("project-message").textContent="All parts uploaded · verifying and completing "+file.name;if(state.type==="error")$("project-message").textContent="Upload paused · "+state.message+" · You can resume from upload history.";});}else{const up=await fetch(API+"/v1/projects/"+d.project_id+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});const result=await up.json();if(!up.ok)throw Error(result.error?.message||"Upload failed for "+file.name);}} $("project-message").textContent="Project "+d.project_code+" submitted and "+files.length+" file(s) uploaded privately to CSA.";e.target.reset();loadClientProjects();}catch(err){$("project-message").textContent=err.message;}
  };
 }else if(user.role==="editor"){
- $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();}
+ $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
- $("admin-panel").hidden=false;loadAdmin();
+ $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();loadAdminCleanupRuns();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
+async function loadAdminCleanupRuns(){
+ const root=$("admin-cleanup-runs");if(!root)return;root.textContent="Loading cleanup history…";
+ try{
+  const d=await api("/v1/admin/multipart-cleanup-runs");root.replaceChildren();
+  if(!d.runs.length){root.textContent="No scheduled cleanup execution has been recorded yet.";return;}
+  for(const run of d.runs){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h4");title.textContent=run.status.toUpperCase()+" · "+new Date(run.started_at).toLocaleString();
+   const stats=document.createElement("p");stats.textContent="Checked "+run.checked+" · Aborted "+run.aborted+" · Failed "+run.failed;
+   const finish=document.createElement("small");finish.textContent=run.finished_at?"Finished "+new Date(run.finished_at).toLocaleString():"Execution has not finished";
+   card.append(title,stats,finish);
+   if(run.error_message){const err=document.createElement("p");err.className="muted";err.textContent=run.error_message;card.append(err);}
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
+async function loadAdminMultipartUploads(){
+ const metrics=$("admin-multipart-metrics"),root=$("admin-multipart-uploads");if(!root)return;
+ root.textContent="Loading upload operations…";
+ try{
+  const d=await api("/v1/admin/multipart-uploads");
+  metrics.replaceChildren();
+  const labels=[["Open sessions",d.totals.open||0],["Completed",d.totals.completed||0],["Aborted",d.totals.aborted||0],["Expired but open",d.totals.expired_open||0],["Unknown outcome",d.totals.unknown||0],["Completing",d.totals.completing||0]];
+  for(const [label,value] of labels){const card=document.createElement("div");card.className="stat";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;card.append(small,strong);metrics.append(card);}
+  root.replaceChildren();
+  const attention=document.createElement("section");attention.className="card";
+  const attentionTitle=document.createElement("h4");attentionTitle.textContent="Sessions requiring attention ("+(d.attention||[]).length+")";attention.append(attentionTitle);
+  if(!(d.attention||[]).length){const clear=document.createElement("p");clear.className="muted";clear.textContent="No stale, expired or uncertain multipart sessions need review.";attention.append(clear);}
+  else for(const item of d.attention){
+   const entry=document.createElement("div");entry.className="card";
+   const heading=document.createElement("strong");heading.textContent=item.original_filename+" · "+(item.public_project_code||"No project code")+" · "+item.status.replaceAll("_"," ");
+   const owner=document.createElement("p");owner.className="muted";owner.textContent=item.uploader_name+" · "+item.email+" · "+item.purpose.replaceAll("_"," ");
+   const reason=document.createElement("p");reason.textContent=item.reason;
+   const age=document.createElement("small");age.textContent="Started "+new Date(item.created_at).toLocaleString()+" · "+item.age_minutes+" minutes ago";
+   const inspect=document.createElement("button");inspect.className="btn outline";inspect.textContent="Inspect session";
+   const detail=document.createElement("div");detail.className="muted";detail.hidden=true;
+   inspect.onclick=async()=>{inspect.disabled=true;detail.hidden=false;detail.textContent="Loading safe session diagnostics…";try{const report=await api("/v1/admin/multipart-uploads/"+encodeURIComponent(item.id)+"/inspect");const x=report.session;detail.replaceChildren();const summary=document.createElement("p");summary.textContent="Session "+x.id+" · "+x.total_size_bytes+" bytes · "+report.parts.length+" parts · "+x.status;const parts=document.createElement("p");parts.textContent="Expected "+x.expected_parts+" · Received "+report.parts.length+" · Missing "+report.missing_parts.length;const integrity=document.createElement("p");integrity.textContent="Checksum verified parts available: "+report.integrity.parts_with_checksum+" · Without checksum: "+report.integrity.parts_without_checksum;const missing=document.createElement("p");missing.textContent=report.missing_parts.length?"Missing part numbers: "+report.missing_parts.join(", "):"No missing parts recorded in database.";const caution=document.createElement("p");caution.textContent="Read-only diagnostics only. No retry, abort, delete, or refund action was performed.";detail.append(summary,parts,integrity,missing,caution);await renderMultipartIncidentPanel(item.id,detail);inspect.textContent="Refresh inspection";}catch(err){detail.textContent="Inspection failed: "+err.message;}finally{inspect.disabled=false;}};
+   entry.append(heading,owner,reason,age,inspect,detail);attention.append(entry);
+  }
+  root.append(attention);
+  if(!d.uploads.length){const empty=document.createElement("p");empty.textContent="No multipart upload sessions recorded yet.";root.append(empty);return;}
+  for(const u of d.uploads){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h4");h.textContent=u.original_filename+" · "+(u.public_project_code||"No project code");
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=u.uploader_name+" ("+u.role+") · "+u.email+" · "+u.purpose.replaceAll("_"," ");
+   const progress=document.createElement("p");progress.textContent=(u.total_size_bytes/1024/1024).toFixed(1)+" MB · "+u.parts_uploaded+"/"+u.expected_parts+" parts · "+(u.total_size_bytes?Math.round(u.bytes_uploaded/u.total_size_bytes*100):0)+"% · "+u.status.replaceAll("_"," ");
+   const date=document.createElement("small");date.textContent="Created "+new Date(u.created_at).toLocaleString()+" · Expires "+new Date(u.expires_at).toLocaleString();
+   card.append(h,meta,progress,date);
+   if(u.expired_open){const warning=document.createElement("p");warning.className="muted";warning.textContent="Expired session awaiting scheduled R2 cleanup.";card.append(warning);}
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
+async function renderMultipartIncidentPanel(sessionId,container){
+ const panel=document.createElement("section");panel.className="card";
+ const heading=document.createElement("h4");heading.textContent="Incident & resolution history";
+ const history=document.createElement("div");history.textContent="Loading incident history…";
+ const form=document.createElement("form");form.className="form";
+ const type=document.createElement("select");type.setAttribute("aria-label","Incident type");
+ for(const [v,label] of [["upload_failed","Upload failed"],["unknown_completion","Unknown storage outcome"],["stale_completion","Stale completion"],["expired_session","Expired session"],["integrity_issue","Integrity/checksum issue"],["other","Other"]]){const o=document.createElement("option");o.value=v;o.textContent=label;type.append(o);}
+ const status=document.createElement("select");status.setAttribute("aria-label","Resolution status");
+ for(const [v,label] of [["reviewed","Reviewed"],["awaiting_user","Awaiting user"],["reupload_requested","Re-upload requested"],["resolved","Resolved"],["escalated","Escalated"]]){const o=document.createElement("option");o.value=v;o.textContent=label;status.append(o);}
+ const notes=document.createElement("textarea");notes.maxLength=1000;notes.required=true;notes.placeholder="Record what was checked and the next step (max 1000 characters).";
+ const submit=document.createElement("button");submit.className="btn dark";submit.type="submit";submit.textContent="Save resolution record";
+ const hint=document.createElement("small");hint.className="muted";hint.textContent="Append-only audit trail. This records a decision only; it does not retry, abort, delete, or modify stored files.";
+ form.append(type,status,notes,submit,hint);
+ async function refresh(){
+  const data=await api("/v1/admin/multipart-uploads/"+encodeURIComponent(sessionId)+"/incidents");history.replaceChildren();
+  if(!data.incidents.length){history.textContent="No incident or resolution records yet.";return;}
+  for(const event of data.incidents){const row=document.createElement("article");row.className="card";const title=document.createElement("strong");title.textContent=event.resolution_status.replaceAll("_"," ").toUpperCase()+" · "+event.incident_type.replaceAll("_"," ");const meta=document.createElement("small");meta.textContent=(event.actor_name||event.actor_email)+" · "+new Date(event.created_at).toLocaleString();const note=document.createElement("p");note.textContent=event.notes;row.append(title,meta,note);history.append(row);}
+ }
+ form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{await api("/v1/admin/multipart-uploads/"+encodeURIComponent(sessionId)+"/incidents",{method:"POST",body:JSON.stringify({incident_type:type.value,resolution_status:status.value,notes:notes.value.trim()})});notes.value="";await refresh();}catch(err){alert("Could not save resolution: "+err.message);}finally{submit.disabled=false;}};
+ panel.append(heading,history,form);container.append(panel);
+ try{await refresh();}catch(err){history.textContent="Incident history unavailable: "+err.message;}
+}
+async function loadUploadHistory(targetId){
+ const root=$(targetId);if(!root)return;root.textContent="Loading recent upload history…";
+ try{
+  const d=await api("/v1/uploads/multipart/history");root.replaceChildren();
+  if(!d.uploads.length){root.textContent="No large-file upload sessions yet.";return;}
+  for(const u of d.uploads){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h3");title.textContent=u.original_filename;
+   const progress=document.createElement("p");progress.className="muted";
+   const percent=u.total_size_bytes?Math.min(100,Math.round(u.bytes_uploaded/u.total_size_bytes*100)):0;
+   progress.textContent=(u.total_size_bytes/1024/1024).toFixed(1)+" MB · "+u.parts_uploaded+"/"+u.expected_parts+" parts · "+percent+"% uploaded";
+   const status=document.createElement("p");status.className="tag "+(u.status==="completed"?"":"blue");status.textContent=u.status.replaceAll("_"," ");
+   const date=document.createElement("small");date.textContent="Started: "+new Date(u.created_at).toLocaleString();
+   card.append(title,progress,status,date);
+   const canResume=u.status==="open"&&new Date(u.expires_at).getTime()>Date.now();
+   const canRestart=u.status==="aborted"||(u.status==="open"&&new Date(u.expires_at).getTime()<=Date.now());
+   if(canResume||canRestart){
+    const picker=document.createElement("input");picker.type="file";picker.setAttribute("aria-label","Choose the original file");
+    const action=document.createElement("button");action.className="btn outline";action.textContent=canResume?"Select same file to resume":"Select same file to start a fresh upload";action.disabled=true;
+    picker.onchange=()=>{const f=picker.files?.[0];action.disabled=!f||f.name!==u.original_filename||f.size!==u.total_size_bytes;};
+    const msg=document.createElement("p");msg.className="muted";msg.setAttribute("role","status");
+    action.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;action.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent=(canResume?"Resuming":"Starting fresh upload")+" · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},canResume?u.id:null,state=>{if(state.type==="retry")msg.textContent="Connection issue · retry "+state.attempt+"/3 · waiting "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")msg.textContent="Verifying uploaded parts…";if(state.type==="error")msg.textContent="Upload paused: "+state.message;});msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;action.disabled=false;}};
+    card.append(picker,action,msg);
+   }else if(u.status==="unknown"||u.status==="completing"){
+    const warning=document.createElement("p");warning.className="muted";warning.textContent="CSA review required before retry. Do not upload again until the storage outcome is checked, to avoid duplicate files.";card.append(warning);
+   }else if(u.status==="completed"){
+    const done=document.createElement("small");done.textContent="This upload is complete.";card.append(done);
+   }
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
 async function loadClientProjects(){
  const root=$("client-projects");if(!root)return;root.textContent="Loading your project submissions…";
  try{const d=await api("/v1/client/projects");root.replaceChildren();if(!d.projects.length){root.textContent="You have not submitted any projects yet.";return;}for(const p of d.projects){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;const m=document.createElement("p");m.className="muted";m.textContent=p.category+" · "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.status+" · Deadline: "+(p.preferred_deadline||"Not set");c.append(h,m);try{const dls=await api("/v1/client/projects/"+p.id+"/deliverables");for(const file of dls.deliverables){const b=document.createElement("button");b.className="btn outline";b.textContent="Download approved "+file.original_filename;b.onclick=async()=>{const r=await fetch(API+"/v1/files/"+file.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Download failed");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);};c.append(b);}}catch{}root.append(c);}}catch(e){root.textContent=e.message;}
@@ -25,8 +189,8 @@ async function loadClientProjects(){
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  try{
-  const [overview,pj,pe,ve,ro]=await Promise.all([
-   api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready")
+  const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
+   api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready"),api("/v1/admin/submissions/pending"),api("/v1/admin/deposits/refunds/eligible")
   ]);
   metrics.replaceChildren();
   for(const [label,value] of Object.entries({Projects:overview.metrics.projects_to_review,EditorsPending:overview.metrics.editors_pending,ActiveAssignments:overview.metrics.active_assignments,OpenDisputes:overview.metrics.open_disputes})){
@@ -61,11 +225,17 @@ async function loadAdmin(){
   ready.replaceChildren();
   if(!ro.offers.length)ready.textContent="No captured deposits waiting for assignment.";
   for(const o of ro.offers){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=o.title+" · "+o.public_project_code;const meta=document.createElement("p");meta.textContent=o.public_editor_code+" · Deposit captured · Fee "+(o.proposed_fee_minor/100)+" "+o.fee_currency;const assign=document.createElement("button");assign.className="btn dark";assign.textContent="Confirm Assignment";assign.onclick=async()=>{try{await api("/v1/admin/offers/"+o.id+"/assign",{method:"POST",body:"{}"});alert("Assignment confirmed.");loadAdmin();}catch(e){alert(e.message);}};card.append(h,meta,assign);ready.append(card);}
+  const qcRoot=$("admin-submissions");if(qcRoot){qcRoot.replaceChildren();if(!qc.submissions.length)qcRoot.textContent="No submissions waiting for quality review.";for(const item of qc.submissions){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=item.title+" · "+item.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent=item.display_name+" · "+item.public_editor_code+" · Version "+item.version_number+" · Submitted "+item.submitted_at;const notes=document.createElement("p");notes.textContent=(item.notes||"No submission notes.")+" · "+(item.original_filename||"Submission file")+" · "+Math.round((item.size_bytes||0)/1024/1024*10)/10+" MB";const download=document.createElement("button");download.className="btn outline";download.textContent="Download for QC review";download.onclick=async()=>{try{const response=await fetch(API+"/v1/files/"+item.id,{headers:{authorization:"Bearer "+token}});if(!response.ok)throw Error("Submission download denied");const url=URL.createObjectURL(await response.blob()),link=document.createElement("a");link.href=url;link.download=item.original_filename||"submission";link.click();URL.revokeObjectURL(url);}catch(err){alert(err.message);}};const actions=document.createElement("div");actions.className="actions";for(const [status,label] of [["approved","Quality Approve"],["changes_requested","Request Changes"],["rejected","Reject Submission"]]){const b=document.createElement("button");b.className=status==="approved"?"btn dark":"btn outline";b.textContent=label;b.onclick=async()=>{if(!confirm(label+" for "+item.public_project_code+"?"))return;b.disabled=true;try{await api("/v1/admin/submissions/"+item.id+"/review",{method:"POST",body:JSON.stringify({status})});loadAdmin();}catch(e){alert(e.message);b.disabled=false;}};actions.append(b);}card.append(h,meta,notes,download,actions);qcRoot.append(card);}}
+  const refundRoot=$("admin-refunds");if(refundRoot){refundRoot.replaceChildren();if(!rf.eligible.length)refundRoot.textContent="No security deposits are currently eligible for refund.";for(const item of rf.eligible){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=item.title+" · "+item.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent=item.display_name+" · "+item.public_editor_code+" · Deposit "+(item.amount_minor/100)+" "+item.currency;const approved=document.createElement("p");approved.textContent="CSA quality approved: "+item.quality_approved_at;const b=document.createElement("button");b.className="btn dark";b.textContent="Initiate Full Deposit Refund";b.onclick=async()=>{if(!confirm("Initiate full refund of "+(item.amount_minor/100)+" "+item.currency+" to the original payment method?"))return;b.disabled=true;try{const result=await api("/v1/admin/deposits/"+item.payment_id+"/refund",{method:"POST",body:"{}"});alert("Razorpay refund status: "+result.status+" · Refund ID: "+result.provider_refund_id);loadAdmin();}catch(e){alert(e.message);b.disabled=false;}};card.append(h,meta,approved,b);refundRoot.append(card);}}
  }catch(e){metrics.textContent="Admin data could not be loaded: "+e.message;}
 }
 async function loadAssignments(){
  const root=$("assignments");if(!root)return;root.textContent="Loading assignments…";
- try{const d=await api("/v1/editor/assignments");root.replaceChildren();if(!d.assignments.length){root.textContent="No active assignments yet.";return;}for(const a of d.assignments){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=a.title+" · "+a.public_project_code;const p=document.createElement("p");p.textContent=a.brief;const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+a.due_at+" · Status: "+a.status;try{const sourceFiles=await api("/v1/projects/"+a.project_id+"/files");for(const sf of sourceFiles.files){const dl=document.createElement("button");dl.className="btn outline";dl.textContent="Download source: "+sf.original_filename;dl.onclick=async()=>{const r=await fetch(API+"/v1/files/"+sf.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Source download denied");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=sf.original_filename;a.click();URL.revokeObjectURL(url);};c.append(dl);}}catch{}const file=document.createElement("input");file.type="file";file.accept="video/*,audio/*,image/*,application/pdf,application/zip";const note=document.createElement("input");note.placeholder="Submission notes (optional)";const b=document.createElement("button");b.className="btn dark";b.textContent="Submit work to CSA";b.onclick=async()=>{const f=file.files[0];if(!f){alert("Select a file first.");return;}if(f.size>90*1024*1024){alert("Staging upload limit is 90 MB per file.");return;}try{const r=await fetch(API+"/v1/assignments/"+a.id+"/submissions",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":f.type||"application/octet-stream","x-file-name":f.name,"x-submission-notes":note.value},body:f});const result=await r.json();if(!r.ok)throw Error(result.error?.message||"Upload failed");alert("Work submitted to CSA for quality review.");loadAssignments();}catch(e){alert(e.message);}};c.append(h,p,meta,file,note,b);root.append(c);}}catch(e){root.textContent=e.message;}
+ try{const d=await api("/v1/editor/assignments");root.replaceChildren();if(!d.assignments.length){root.textContent="No active assignments yet.";return;}for(const a of d.assignments){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=a.title+" · "+a.public_project_code;const p=document.createElement("p");p.textContent=a.brief;const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+a.due_at+" · Status: "+a.status;try{const sourceFiles=await api("/v1/projects/"+a.project_id+"/files");for(const sf of sourceFiles.files){const dl=document.createElement("button");dl.className="btn outline";dl.textContent="Download source: "+sf.original_filename;dl.onclick=async()=>{const r=await fetch(API+"/v1/files/"+sf.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Source download denied");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=sf.original_filename;a.click();URL.revokeObjectURL(url);};c.append(dl);}}catch{}const file=document.createElement("input");file.type="file";file.accept="video/*,audio/*,image/*,application/pdf,application/zip";const note=document.createElement("input");note.placeholder="Submission notes (optional)";const b=document.createElement("button");b.className="btn dark";b.textContent="Submit work to CSA";b.onclick=async()=>{const f=file.files[0];if(!f){alert("Select a file first.");return;}if(f.size>5*1024*1024*1024){alert("Staging upload limit is 5 GB per file.");return;}try{if(f.size>90*1024*1024){b.disabled=true;b.textContent="Uploading…";await multipartUpload(f,{purpose:"submission",assignment_id:a.id,notes:note.value},(sent,total,part,count)=>{b.textContent="Uploading "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},null,state=>{if(state.type==="retry")b.textContent="Retrying · "+state.attempt+"/3 · "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")b.textContent="Verifying upload…";});}else{const r=await fetch(API+"/v1/assignments/"+a.id+"/submissions",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":f.type||"application/octet-stream","x-file-name":f.name,"x-submission-notes":note.value},body:f});const result=await r.json();if(!r.ok)throw Error(result.error?.message||"Upload failed");}alert("Work submitted to CSA for quality review.");loadAssignments();}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent="Submit work to CSA";}};c.append(h,p,meta,file,note,b);root.append(c);}}catch(e){root.textContent=e.message;}
+}
+async function loadEditorRefunds(){
+ const root=$("editor-refunds");if(!root)return;root.textContent="Loading deposit refund status…";
+ try{const d=await api("/v1/editor/deposit-refunds");root.replaceChildren();if(!d.refunds.length){root.textContent="No deposit refund requests yet. Your deposit will become eligible after CSA quality approval.";return;}for(const r of d.refunds){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=r.title+" · "+r.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent="Refund amount: "+(r.amount_minor/100)+" "+r.currency+" · Status: "+r.status;const ref=document.createElement("p");ref.textContent=r.provider_refund_id?"Razorpay Refund ID: "+r.provider_refund_id:"Razorpay refund reference will appear once available.";c.append(h,meta,ref);root.append(c);}}catch(e){root.textContent=e.message;}
 }
 async function loadOffers(){
  const root=$("offers");root.textContent="Loading invitations…";

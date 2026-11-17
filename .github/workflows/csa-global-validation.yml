@@ -18,8 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Check Worker JavaScript syntax
-        run: node --check global-platform/api/src/index.js
+      - name: Check Worker and browser JavaScript syntax
+        run: |
+          node --check global-platform/api/src/index.js
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
       - name: Check required platform files
@@ -35,6 +36,58 @@ jobs:
           test -s global-platform/assets/portal.js
           test -s global-platform/migrations/0003_payment_webhook_events.sql
           test -s global-platform/migrations/0004_submission_file_metadata.sql
+          test -s global-platform/migrations/0005_editor_deposit_refunds.sql
+          test -s global-platform/migrations/0006_api_rate_limits.sql
+          test -s global-platform/migrations/0007_multipart_uploads.sql
+          test -s global-platform/migrations/0008_multipart_part_sha256.sql
+          test -s global-platform/migrations/0009_multipart_cleanup_runs.sql
+          test -s global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "multipart_upload_incidents" global-platform/api/src/index.js
+          grep -q "renderMultipartIncidentPanel" global-platform/assets/portal.js
+          grep -q "incident_type" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "resolution_status" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -qi "append-only" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "multipart_cleanup_runs" global-platform/api/src/index.js
+          grep -q "loadAdminCleanupRuns" global-platform/assets/portal.js
+          grep -q "admin-cleanup-runs" global-platform/portal.html
+          grep -q "partSha256" global-platform/api/src/index.js
+          grep -q "part.sha256" global-platform/assets/portal.js
+          grep -q "requestError.retryable" global-platform/assets/portal.js
+          grep -q "Retry-After" global-platform/assets/portal.js
+          grep -q "Math.pow(2,attempt-1)" global-platform/assets/portal.js
+          grep -q "Sessions requiring attention" global-platform/assets/portal.js
+          grep -q "Storage completion outcome is uncertain" global-platform/api/src/index.js
+          grep -q "staleBefore" global-platform/api/src/index.js
+          grep -q "canRestart=u.status" global-platform/assets/portal.js
+          grep -q "Starting fresh upload" global-platform/assets/portal.js
+          grep -q "CSA review required before retry" global-platform/assets/portal.js
+          grep -q "navigator.onLine===false" global-platform/assets/portal.js
+          grep -q "type:\"retry\"" global-platform/assets/portal.js
+          grep -q "Verifying upload" global-platform/assets/portal.js
+          grep -q "Upload paused" global-platform/assets/portal.js
+          grep -q "multipartInspect" global-platform/api/src/index.js
+          grep -q "checksum_present" global-platform/api/src/index.js
+          grep -q "missing_parts" global-platform/api/src/index.js
+          grep -q "Inspect session" global-platform/assets/portal.js
+          grep -q "Read-only diagnostics only" global-platform/assets/portal.js
+          grep -q "SHA-256" global-platform/api/src/index.js
+          grep -q 'createMultipartUpload' global-platform/api/src/index.js
+          grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
+          grep -q 'csa_multipart_' global-platform/assets/portal.js
+          grep -q '/v1/uploads/multipart/history' global-platform/api/src/index.js
+          grep -q 'loadUploadHistory' global-platform/assets/portal.js
+          grep -q '/v1/admin/multipart-uploads' global-platform/api/src/index.js
+          grep -q 'loadAdminMultipartUploads' global-platform/assets/portal.js
+          grep -q 'admin-multipart-uploads' global-platform/portal.html
+          grep -q 'client-upload-history' global-platform/portal.html
+          grep -q 'editor-upload-history' global-platform/portal.html
+          grep -q 'async scheduled(controller,env)' global-platform/api/src/index.js
+          grep -q 'cleanupExpiredMultipartUploads' global-platform/api/src/index.js
+          grep -q 'uploadPart(partNumber,data)' global-platform/api/src/index.js
+          grep -q 'rate_limited' global-platform/api/src/index.js
+          grep -q 'api_rate_limits' global-platform/api/src/index.js
+          grep -q 'upload_too_large' global-platform/api/src/index.js
+          grep -q 'content_length_mismatch' global-platform/api/src/index.js
           test -s global-platform/api/wrangler.toml
           test -s global-platform/migrations/0001_initial.sql
           test -s global-platform/migrations/0002_editor_payout_and_disputes.sql

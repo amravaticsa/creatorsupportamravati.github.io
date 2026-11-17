@@ -1,8 +1,8 @@
 # CSA Global API — staging
 
-Cloudflare Worker: `csa-global-api`
-Endpoint: https://csa-global-api.creatorsupportamravati.workers.dev
-Database binding: `DB` → `csa-global-platform`
+Cloudflare Worker: `csa-global-api-staging`
+Endpoint: https://csa-global-api-staging.creatorsupportamravati.workers.dev
+Database binding: `DB` → `csa-global-platform-staging` (isolated staging database; do not bind this Worker to production D1)
 Private media binding: `MEDIA` → `csa-global-media-staging`
 
 ## Implemented routes
@@ -10,11 +10,17 @@ Private media binding: `MEDIA` → `csa-global-media-staging`
 - `POST /v1/auth/google` — Google Identity Services credential + nonce verification; client/editor/admin role onboarding (admin requires `ADMIN_EMAILS` allowlist).
 - `POST /v1/projects`, `GET /v1/client/projects`, `GET /v1/client/projects/:id/deliverables`
 - `PUT /v1/projects/:id/files`, `GET /v1/projects/:id/files`, `GET /v1/files/:id`
+- Multipart: `POST /v1/uploads/multipart`, `PUT /v1/uploads/multipart/:id/parts/:partNumber`, `POST /v1/uploads/multipart/:id/complete`, `POST /v1/uploads/multipart/:id/abort` (project source files and editor submissions)
 - `GET /v1/editor/offers`, `GET /v1/editor/agreements`, `GET /v1/editor/assignments`
 - `POST /v1/offers/:id/accept`, `POST /v1/offers/:id/terms`
 - `POST /v1/offers/:id/deposit/checkout`, `POST /v1/payments/razorpay/verify`, `POST /v1/webhooks/razorpay`
 - `PUT /v1/assignments/:id/submissions`
 - Admin: overview, tender queue, editor queues, offer creation, agreement draft/activation, assignment confirmation, QC queue and QC decisions.
+- `GET /v1/admin/multipart-uploads` — admin/staff-only read-only upload operations summary and latest 50 sessions; no R2 keys or provider upload IDs exposed.
+- `GET|POST /v1/admin/multipart-uploads/:id/incidents` — admin/staff-only append-only incident and resolution timeline for a specific upload session; bounded notes and allow-listed incident/status values.
+- `GET /v1/uploads/multipart/history` — signed-in client's/editor's own latest 30 sessions.
+- `GET /v1/admin/deposits/refunds/eligible`, `POST /v1/admin/deposits/:paymentId/refund` — full original-method refund, available only after CSA QC approval; one request per deposit.
+- `GET /v1/editor/deposit-refunds` — editor's own refund status and Razorpay refund reference.
 
 ## Authentication
 Google RS256 ID tokens are verified using Google's JWKS. The Worker validates issuer, exact audience, expiry, issued-at, verified email and per-login nonce. Protected routes check account status and role on every request.
@@ -33,18 +39,47 @@ Required encrypted secrets:
 - Server creates Razorpay Orders; browser does not decide amount.
 - Server verifies HMAC signature and fetches payment status; only captured, amount/currency-matched payments unlock assignment.
 - Webhook signatures are checked against the raw request body; duplicate webhook event IDs are rejected.
-- Configure `payment.captured` and `payment.failed` webhook events.
+- Configured staging webhook events: `payment.captured`, `payment.failed`, `refund.created`, `refund.processed` and `refund.failed`.
 - Checkout is disabled/fails closed until valid keys and webhook secret are configured.
 - Test Mode only until deposit/refund/legal/cross-border review is complete.
+
+## API abuse controls
+- D1-backed fixed-window rate limits are applied by client IP (SHA-256 hashed; raw IPs are not stored) to Google login (10/minute), client/editor onboarding (5/minute) and media uploads/submissions (6 per 5 minutes).
+- Rate-limited requests return HTTP 429 with a `Retry-After` header. Rate-limit counters are stored in the isolated staging D1 database and expired rows are periodically pruned.
+- Multipart upload creation is limited to 5/minute/IP, parts to 120/5 minutes/IP, and completion/abort to 10/5 minutes/IP.
 
 ## Private file handling
 - R2 bucket is private and not publicly exposed.
 - Client source files are only available to the project owner, CSA admins and the assigned editor.
 - Editor submissions are private until QC approval; clients can download approved deliverables only.
-- Current direct staging upload limit is 90 MB per file. Implement resumable/multipart upload before handling large camera originals.
+- Direct single-request uploads remain capped at 90 MB. Resumable R2 multipart uploads support files over 90 MB up to 5 GB, split into 50 MiB parts (minimum 5 MiB except the last part). Upload sessions expire after 24 hours. An hourly scheduled Worker job aborts expired open R2 multipart uploads in batches of up to 100 and marks successful aborts as `aborted`; failed aborts remain open for the next scheduled retry. R2 also automatically aborts unfinished multipart uploads after 7 days.
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
-- No automatic email/WhatsApp notifications, payout automation, refund automation, client final sign-off or large-file multipart upload yet.
-- Google OAuth client ID, admin allowlist and Razorpay credentials are not configured yet.
-- Do not collect live deposits or publish to production until credentials, legal review, end-to-end tests and independent security review are complete.
+- Staging D1 migrations `0001`–`0010` have been applied only after verification; verify the target database before any future migration or deployment.
+- Refunds require an explicit CSA Admin action after Quality Approved; provider status is reconciled by signed Razorpay refund webhooks. Both the API response and webhook must match the original payment ID, full amount and currency, and a locally recorded CSA refund request before the deposit is marked fully refunded. Refund requests are single-use/idempotency-keyed; mismatches and uncertain provider outcomes are marked unknown for manual Razorpay dashboard reconciliation and must not be retried blindly.
+- No automatic email/WhatsApp notifications, editor payout automation or client final sign-off yet.
+- Google OAuth settings, admin allowlist and Razorpay encrypted secrets are configured on the staging Worker. Configuration is not proof of end-to-end payment/refund success.
+- Keep payment processing in Test Mode. Do not collect live deposits or publish to production until legal review, end-to-end tests and independent security review are complete.
+
+
+### Upload history and recovery
+
+Authenticated clients and editors can retrieve their latest 30 multipart upload sessions from `GET /v1/uploads/multipart/history`. The response is scoped to the signed-in account and includes file name, purpose, byte/part progress, status, timestamps and associated project or assignment IDs. The portal displays this history; an unexpired open upload can be resumed by selecting the same file (matching filename and size). The endpoint does not expose R2 object keys or provider multipart upload IDs.
+
+- Admin portal includes a read-only large-file upload operations panel with status totals, progress and expired-session visibility.
+
+
+### Multipart part integrity
+
+The Worker computes and stores a SHA-256 digest for every uploaded part. Before resuming, the browser re-hashes all previously uploaded parts from the selected local file and compares them with the server-computed digests. If any part differs, resume is stopped before additional bytes are uploaded. Sessions created before migration 0008 have no part digests and are intentionally rejected for resume; start a fresh upload instead.
+
+
+### Multipart cleanup run monitoring
+
+Hourly scheduled cleanup executions are written to the staging D1 table `multipart_cleanup_runs`, including start/finish time, success/partial/failed status, number checked, number aborted and failures. Admin/staff can read the latest 30 records through `GET /v1/admin/multipart-cleanup-runs`; the admin portal displays this history. This records actual executions rather than assuming a configured Cron schedule has run.
+
+
+### Multipart upload incident and resolution audit
+
+Admin/staff can inspect an upload session and append an incident/resolution event. Each record captures the session, authenticated actor, allow-listed incident type, resolution status, bounded note (maximum 1,000 characters) and timestamp. Events are append-only so later updates do not erase the earlier investigation trail. Supported outcomes are reviewed, awaiting user, re-upload requested, resolved and escalated. This is an audit-only workflow: it does not retry or abort multipart uploads, delete R2 objects, or trigger refunds. The API exposes no R2 object keys, provider upload IDs or file contents through this feature.
