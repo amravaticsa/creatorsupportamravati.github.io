@@ -4,8 +4,8 @@ compatibility_date = "2026-11-15"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "csa-global-platform"
-database_id = "23462947-5ab9-41ea-a25a-0fac0e6349d7"
+database_name = "csa-global-platform-staging"
+database_id = "470a81b8-3d36-4e2d-942c-5cbb2746a473"
 
 [vars]
 ENVIRONMENT = "staging"
