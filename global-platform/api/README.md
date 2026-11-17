@@ -55,7 +55,7 @@ Required encrypted secrets:
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
-- Staging D1 migrations `0001`–`0007` have been applied; verify the target database before any future migration or deployment.
+- Staging D1 migrations `0001`–`0008` have been applied; verify the target database before any future migration or deployment.
 - Refunds require an explicit CSA Admin action after Quality Approved; provider status is reconciled by signed Razorpay refund webhooks. Both the API response and webhook must match the original payment ID, full amount and currency, and a locally recorded CSA refund request before the deposit is marked fully refunded. Refund requests are single-use/idempotency-keyed; mismatches and uncertain provider outcomes are marked unknown for manual Razorpay dashboard reconciliation and must not be retried blindly.
 - No automatic email/WhatsApp notifications, editor payout automation or client final sign-off yet.
 - Google OAuth settings, admin allowlist and Razorpay encrypted secrets are configured on the staging Worker. Configuration is not proof of end-to-end payment/refund success.
@@ -67,3 +67,8 @@ Required encrypted secrets:
 Authenticated clients and editors can retrieve their latest 30 multipart upload sessions from `GET /v1/uploads/multipart/history`. The response is scoped to the signed-in account and includes file name, purpose, byte/part progress, status, timestamps and associated project or assignment IDs. The portal displays this history; an unexpired open upload can be resumed by selecting the same file (matching filename and size). The endpoint does not expose R2 object keys or provider multipart upload IDs.
 
 - Admin portal includes a read-only large-file upload operations panel with status totals, progress and expired-session visibility.
+
+
+### Multipart part integrity
+
+The Worker computes and stores a SHA-256 digest for every uploaded part. Before resuming, the browser re-hashes all previously uploaded parts from the selected local file and compares them with the server-computed digests. If any part differs, resume is stopped before additional bytes are uploaded. Sessions created before migration 0008 have no part digests and are intentionally rejected for resume; start a fresh upload instead.
