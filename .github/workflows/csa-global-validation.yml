@@ -52,6 +52,9 @@ jobs:
           grep -q "Sessions requiring attention" global-platform/assets/portal.js
           grep -q "Storage completion outcome is uncertain" global-platform/api/src/index.js
           grep -q "staleBefore" global-platform/api/src/index.js
+          grep -q "canRestart=u.status" global-platform/assets/portal.js
+          grep -q "Starting fresh upload" global-platform/assets/portal.js
+          grep -q "CSA review required before retry" global-platform/assets/portal.js
           grep -q "SHA-256" global-platform/api/src/index.js
           grep -q 'createMultipartUpload' global-platform/api/src/index.js
           grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
