@@ -1,23 +1,8 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in | CSA Global</title><link rel="stylesheet" href="assets/global.css"><script src="https://accounts.google.com/gsi/client" async defer></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Client Login | CSA Global</title><link rel="stylesheet" href="assets/global.css"><script src="https://accounts.google.com/gsi/client" async defer></script></head>
 <body><div class="top"><div class="wrap"><span>Creator Support Amravati · CSA Global</span><a href="index.html">← Home</a></div></div>
-<header class="nav"><a class="brand" href="index.html">CSA <span>GLOBAL</span></a><nav class="navlinks"><a href="client-project.html">Client brief</a><a href="editor-register.html">Editor network</a></nav></header>
-<main class="wrap section" style="max-width:760px"><span class="eyebrow">Secure account access</span><h1>Continue with Google</h1><p class="muted">Use your verified Google account. Choose whether you are joining as a client or an editor. Editor registration is free; project-specific deposits are requested only after accepting a project offer and its agreement.</p>
-<div class="panel form">
-<div class="field full"><label for="role">I am joining as *</label><select id="role"><option value="client">Client — I need editing services</option><option value="editor">Editor — I want to work on CSA projects</option></select></div>
-<div id="client-fields" class="field full"><label for="company">Company / brand name (optional)</label><input id="company" placeholder="Company or personal brand"><label for="client-country">Country</label><input id="client-country" placeholder="Country"></div>
-<div id="editor-fields" class="field full" hidden>
-<label for="editor-country">Country *</label><input id="editor-country" placeholder="Country">
-<label for="editor-city">City</label><input id="editor-city" placeholder="City">
-<label for="langs">Languages</label><input id="langs" placeholder="English, Hindi, Marathi">
-<label for="exp">Experience</label><select id="exp"><option>Beginner (under 1 year)</option><option>1–3 years</option><option>3–5 years</option><option>5+ years</option></select>
-<label for="software">Editing software</label><input id="software" placeholder="Premiere Pro, DaVinci Resolve, Final Cut, Filmora">
-<label for="specializations">Specializations *</label><textarea id="specializations" placeholder="YouTube, Reels, podcasts, wedding films, ads..."></textarea>
-<label for="portfolio">Portfolio URL *</label><input id="portfolio" type="url" placeholder="https://...">
-<label for="sample">Best work sample URL</label><input id="sample" type="url" placeholder="https://...">
-<label for="bio">Professional introduction</label><textarea id="bio" placeholder="Your skills, workflow and typical turnaround time"></textarea>
-</div>
-<div class="field full"><div id="google-button"></div><p id="status" class="muted" role="status">Checking secure sign-in configuration…</p></div>
-</div>
-<div class="notice"><strong>Privacy:</strong> Client-facing communication and project delivery are managed by CSA. Editors' private account details are not shown to clients. Never share bank details or passwords in project messages.</div>
-</main><footer class="footer"><div class="wrap">CSA Global · Secure sign-in</div></footer><script src="assets/auth.js"></script></body></html>
+<header class="nav"><a class="brand" href="index.html">CSA <span>GLOBAL</span></a></header>
+<main class="wrap section" style="max-width:680px"><span class="eyebrow">Client account access</span><h1>Continue with Google</h1><p class="muted">Sign in securely to submit your creative project, track progress and receive final delivery from Creator Support Amravati.</p>
+<div class="panel form"><select id="role" hidden><option value="client" selected>Client</option></select><div id="client-fields" class="field full"><label for="company">Company / brand name (optional)</label><input id="company" placeholder="Company or personal brand"><label for="client-country">Country</label><input id="client-country" placeholder="Country"></div><div id="editor-fields" hidden></div><div class="field full"><div id="google-button"></div><p id="status" class="muted" role="status">Checking secure sign-in configuration…</p></div></div>
+<div class="notice"><strong>Your service relationship:</strong> CSA is your single point of contact for project coordination, quality review, revisions and final delivery.</div>
+</main><footer class="footer"><div class="wrap">CSA Global · Client Sign-in</div></footer><script src="assets/auth.js"></script></body></html>
