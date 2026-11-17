@@ -1,0 +1,50 @@
+# CSA Global API — staging
+
+Cloudflare Worker: `csa-global-api`
+Endpoint: https://csa-global-api.creatorsupportamravati.workers.dev
+Database binding: `DB` → `csa-global-platform`
+Private media binding: `MEDIA` → `csa-global-media-staging`
+
+## Implemented routes
+- `GET /health`, `GET /v1/config`
+- `POST /v1/auth/google` — Google Identity Services credential + nonce verification; client/editor/admin role onboarding (admin requires `ADMIN_EMAILS` allowlist).
+- `POST /v1/projects`, `GET /v1/client/projects`, `GET /v1/client/projects/:id/deliverables`
+- `PUT /v1/projects/:id/files`, `GET /v1/projects/:id/files`, `GET /v1/files/:id`
+- `GET /v1/editor/offers`, `GET /v1/editor/agreements`, `GET /v1/editor/assignments`
+- `POST /v1/offers/:id/accept`, `POST /v1/offers/:id/terms`
+- `POST /v1/offers/:id/deposit/checkout`, `POST /v1/payments/razorpay/verify`, `POST /v1/webhooks/razorpay`
+- `PUT /v1/assignments/:id/submissions`
+- Admin: overview, tender queue, editor queues, offer creation, agreement draft/activation, assignment confirmation, QC queue and QC decisions.
+
+## Authentication
+Google RS256 ID tokens are verified using Google's JWKS. The Worker validates issuer, exact audience, expiry, issued-at, verified email and per-login nonce. Protected routes check account status and role on every request.
+
+Required plain-text variables:
+- `GOOGLE_CLIENT_ID` and `AUTH_AUDIENCE` (same OAuth Web client ID)
+- `ADMIN_EMAILS` (comma-separated admin Google email allowlist)
+- `RAZORPAY_KEY_ID`
+- Existing: `AUTH_JWKS_URL`, `AUTH_ISSUER`, `ALLOWED_ORIGINS`, `ENVIRONMENT`
+
+Required encrypted secrets:
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+
+## Razorpay safety
+- Server creates Razorpay Orders; browser does not decide amount.
+- Server verifies HMAC signature and fetches payment status; only captured, amount/currency-matched payments unlock assignment.
+- Webhook signatures are checked against the raw request body; duplicate webhook event IDs are rejected.
+- Configure `payment.captured` and `payment.failed` webhook events.
+- Checkout is disabled/fails closed until valid keys and webhook secret are configured.
+- Test Mode only until deposit/refund/legal/cross-border review is complete.
+
+## Private file handling
+- R2 bucket is private and not publicly exposed.
+- Client source files are only available to the project owner, CSA admins and the assigned editor.
+- Editor submissions are private until QC approval; clients can download approved deliverables only.
+- Current direct staging upload limit is 90 MB per file. Implement resumable/multipart upload before handling large camera originals.
+
+## Staging-only limitations
+- No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
+- No automatic email/WhatsApp notifications, payout automation, refund automation, client final sign-off or large-file multipart upload yet.
+- Google OAuth client ID, admin allowlist and Razorpay credentials are not configured yet.
+- Do not collect live deposits or publish to production until credentials, legal review, end-to-end tests and independent security review are complete.
