@@ -1,4 +1,4 @@
-name = "csa-global-api"
+name = "csa-global-api-staging"
 main = "src/index.js"
 compatibility_date = "2026-11-15"
 
