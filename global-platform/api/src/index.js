@@ -167,6 +167,52 @@ async function handle(req,env){
   await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
   return out({ok:true,status});
  }
+ if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT p.id AS payment_id,p.amount_minor,p.currency,p.provider_payment_id,p.created_at AS paid_at,o.id AS offer_id,pr.id AS project_id,pr.public_project_code,pr.title,e.display_name,e.public_editor_code,s.id AS approved_submission_id,s.submitted_at AS quality_approved_at FROM payments p JOIN project_offers o ON o.id=p.offer_id JOIN projects pr ON pr.id=o.project_id JOIN editor_profiles e ON e.user_id=p.user_id JOIN assignments a ON a.offer_id=o.id AND a.editor_id=p.user_id JOIN work_submissions s ON s.assignment_id=a.id AND s.qc_status='approved' WHERE p.payment_type='editor_security_deposit' AND p.status='succeeded' AND NOT EXISTS(SELECT 1 FROM editor_deposit_refunds x WHERE x.payment_id=p.id) GROUP BY p.id ORDER BY s.submitted_at ASC LIMIT 100").all();
+  return out({ok:true,eligible:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/editor/deposit-refunds"){
+  const a=await user(req,env,["editor"]);
+  const r=await env.DB.prepare("SELECT r.id,r.amount_minor,r.currency,r.status,r.provider_refund_id,r.created_at,r.updated_at,pr.public_project_code,pr.title FROM editor_deposit_refunds r JOIN payments p ON p.id=r.payment_id JOIN projects pr ON pr.id=p.project_id WHERE r.editor_id=? ORDER BY r.created_at DESC LIMIT 100").bind(a.id).all();
+  return out({ok:true,refunds:r.results||[]});
+ }
+ const refundMatch=p.match(/^\/v1\/admin\/deposits\/([\w-]+)\/refund$/);
+ if(m==="POST"&&refundMatch){
+  const a=await user(req,env,["admin"]);
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay credentials are not configured.",503);
+  const payment=await env.DB.prepare("SELECT p.id,p.user_id,p.project_id,p.offer_id,p.amount_minor,p.currency,p.provider_payment_id,p.status,pr.public_project_code,pr.title FROM payments p JOIN projects pr ON pr.id=p.project_id WHERE p.id=? AND p.payment_type='editor_security_deposit' AND p.provider='razorpay'").bind(refundMatch[1]).first();
+  if(!payment)return bad("Security deposit payment not found.",404);
+  if(payment.status!=="succeeded"||!payment.provider_payment_id)return bad("Only a captured and verified security deposit can be refunded.",409);
+  const approved=await env.DB.prepare("SELECT s.id FROM assignments x JOIN work_submissions s ON s.assignment_id=x.id WHERE x.offer_id=? AND x.editor_id=? AND x.project_id=? AND s.qc_status='approved' ORDER BY s.submitted_at DESC LIMIT 1").bind(payment.offer_id,payment.user_id,payment.project_id).first();
+  if(!approved)return bad("Refund is locked until CSA quality approval is recorded for this project.",409,"quality_approval_required");
+  const refundId=uid("rfd"),idempotencyKey=crypto.randomUUID();
+  try{
+   await env.DB.prepare("INSERT INTO editor_deposit_refunds(id,payment_id,editor_id,project_id,amount_minor,currency,idempotency_key,status,requested_by) VALUES(?,?,?,?,?,?,?,'requesting',?)").bind(refundId,payment.id,payment.user_id,payment.project_id,payment.amount_minor,payment.currency,idempotencyKey,a.id).run();
+  }catch(e){return bad("A refund request already exists for this deposit. Check its status before taking any further action.",409,"refund_already_requested");}
+  let response;
+  try{
+   response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"Content-Type":"application/json","X-Razorpay-Idempotency-Key":idempotencyKey},body:JSON.stringify({amount:payment.amount_minor,notes:{csa_project_code:payment.public_project_code,csa_payment_id:payment.id,csa_reason:"Security deposit refund after CSA quality approval"}})});
+  }catch(e){
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(txt(String(e),1000),refundId).run();
+   await log(env,a.id,"editor_deposit_refund_unknown","deposit_refund",refundId,{payment_id:payment.id});
+   return bad("Razorpay response was interrupted. Refund status is marked unknown; reconcile in Razorpay before any retry.",502,"refund_status_unknown");
+  }
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok||!payload.id){
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET status='failed',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(JSON.stringify(payload).slice(0,3000),refundId).run();
+   await log(env,a.id,"editor_deposit_refund_failed","deposit_refund",refundId,{payment_id:payment.id,http_status:response.status});
+   return bad("Razorpay did not accept the refund. Check Razorpay dashboard before deciding next steps.",502,"refund_provider_rejected");
+  }
+  const refundStatus=["processed","pending"].includes(payload.status)?payload.status:"pending";
+  await env.DB.batch([
+   env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,refundStatus,JSON.stringify(payload).slice(0,3000),refundId),
+   env.DB.prepare("UPDATE payments SET status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(refundStatus==="processed"?"refunded":"refund_pending",payment.id),
+   env.DB.prepare("INSERT INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refund_initiated',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refund initiated after CSA quality approval; Razorpay refund "+payload.id,a.id)
+  ]);
+  await log(env,a.id,"editor_deposit_refund_initiated","deposit_refund",refundId,{payment_id:payment.id,provider_refund_id:payload.id,status:refundStatus});
+  return out({ok:true,refund_id:refundId,provider_refund_id:payload.id,status:refundStatus,amount_minor:payment.amount_minor,currency:payment.currency});
+ }
  const fileMatch=p.match(/^\/v1\/files\/([\w-]+)$/);
  if(m==="GET"&&fileMatch){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
