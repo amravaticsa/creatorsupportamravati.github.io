@@ -1,5 +1,5 @@
 (()=>{"use strict";
-const API="https://csa-global-api.creatorsupportamravati.workers.dev";
+const API="https://csa-global-api-staging.creatorsupportamravati.workers.dev";
 const $=id=>document.getElementById(id);
 const role=$("role"),status=$("status"),editor=$("editor-fields"),client=$("client-fields");
 role.addEventListener("change",()=>{const isEditor=role.value==="editor";editor.hidden=!isEditor;client.hidden=isEditor;});
