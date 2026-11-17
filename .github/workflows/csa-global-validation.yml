@@ -38,6 +38,10 @@ jobs:
           test -s global-platform/migrations/0004_submission_file_metadata.sql
           test -s global-platform/migrations/0005_editor_deposit_refunds.sql
           test -s global-platform/migrations/0006_api_rate_limits.sql
+          test -s global-platform/migrations/0007_multipart_uploads.sql
+          grep -q 'createMultipartUpload' global-platform/api/src/index.js
+          grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
+          grep -q 'csa_multipart_' global-platform/assets/portal.js
           grep -q 'rate_limited' global-platform/api/src/index.js
           grep -q 'api_rate_limits' global-platform/api/src/index.js
           grep -q 'upload_too_large' global-platform/api/src/index.js
