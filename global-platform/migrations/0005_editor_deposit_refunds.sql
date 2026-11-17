@@ -19,3 +19,8 @@ CREATE INDEX IF NOT EXISTS idx_editor_deposit_refunds_editor_created
   ON editor_deposit_refunds(editor_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_editor_deposit_refunds_status
   ON editor_deposit_refunds(status, created_at);
+
+-- A single processed-refund ledger entry per original deposit, even if API and webhook race.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deposit_ledger_refund_once
+  ON deposit_ledger(payment_id)
+  WHERE entry_type = 'deposit_refunded' AND payment_id IS NOT NULL;
