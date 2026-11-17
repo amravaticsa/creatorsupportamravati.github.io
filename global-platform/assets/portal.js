@@ -43,8 +43,10 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
    for(let attempt=1;attempt<=3&&!done;attempt++){
     try{
      const r=await fetch(API+"/v1/uploads/multipart/"+start.upload_id+"/parts/"+part,{method:"PUT",headers:{authorization:"Bearer "+token,"content-type":"application/octet-stream"},body:chunk});
-     const d=await r.json();if(!r.ok)throw Error(d.error?.message||"Upload part "+part+" failed");done=true;
-    }catch(err){lastError=err;if(attempt<3)await new Promise(resolve=>setTimeout(resolve,800*attempt));}
+     let d;try{d=await r.json();}catch{const parseError=Error("Upload server returned an unreadable response.");parseError.retryable=r.status===408||r.status===429||r.status>=500;parseError.status=r.status;throw parseError;}
+     if(!r.ok){const requestError=Error(d.error?.message||"Upload part "+part+" failed");requestError.status=r.status;requestError.retryable=r.status===408||r.status===429||r.status>=500;const retryAfter=r.headers.get("Retry-After");if(retryAfter){const seconds=Number(retryAfter);const dateDelay=Date.parse(retryAfter)-Date.now();requestError.retryAfterMs=Number.isFinite(seconds)?Math.max(0,seconds*1000):Number.isFinite(dateDelay)?Math.max(0,dateDelay):0;}throw requestError;}
+     done=true;
+    }catch(err){lastError=err;if(err.retryable===false)throw err;if(attempt<3){const backoff=Math.min(10000,700*Math.pow(2,attempt-1));const jitter=Math.floor(Math.random()*300);const delay=Math.min(30000,Math.max(backoff+jitter,Number(err.retryAfterMs)||0));await new Promise(resolve=>setTimeout(resolve,delay));}}
    }
    if(!done)throw lastError||Error("Upload part "+part+" failed");
    sent+=chunk.size;onProgress(sent,file.size,part,start.expected_parts);
