@@ -169,6 +169,12 @@ async function handle(req,env){
   totals.expired_open=Number(expired?.n||0);
   return out({ok:true,totals,uploads});
  }
+ // Admin-only history for hourly multipart cleanup executions.
+ if(m==="GET"&&p==="/v1/admin/multipart-cleanup-runs"){
+  await user(req,env,["admin","staff"]);
+  const rows=await env.DB.prepare("SELECT id,started_at,finished_at,status,checked,aborted,failed,error_message FROM multipart_cleanup_runs ORDER BY started_at DESC LIMIT 30").all();
+  return out({ok:true,runs:(rows.results||[]).map(r=>({...r,checked:Number(r.checked||0),aborted:Number(r.aborted||0),failed:Number(r.failed||0)}))});
+ }
  // Recent multipart upload history is limited to the authenticated account.
  if(m==="GET"&&p==="/v1/uploads/multipart/history"){
   const a=await user(req,env,["client","editor"]);
@@ -648,7 +654,16 @@ async function cleanupExpiredMultipartUploads(env){
 }
 export default {async scheduled(controller,env){
  if(!env.MEDIA||!env.DB)throw new Error("Cleanup requires the staging R2 and D1 bindings.");
- await cleanupExpiredMultipartUploads(env);
+ const id=crypto.randomUUID(),started=new Date().toISOString();
+ await env.DB.prepare("INSERT INTO multipart_cleanup_runs(id,started_at,status) VALUES(?,?,'running')").bind(id,started).run();
+ try{
+  const result=await cleanupExpiredMultipartUploads(env),finished=new Date().toISOString(),status=result.failed?"partial":"success";
+  await env.DB.prepare("UPDATE multipart_cleanup_runs SET finished_at=?,status=?,checked=?,aborted=?,failed=? WHERE id=?").bind(finished,status,result.checked,result.aborted,result.failed,id).run();
+ }catch(error){
+  const message=String(error?.message||"Cleanup failed").slice(0,500);
+  await env.DB.prepare("UPDATE multipart_cleanup_runs SET finished_at=?,status='failed',error_message=? WHERE id=?").bind(new Date().toISOString(),message,id).run();
+  throw error;
+ }
 },async fetch(req,env){
  // File uploads use PUT; include it in CORS so browser preflight succeeds for client and editor uploads.
  const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes","access-control-max-age":"86400"};
