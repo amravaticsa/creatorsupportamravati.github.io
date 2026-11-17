@@ -35,7 +35,7 @@ Required encrypted secrets:
 - Server creates Razorpay Orders; browser does not decide amount.
 - Server verifies HMAC signature and fetches payment status; only captured, amount/currency-matched payments unlock assignment.
 - Webhook signatures are checked against the raw request body; duplicate webhook event IDs are rejected.
-- Configure `payment.captured`, `payment.failed`, `refund.processed` and `refund.failed` webhook events.
+- Configured staging webhook events: `payment.captured`, `payment.failed`, `refund.created`, `refund.processed` and `refund.failed`.
 - Checkout is disabled/fails closed until valid keys and webhook secret are configured.
 - Test Mode only until deposit/refund/legal/cross-border review is complete.
 
@@ -47,8 +47,8 @@ Required encrypted secrets:
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
-- Apply migration `0005_editor_deposit_refunds.sql` to the staging D1 database before deploying this API version.
+- Staging D1 migrations `0001`–`0005` have been applied; verify the target database before any future migration or deployment.
 - Refunds require an explicit CSA Admin action after Quality Approved; provider status is reconciled by signed Razorpay refund webhooks. Refund requests are single-use/idempotency-keyed; unknown provider outcomes require manual Razorpay dashboard reconciliation and must not be retried blindly.
 - No automatic email/WhatsApp notifications, editor payout automation, client final sign-off or large-file multipart upload yet.
-- Google OAuth client ID, admin allowlist and Razorpay credentials are not configured yet.
-- Do not collect live deposits or publish to production until credentials, legal review, end-to-end tests and independent security review are complete.
+- Google OAuth settings, admin allowlist and Razorpay encrypted secrets are configured on the staging Worker. Configuration is not proof of end-to-end payment/refund success.
+- Keep payment processing in Test Mode. Do not collect live deposits or publish to production until legal review, end-to-end tests and independent security review are complete.
