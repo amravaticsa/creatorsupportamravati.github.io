@@ -111,7 +111,7 @@ async function loadAdminMultipartUploads(){
    const age=document.createElement("small");age.textContent="Started "+new Date(item.created_at).toLocaleString()+" · "+item.age_minutes+" minutes ago";
    const inspect=document.createElement("button");inspect.className="btn outline";inspect.textContent="Inspect session";
    const detail=document.createElement("div");detail.className="muted";detail.hidden=true;
-   inspect.onclick=async()=>{inspect.disabled=true;detail.hidden=false;detail.textContent="Loading safe session diagnostics…";try{const report=await api("/v1/admin/multipart-uploads/"+encodeURIComponent(item.id)+"/inspect");const x=report.session;detail.replaceChildren();const summary=document.createElement("p");summary.textContent="Session "+x.id+" · "+x.total_size_bytes+" bytes · "+report.parts.length+" parts · "+x.status;const parts=document.createElement("p");parts.textContent="Expected "+x.expected_parts+" · Received "+report.parts.length+" · Missing "+report.missing_parts.length;const integrity=document.createElement("p");integrity.textContent="Checksum verified parts available: "+report.integrity.parts_with_checksum+" · Without checksum: "+report.integrity.parts_without_checksum;const missing=document.createElement("p");missing.textContent=report.missing_parts.length?"Missing part numbers: "+report.missing_parts.join(", "):"No missing parts recorded in database.";const caution=document.createElement("p");caution.textContent="Read-only diagnostics only. No retry, abort, delete, or refund action was performed.";detail.append(summary,parts,integrity,missing,caution);inspect.textContent="Refresh inspection";}catch(err){detail.textContent="Inspection failed: "+err.message;}finally{inspect.disabled=false;}};
+   inspect.onclick=async()=>{inspect.disabled=true;detail.hidden=false;detail.textContent="Loading safe session diagnostics…";try{const report=await api("/v1/admin/multipart-uploads/"+encodeURIComponent(item.id)+"/inspect");const x=report.session;detail.replaceChildren();const summary=document.createElement("p");summary.textContent="Session "+x.id+" · "+x.total_size_bytes+" bytes · "+report.parts.length+" parts · "+x.status;const parts=document.createElement("p");parts.textContent="Expected "+x.expected_parts+" · Received "+report.parts.length+" · Missing "+report.missing_parts.length;const integrity=document.createElement("p");integrity.textContent="Checksum verified parts available: "+report.integrity.parts_with_checksum+" · Without checksum: "+report.integrity.parts_without_checksum;const missing=document.createElement("p");missing.textContent=report.missing_parts.length?"Missing part numbers: "+report.missing_parts.join(", "):"No missing parts recorded in database.";const caution=document.createElement("p");caution.textContent="Read-only diagnostics only. No retry, abort, delete, or refund action was performed.";detail.append(summary,parts,integrity,missing,caution);await renderMultipartIncidentPanel(item.id,detail);inspect.textContent="Refresh inspection";}catch(err){detail.textContent="Inspection failed: "+err.message;}finally{inspect.disabled=false;}};
    entry.append(heading,owner,reason,age,inspect,detail);attention.append(entry);
   }
   root.append(attention);
@@ -127,6 +127,28 @@ async function loadAdminMultipartUploads(){
    root.append(card);
   }
  }catch(e){root.textContent=e.message;}
+}
+async function renderMultipartIncidentPanel(sessionId,container){
+ const panel=document.createElement("section");panel.className="card";
+ const heading=document.createElement("h4");heading.textContent="Incident & resolution history";
+ const history=document.createElement("div");history.textContent="Loading incident history…";
+ const form=document.createElement("form");form.className="form";
+ const type=document.createElement("select");type.setAttribute("aria-label","Incident type");
+ for(const [v,label] of [["upload_failed","Upload failed"],["unknown_completion","Unknown storage outcome"],["stale_completion","Stale completion"],["expired_session","Expired session"],["integrity_issue","Integrity/checksum issue"],["other","Other"]]){const o=document.createElement("option");o.value=v;o.textContent=label;type.append(o);}
+ const status=document.createElement("select");status.setAttribute("aria-label","Resolution status");
+ for(const [v,label] of [["reviewed","Reviewed"],["awaiting_user","Awaiting user"],["reupload_requested","Re-upload requested"],["resolved","Resolved"],["escalated","Escalated"]]){const o=document.createElement("option");o.value=v;o.textContent=label;status.append(o);}
+ const notes=document.createElement("textarea");notes.maxLength=1000;notes.required=true;notes.placeholder="Record what was checked and the next step (max 1000 characters).";
+ const submit=document.createElement("button");submit.className="btn dark";submit.type="submit";submit.textContent="Save resolution record";
+ const hint=document.createElement("small");hint.className="muted";hint.textContent="Append-only audit trail. This records a decision only; it does not retry, abort, delete, or modify stored files.";
+ form.append(type,status,notes,submit,hint);
+ async function refresh(){
+  const data=await api("/v1/admin/multipart-uploads/"+encodeURIComponent(sessionId)+"/incidents");history.replaceChildren();
+  if(!data.incidents.length){history.textContent="No incident or resolution records yet.";return;}
+  for(const event of data.incidents){const row=document.createElement("article");row.className="card";const title=document.createElement("strong");title.textContent=event.resolution_status.replaceAll("_"," ").toUpperCase()+" · "+event.incident_type.replaceAll("_"," ");const meta=document.createElement("small");meta.textContent=(event.actor_name||event.actor_email)+" · "+new Date(event.created_at).toLocaleString();const note=document.createElement("p");note.textContent=event.notes;row.append(title,meta,note);history.append(row);}
+ }
+ form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{await api("/v1/admin/multipart-uploads/"+encodeURIComponent(sessionId)+"/incidents",{method:"POST",body:JSON.stringify({incident_type:type.value,resolution_status:status.value,notes:notes.value.trim()})});notes.value="";await refresh();}catch(err){alert("Could not save resolution: "+err.message);}finally{submit.disabled=false;}};
+ panel.append(heading,history,form);container.append(panel);
+ try{await refresh();}catch(err){history.textContent="Incident history unavailable: "+err.message;}
 }
 async function loadUploadHistory(targetId){
  const root=$(targetId);if(!root)return;root.textContent="Loading recent upload history…";
