@@ -69,12 +69,51 @@ async function loadAssignments(){
 }
 async function loadOffers(){
  const root=$("offers");root.textContent="Loading invitations…";
- try{const d=await api("/v1/editor/offers");root.replaceChildren();if(!d.offers.length){root.textContent="Abhi koi project invitation nahi hai. CSA suitable project aane par offer bhejega.";return;}
- for(const o of d.offers){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=o.title+" · "+o.public_project_code;const desc=document.createElement("p");desc.textContent=o.brief;const meta=document.createElement("p");meta.className="muted";meta.textContent="Fee: "+(o.proposed_fee_minor/100)+" "+o.fee_currency+" · Delivery: "+o.delivery_days+" days · Security deposit: "+(o.deposit_amount_minor/100)+" "+o.deposit_currency+" · Status: "+o.status;card.append(h,desc,meta);
- if(o.status==="offered"){const b=document.createElement("button");b.className="btn dark";b.textContent="Accept Project Offer";b.onclick=async()=>{try{await api("/v1/offers/"+o.id+"/accept",{method:"POST",body:"{}"});loadOffers();}catch(e){alert(e.message);}};card.append(b);}
- if(o.status==="accepted_pending_terms"){const wrap=document.createElement("div"),select=document.createElement("select"),agree=document.createElement("input"),label=document.createElement("label"),b=document.createElement("button");agree.type="checkbox";label.append(agree,document.createTextNode(" I have read and accept the active CSA project agreement."));wrap.append(select,label);b.className="btn dark";b.textContent="Accept Terms & Continue";b.onclick=async()=>{if(!agree.checked||!select.value){alert("Agreement select karke checkbox tick karein.");return;}try{await api("/v1/offers/"+o.id+"/terms",{method:"POST",body:JSON.stringify({accept:true,agreement_version_id:select.value})});loadOffers();}catch(e){alert(e.message);}};card.append(wrap,b);api("/v1/editor/agreements").then(x=>{for(const a of x.agreements){const opt=document.createElement("option");opt.value=a.id;opt.textContent=a.title+" (v"+a.version+")";select.append(opt);}}).catch(()=>{});}
- if(o.status==="terms_accepted_pending_deposit"||o.status==="deposit_pending"){const b=document.createElement("button");b.className="btn dark";b.textContent="Pay Security Deposit";b.onclick=async()=>{try{const d=await api("/v1/offers/"+o.id+"/deposit/checkout",{method:"POST",body:"{}"});const options={key:d.key_id,amount:d.amount,currency:d.currency,name:d.checkout_name,description:d.description,order_id:d.order_id,handler:async response=>{try{const v=await api("/v1/payments/razorpay/verify",{method:"POST",body:JSON.stringify(response)});alert("Deposit captured and verified. CSA will confirm your project assignment.");loadOffers();}catch(e){alert(e.message);}},modal:{ondismiss:()=>{}}};new Razorpay(options).open();}catch(e){alert(e.message);}};card.append(b);}
- root.append(card);}
+ try{
+  const d=await api("/v1/editor/offers");root.replaceChildren();
+  if(!d.offers.length){root.textContent="Abhi koi project invitation nahi hai. CSA suitable project aane par offer bhejega.";return;}
+  for(const o of d.offers){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h3");h.textContent=o.title+" · "+o.public_project_code;card.append(h);
+   if(o.status==="offered"){
+    const b=document.createElement("button");b.className="btn dark";b.textContent="Accept Project";
+    b.onclick=async()=>{b.disabled=true;try{await api("/v1/offers/"+o.id+"/accept",{method:"POST",body:"{}"});await loadOffers();}catch(e){alert(e.message);b.disabled=false;}};
+    card.append(b);
+   }
+   if(o.status==="accepted_pending_terms"){
+    const meta=document.createElement("p");meta.className="muted";
+    meta.textContent="Project fee: "+(o.proposed_fee_minor/100)+" "+o.fee_currency+" · Delivery: "+o.delivery_days+" days · Refundable security deposit: "+(o.deposit_amount_minor/100)+" "+o.deposit_currency;
+    const intro=document.createElement("p");intro.textContent="Please read the complete approved CSA project agreement below before accepting.";
+    const select=document.createElement("select");select.setAttribute("aria-label","Project agreement version");
+    const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Loading approved agreement…";select.append(placeholder);
+    const body=document.createElement("pre");body.style.whiteSpace="pre-wrap";body.style.maxHeight="360px";body.style.overflow="auto";body.style.padding="14px";body.style.border="1px solid #e5e9f0";body.style.borderRadius="8px";body.style.background="#f8fafc";body.textContent="Loading agreement text…";
+    const label=document.createElement("label"),agree=document.createElement("input");agree.type="checkbox";label.append(agree,document.createTextNode(" I have read and accept this complete CSA project agreement."));
+    const message=document.createElement("p");message.className="muted";message.setAttribute("role","status");
+    const b=document.createElement("button");b.className="btn dark";b.textContent="Accept Terms & Continue";b.disabled=true;
+    let agreements=[];
+    const showAgreement=()=>{const a=agreements.find(x=>x.id===select.value);body.textContent=a?.body_markdown||"Select an approved agreement to read its full terms.";b.disabled=!a;agree.checked=false;};
+    select.onchange=showAgreement;
+    b.onclick=async()=>{if(!agree.checked||!select.value){alert("Please read the agreement and tick the acceptance checkbox.");return;}b.disabled=true;try{await api("/v1/offers/"+o.id+"/terms",{method:"POST",body:JSON.stringify({accept:true,agreement_version_id:select.value})});await loadOffers();}catch(e){alert(e.message);b.disabled=false;}};
+    card.append(meta,intro,select,body,label,b,message);
+    api("/v1/editor/agreements").then(result=>{
+     agreements=result.agreements||[];select.replaceChildren();
+     if(!agreements.length){const opt=document.createElement("option");opt.value="";opt.textContent="No approved project agreement is active yet";select.append(opt);body.textContent="CSA has not published an approved project agreement yet. Please wait; no deposit can be paid until the agreement is published.";message.textContent="This offer is paused until CSA activates the legally reviewed project agreement.";b.disabled=true;return;}
+     for(const a of agreements){const opt=document.createElement("option");opt.value=a.id;opt.textContent=a.title+" (v"+a.version+")";select.append(opt);}
+     showAgreement();
+    }).catch(()=>{select.replaceChildren();body.textContent="Could not load the agreement. Please refresh and try again.";message.textContent="Agreement details are unavailable.";b.disabled=true;});
+   }
+   if(o.status==="terms_accepted_pending_deposit"||o.status==="deposit_pending"){
+    const meta=document.createElement("p");meta.className="muted";
+    meta.textContent="Agreement accepted · Refundable security deposit: "+(o.deposit_amount_minor/100)+" "+o.deposit_currency+" · Project fee: "+(o.proposed_fee_minor/100)+" "+o.fee_currency;
+    const b=document.createElement("button");b.className="btn dark";b.textContent="Pay Security Deposit";
+    b.onclick=async()=>{b.disabled=true;try{const d=await api("/v1/offers/"+o.id+"/deposit/checkout",{method:"POST",body:"{}"});const options={key:d.key_id,amount:d.amount,currency:d.currency,name:d.checkout_name,description:d.description,order_id:d.order_id,handler:async response=>{try{await api("/v1/payments/razorpay/verify",{method:"POST",body:JSON.stringify(response)});alert("Deposit captured and verified. CSA will confirm your project assignment.");await loadOffers();}catch(e){alert(e.message);}},modal:{ondismiss:()=>{b.disabled=false;}}};new Razorpay(options).open();}catch(e){alert(e.message);b.disabled=false;}};
+    card.append(meta,b);
+   }
+   if(o.status==="ready_for_assignment"||o.status==="assigned"){
+    const meta=document.createElement("p");meta.className="muted";meta.textContent="Agreement accepted · Deposit verified · Status: "+o.status;card.append(meta);
+   }
+   root.append(card);
+  }
  }catch(e){root.textContent=e.message;}
 }
 })();
