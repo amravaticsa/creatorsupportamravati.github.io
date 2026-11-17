@@ -163,7 +163,7 @@ async function handle(req,env){
   if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
   if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
   const rows=await env.DB.prepare("SELECT part_number,size_bytes FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
-  return out({ok:true,upload_id:id,status:session.status,expected_parts:session.expected_parts,part_size_bytes:session.part_size_bytes,uploaded_parts:(rows.results||[]).map(x=>({part_number:Number(x.part_number),size_bytes:Number(x.size_bytes)})),expires_at:session.expires_at});
+  return out({ok:true,upload_id:id,status:session.status,filename:session.original_filename,total_size_bytes:session.total_size_bytes,expected_parts:session.expected_parts,part_size_bytes:session.part_size_bytes,uploaded_parts:(rows.results||[]).map(x=>({part_number:Number(x.part_number),size_bytes:Number(x.size_bytes)})),expires_at:session.expires_at});
  }
  if(m==="PUT"&&multipartPart){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
