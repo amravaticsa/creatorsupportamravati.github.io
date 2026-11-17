@@ -206,7 +206,7 @@ async function handle(req,env){
   }
   const refundStatus=["processed","pending"].includes(payload.status)?payload.status:"pending";
   await env.DB.batch([
-   env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,refundStatus,JSON.stringify(payload).slice(0,3000),refundId),
+   env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status=CASE WHEN status IN ('processed','failed') THEN status ELSE ? END,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,refundStatus,JSON.stringify(payload).slice(0,3000),refundId),
    ...(refundStatus==="processed"?[
     env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id),
     env.DB.prepare("INSERT INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refunded after CSA quality approval; Razorpay refund "+payload.id,a.id)
