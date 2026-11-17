@@ -183,8 +183,41 @@ async function loadUploadHistory(targetId){
  }catch(e){root.textContent=e.message;}
 }
 async function loadClientProjects(){
- const root=$("client-projects");if(!root)return;root.textContent="Loading your project submissions…";
- try{const d=await api("/v1/client/projects");root.replaceChildren();if(!d.projects.length){root.textContent="You have not submitted any projects yet.";return;}for(const p of d.projects){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;const m=document.createElement("p");m.className="muted";m.textContent=p.category+" · "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.status+" · Deadline: "+(p.preferred_deadline||"Not set");c.append(h,m);try{const dls=await api("/v1/client/projects/"+p.id+"/deliverables");for(const file of dls.deliverables){const b=document.createElement("button");b.className="btn outline";b.textContent="Download approved "+file.original_filename;b.onclick=async()=>{const r=await fetch(API+"/v1/files/"+file.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Download failed");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);};c.append(b);}}catch{}root.append(c);}}catch(e){root.textContent=e.message;}
+ const root=$("client-projects");if(!root)return;root.textContent="Loading your projects with CSA…";
+ const statusInfo={
+  submitted:{label:"Received by CSA",step:1,detail:"Your project brief has been received. Our team will review your requirements and confirm the scope."},
+  client_review:{label:"Ready for your review",step:5,detail:"CSA has completed its quality review. Your approved files are ready below."},
+  in_progress:{label:"Production in progress",step:3,detail:"The CSA production team is working on your project. We will keep you updated as it progresses."},
+  quality_review:{label:"CSA quality review",step:4,detail:"Your video is going through CSA's quality and brief-compliance checks before delivery."},
+  completed:{label:"Completed and delivered",step:5,detail:"Your project has been completed by CSA. You can access the approved deliverables below."},
+  closed:{label:"Project closed",step:5,detail:"This project is closed. Please contact CSA if you need any clarification."}
+ };
+ try{
+  const d=await api("/v1/client/projects");root.replaceChildren();
+  if(!d.projects.length){root.textContent="You have not submitted any projects yet.";return;}
+  for(const p of d.projects){
+   const c=document.createElement("article");c.className="card";
+   const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;
+   const info=statusInfo[p.status]||statusInfo.submitted;
+   const badge=document.createElement("span");badge.className="tag blue";badge.textContent=info.label;
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · Preferred delivery: "+(p.preferred_deadline||"To be confirmed");
+   const detail=document.createElement("p");detail.textContent=info.detail;
+   const progress=document.createElement("div");progress.className="client-progress";progress.setAttribute("aria-label","Project progress");
+   const stages=["Brief received","CSA planning","Production","Quality review","Final delivery"];
+   stages.forEach((name,index)=>{const item=document.createElement("span");item.className="client-progress-step"+(index+1<=info.step?" is-done":"");item.textContent=name;progress.append(item);});
+   c.append(h,badge,meta,detail,progress);
+   try{
+    const dls=await api("/v1/client/projects/"+p.id+"/deliverables");
+    for(const file of dls.deliverables){
+     const b=document.createElement("button");b.className="btn outline";b.textContent="Download your approved file · "+file.original_filename;
+     b.onclick=async()=>{const r=await fetch(API+"/v1/files/"+file.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Download failed");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);};
+     c.append(b);
+    }
+    if(dls.deliverables.length===0&&p.status==="client_review"){const wait=document.createElement("p");wait.className="muted";wait.textContent="Approved files are being prepared for secure delivery.";c.append(wait);}
+   }catch{}
+   root.append(c);
+  }
+ }catch(e){root.textContent=e.message;}
 }
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
