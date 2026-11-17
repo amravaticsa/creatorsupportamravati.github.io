@@ -18,8 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Check Worker JavaScript syntax
-        run: node --check global-platform/api/src/index.js
+      - name: Check Worker and browser JavaScript syntax
+        run: |
+          node --check global-platform/api/src/index.js
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
       - name: Check required platform files
@@ -35,6 +36,7 @@ jobs:
           test -s global-platform/assets/portal.js
           test -s global-platform/migrations/0003_payment_webhook_events.sql
           test -s global-platform/migrations/0004_submission_file_metadata.sql
+          test -s global-platform/migrations/0005_editor_deposit_refunds.sql
           test -s global-platform/api/wrangler.toml
           test -s global-platform/migrations/0001_initial.sql
           test -s global-platform/migrations/0002_editor_payout_and_disputes.sql
