@@ -209,7 +209,7 @@ async function handle(req,env){
    env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status=CASE WHEN status IN ('processed','failed') THEN status ELSE ? END,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,refundStatus,JSON.stringify(payload).slice(0,3000),refundId),
    ...(refundStatus==="processed"?[
     env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id),
-    env.DB.prepare("INSERT INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refunded after CSA quality approval; Razorpay refund "+payload.id,a.id)
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refunded after CSA quality approval; Razorpay refund "+payload.id,a.id)
    ]:[])
   ]);
   await log(env,a.id,"editor_deposit_refund_initiated","deposit_refund",refundId,{payment_id:payment.id,provider_refund_id:payload.id,status:refundStatus});
@@ -329,7 +329,7 @@ async function handle(req,env){
    await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=COALESCE(provider_refund_id,?),status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(refundEntity.id,status,JSON.stringify({event,refund_id:refundEntity.id}).slice(0,3000),payment.id).run();
    if(status==="processed"){
     const existing=await env.DB.prepare("SELECT id FROM deposit_ledger WHERE payment_id=? AND entry_type='deposit_refunded' LIMIT 1").bind(payment.id).first();
-    if(!existing)await env.DB.prepare("INSERT INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Razorpay refund processed: "+refundEntity.id,payment.user_id).run();
+    if(!existing)await env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Razorpay refund processed: "+refundEntity.id,payment.user_id).run();
     await env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id).run();
    }
    await log(env,payment.user_id,"editor_deposit_refund_"+status,"deposit_refund",payment.id,{provider_refund_id:refundEntity.id});
