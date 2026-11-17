@@ -39,6 +39,10 @@ jobs:
           test -s global-platform/migrations/0005_editor_deposit_refunds.sql
           test -s global-platform/migrations/0006_api_rate_limits.sql
           test -s global-platform/migrations/0007_multipart_uploads.sql
+          test -s global-platform/migrations/0008_multipart_part_sha256.sql
+          grep -q "partSha256" global-platform/api/src/index.js
+          grep -q "part.sha256" global-platform/assets/portal.js
+          grep -q "SHA-256" global-platform/api/src/index.js
           grep -q 'createMultipartUpload' global-platform/api/src/index.js
           grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
           grep -q 'csa_multipart_' global-platform/assets/portal.js
