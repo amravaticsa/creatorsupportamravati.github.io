@@ -110,6 +110,106 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT id,public_project_code,title,category,budget_amount_minor,budget_currency,status,client_visible_status,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
   return out({ok:true,projects:r.results||[]});
  }
+ // Resumable R2 multipart uploads: 50 MiB parts, up to 5 GiB per file.
+ const multipartPart=p.match(/^\\/v1\\/uploads\\/multipart\\/([\\w-]+)\\/parts\\/(\\d+)$/);
+ const multipartAction=p.match(/^\\/v1\\/uploads\\/multipart\\/([\\w-]+)\\/(complete|abort)$/);
+ if(m==="POST"&&p==="/v1/uploads/multipart"){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor"]),b=await req.json();
+  const purpose=b.purpose==="submission"?"submission":"project_file";
+  const total=Number(b.size_bytes),partSize=50*1024*1024,maxSize=5*1024*1024*1024;
+  const mime=txt(b.mime_type,100).toLowerCase(),allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
+  if(!Number.isSafeInteger(total)||total<=90*1024*1024||total>maxSize)return bad("Resumable upload supports files larger than 90 MB and up to 5 GB.",413,"invalid_upload_size");
+  if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
+  const rawName=txt(b.filename,180)||"upload.bin",name=rawName.split(/[\\\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
+  let projectId=null,assignmentId=null,key="";
+  if(purpose==="project_file"){
+   projectId=txt(b.project_id,100);
+   const project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectId).first();
+   if(!project)return bad("Project not found.",404);
+   if(a.role==="client"&&project.client_id!==a.id)return bad("You cannot upload to this project.",403);
+   if(a.role==="editor"){
+    const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision')").bind(projectId,a.id).first();
+    if(!assignment)return bad("Only the assigned editor can upload to this project.",403);
+   }
+   key="projects/"+projectId+"/source/"+uid("file")+"/"+name;
+  }else{
+   if(a.role!=="editor")return bad("Only assigned editors can submit deliverables.",403);
+   assignmentId=txt(b.assignment_id,100);
+   const assignment=await env.DB.prepare("SELECT id,project_id FROM assignments WHERE id=? AND editor_id=? AND status IN ('active','revision')").bind(assignmentId,a.id).first();
+   if(!assignment)return bad("Assignment is not active for this editor.",403);
+   projectId=assignment.project_id;
+   key="assignments/"+assignmentId+"/multipart/"+uid("sub")+"/"+name;
+  }
+  const expectedParts=Math.ceil(total/partSize);
+  const id=uid("upl"),disposition="attachment; filename*=UTF-8''"+encodeURIComponent(name);
+  const upload=await env.MEDIA.createMultipartUpload(key,{httpMetadata:{contentType:mime,contentDisposition:disposition}});
+  const expires=new Date(Date.now()+24*60*60*1000).toISOString();
+  try{
+   await env.DB.prepare("INSERT INTO multipart_upload_sessions(id,project_id,assignment_id,uploaded_by,purpose,r2_object_key,r2_upload_id,original_filename,mime_type,total_size_bytes,part_size_bytes,expected_parts,notes,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?)")
+    .bind(id,projectId,assignmentId,a.id,purpose,key,upload.uploadId,name,mime,total,partSize,expectedParts,txt(b.notes,2000)||null,expires).run();
+  }catch(e){await upload.abort();throw e;}
+  await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
+  return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
+ }
+ if(m==="PUT"&&multipartPart){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor"]),id=multipartPart[1],partNumber=Number(multipartPart[2]);
+  const session=await env.DB.prepare("SELECT * FROM multipart_upload_sessions WHERE id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
+  if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  if(!Number.isInteger(partNumber)||partNumber<1||partNumber>session.expected_parts)return bad("Invalid part number.");
+  const expected=Math.min(session.part_size_bytes,session.total_size_bytes-(partNumber-1)*session.part_size_bytes);
+  if(Number(req.headers.get("content-length")||0)!==expected)return bad("Part Content-Length does not match the expected chunk size.",400,"part_size_mismatch");
+  let actual=0;
+  const body=req.body.pipeThrough(new TransformStream({transform(chunk,controller){actual+=chunk.byteLength;if(actual>expected){controller.error(new Error("part_too_large"));return;}controller.enqueue(chunk);}}));
+  let uploaded;
+  try{uploaded=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).uploadPart(partNumber,body);}
+  catch(e){if(String(e?.message||"").includes("part_too_large"))return bad("Uploaded part exceeds its expected size.",413);throw e;}
+  if(actual!==expected)return bad("Uploaded part byte count does not match the expected size.",400,"part_size_mismatch");
+  await env.DB.prepare("INSERT INTO multipart_upload_parts(session_id,part_number,etag,size_bytes) VALUES(?,?,?,?) ON CONFLICT(session_id,part_number) DO UPDATE SET etag=excluded.etag,size_bytes=excluded.size_bytes,uploaded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,partNumber,uploaded.etag,actual).run();
+  return out({ok:true,upload_id:id,part_number:partNumber,size_bytes:actual,etag:uploaded.etag});
+ }
+ if(m==="POST"&&multipartAction){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor"]),id=multipartAction[1],action=multipartAction[2];
+  const session=await env.DB.prepare("SELECT * FROM multipart_upload_sessions WHERE id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
+  if(action==="abort"){
+   if(session.status!=="open")return bad("Only an open upload can be aborted.",409);
+   await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).abort();
+   await env.DB.prepare("UPDATE multipart_upload_sessions SET status='aborted' WHERE id=? AND status='open'").bind(id).run();
+   await log(env,a.id,"multipart_upload_aborted","multipart_upload",id,{});
+   return out({ok:true,status:"aborted"});
+  }
+  if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  const rows=await env.DB.prepare("SELECT part_number,etag,size_bytes FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  const parts=rows.results||[];
+  if(parts.length!==session.expected_parts||parts.some((x,i)=>Number(x.part_number)!==i+1))return bad("Some upload parts are missing. Upload all parts before completing.",409,"parts_incomplete");
+  if(parts.reduce((n,x)=>n+Number(x.size_bytes),0)!==session.total_size_bytes)return bad("Uploaded part sizes do not match the original file size.",400,"total_size_mismatch");
+  const claimed=await env.DB.prepare("UPDATE multipart_upload_sessions SET status='completing' WHERE id=? AND status='open'").bind(id).run();
+  if(!claimed.meta?.changes)return bad("Upload completion is already in progress or finished.",409);
+  let object;
+  try{object=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).complete(parts.map(x=>({partNumber:Number(x.part_number),etag:x.etag})));}
+  catch(e){await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();return bad("Storage completion outcome is uncertain. Contact CSA before retrying this upload.",502,"multipart_completion_unknown");}
+  try{
+   if(session.purpose==="project_file"){
+    await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(uid("file"),session.project_id,a.id,session.r2_object_key,session.original_filename,session.mime_type,session.total_size_bytes).run();
+   }else{
+    const last=await env.DB.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM work_submissions WHERE assignment_id=?").bind(session.assignment_id).first(),version=Number(last.n)+1,submissionId=uid("sub");
+    await env.DB.batch([
+     env.DB.prepare("INSERT INTO work_submissions(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status,original_filename,mime_type,size_bytes) VALUES(?,?,?,?,?,?,'pending',?,?,?)").bind(submissionId,session.assignment_id,a.id,session.r2_object_key,version,session.notes,session.original_filename,session.mime_type,session.total_size_bytes),
+     env.DB.prepare("UPDATE assignments SET status='submitted' WHERE id=?").bind(session.assignment_id),
+     env.DB.prepare("UPDATE projects SET status='quality_check',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(session.project_id)
+    ]);
+   }
+   await env.DB.prepare("UPDATE multipart_upload_sessions SET status='completed',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(id).run();
+  }catch(e){await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();return bad("File is stored but CSA metadata finalization needs manual reconciliation.",500,"multipart_finalize_unknown");}
+  await log(env,a.id,"multipart_upload_completed","multipart_upload",id,{purpose:session.purpose,size_bytes:session.total_size_bytes,etag:object?.etag||null});
+  return out({ok:true,status:"completed",purpose:session.purpose,size_bytes:session.total_size_bytes});
+ }
  if(m==="PUT"&&p.startsWith("/v1/projects/")&&p.endsWith("/files")){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const projectId=p.split("/")[3],a=await user(req,env,["client","editor","admin"]);
