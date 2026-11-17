@@ -155,6 +155,16 @@ async function handle(req,env){
   await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
   return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
  }
+ const multipartSession=p.match(/^\\/v1\\/uploads\\/multipart\\/([\\w-]+)$/);
+ if(m==="GET"&&multipartSession){
+  const a=await user(req,env,["client","editor"]),id=multipartSession[1];
+  const session=await env.DB.prepare("SELECT id,purpose,original_filename,total_size_bytes,part_size_bytes,expected_parts,status,expires_at,uploaded_by FROM multipart_upload_sessions WHERE id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
+  if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  const rows=await env.DB.prepare("SELECT part_number,size_bytes FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  return out({ok:true,upload_id:id,status:session.status,expected_parts:session.expected_parts,part_size_bytes:session.part_size_bytes,uploaded_parts:(rows.results||[]).map(x=>({part_number:Number(x.part_number),size_bytes:Number(x.size_bytes)})),expires_at:session.expires_at});
+ }
  if(m==="PUT"&&multipartPart){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const a=await user(req,env,["client","editor"]),id=multipartPart[1],partNumber=Number(multipartPart[2]);
