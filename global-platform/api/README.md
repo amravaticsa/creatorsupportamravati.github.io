@@ -15,6 +15,8 @@ Private media binding: `MEDIA` → `csa-global-media-staging`
 - `POST /v1/offers/:id/deposit/checkout`, `POST /v1/payments/razorpay/verify`, `POST /v1/webhooks/razorpay`
 - `PUT /v1/assignments/:id/submissions`
 - Admin: overview, tender queue, editor queues, offer creation, agreement draft/activation, assignment confirmation, QC queue and QC decisions.
+- `GET /v1/admin/deposits/refunds/eligible`, `POST /v1/admin/deposits/:paymentId/refund` — full original-method refund, available only after CSA QC approval; one request per deposit.
+- `GET /v1/editor/deposit-refunds` — editor's own refund status and Razorpay refund reference.
 
 ## Authentication
 Google RS256 ID tokens are verified using Google's JWKS. The Worker validates issuer, exact audience, expiry, issued-at, verified email and per-login nonce. Protected routes check account status and role on every request.
@@ -33,7 +35,7 @@ Required encrypted secrets:
 - Server creates Razorpay Orders; browser does not decide amount.
 - Server verifies HMAC signature and fetches payment status; only captured, amount/currency-matched payments unlock assignment.
 - Webhook signatures are checked against the raw request body; duplicate webhook event IDs are rejected.
-- Configure `payment.captured` and `payment.failed` webhook events.
+- Configure `payment.captured`, `payment.failed`, `refund.processed` and `refund.failed` webhook events.
 - Checkout is disabled/fails closed until valid keys and webhook secret are configured.
 - Test Mode only until deposit/refund/legal/cross-border review is complete.
 
@@ -45,6 +47,8 @@ Required encrypted secrets:
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
-- No automatic email/WhatsApp notifications, payout automation, refund automation, client final sign-off or large-file multipart upload yet.
+- Apply migration `0005_editor_deposit_refunds.sql` to the staging D1 database before deploying this API version.
+- Refunds require an explicit CSA Admin action after Quality Approved; provider status is reconciled by signed Razorpay refund webhooks. Refund requests are single-use/idempotency-keyed; unknown provider outcomes require manual Razorpay dashboard reconciliation and must not be retried blindly.
+- No automatic email/WhatsApp notifications, editor payout automation, client final sign-off or large-file multipart upload yet.
 - Google OAuth client ID, admin allowlist and Razorpay credentials are not configured yet.
 - Do not collect live deposits or publish to production until credentials, legal review, end-to-end tests and independent security review are complete.
