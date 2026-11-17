@@ -107,8 +107,25 @@ async function handle(req,env){
   if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
   const rawName=txt(req.headers.get("x-file-name"),180)||"upload.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
   const fileId=uid("file"),key="projects/"+projectId+"/source/"+fileId+"/"+name;
-  await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
-  await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(fileId,projectId,a.id,key,name,mime,size).run();
+  let actualSize=0;
+  const limitedBody=req.body.pipeThrough(new TransformStream({
+   transform(chunk,controller){
+    actualSize+=chunk.byteLength;
+    if(actualSize>90*1024*1024){controller.error(new Error("upload_too_large"));return;}
+    controller.enqueue(chunk);
+   }
+  }));
+  try{
+   await env.MEDIA.put(key,limitedBody,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  }catch(e){
+   if(String(e?.message||"").includes("upload_too_large"))return bad("Actual uploaded file size exceeds the 90 MB staging limit.",413,"file_too_large");
+   throw e;
+  }
+  if(actualSize!==size){
+   await env.MEDIA.delete(key);
+   return bad("Uploaded byte count does not match Content-Length. Please retry the upload.",400,"content_length_mismatch");
+  }
+  await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(fileId,projectId,a.id,key,name,mime,actualSize).run();
   await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
   return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
  }
