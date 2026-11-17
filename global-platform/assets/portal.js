@@ -49,15 +49,41 @@ async function multipartUpload(file,details,onProgress=()=>{}){
 
 if(user.role==="client"){
  $("client-panel").hidden=false;
- loadClientProjects();
+ loadClientProjects();loadUploadHistory("client-upload-history");
  $("project-form").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:f.get("title"),category:f.get("category"),brief:f.get("brief"),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
  $("project-message").textContent="Submitting…";try{const d=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});$("project-message").textContent="Project submitted: "+d.project_code+". Uploading selected files…";const files=Array.from(e.target.elements.project_files.files||[]);for(const file of files){if(file.size>5*1024*1024*1024)throw Error(file.name+" is over the 5 GB staging limit.");if(file.size>90*1024*1024){await multipartUpload(file,{purpose:"project_file",project_id:d.project_id},(sent,total,part,count)=>{$("project-message").textContent="Uploading "+file.name+" · Part "+part+"/"+count+" · "+Math.round(sent/total*100)+"%";});}else{const up=await fetch(API+"/v1/projects/"+d.project_id+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});const result=await up.json();if(!up.ok)throw Error(result.error?.message||"Upload failed for "+file.name);}} $("project-message").textContent="Project "+d.project_code+" submitted and "+files.length+" file(s) uploaded privately to CSA.";e.target.reset();loadClientProjects();}catch(err){$("project-message").textContent=err.message;}
  };
 }else if(user.role==="editor"){
- $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();}
+ $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
  $("admin-panel").hidden=false;loadAdmin();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
+async function loadUploadHistory(targetId){
+ const root=$(targetId);if(!root)return;root.textContent="Loading recent upload history…";
+ try{
+  const d=await api("/v1/uploads/multipart/history");root.replaceChildren();
+  if(!d.uploads.length){root.textContent="No large-file upload sessions yet.";return;}
+  for(const u of d.uploads){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h3");title.textContent=u.original_filename;
+   const progress=document.createElement("p");progress.className="muted";
+   const percent=u.total_size_bytes?Math.min(100,Math.round(u.bytes_uploaded/u.total_size_bytes*100)):0;
+   progress.textContent=(u.total_size_bytes/1024/1024).toFixed(1)+" MB · "+u.parts_uploaded+"/"+u.expected_parts+" parts · "+percent+"% uploaded";
+   const status=document.createElement("p");status.className="tag "+(u.status==="completed"?"":"blue");status.textContent=u.status.replaceAll("_"," ");
+   const date=document.createElement("small");date.textContent="Started: "+new Date(u.created_at).toLocaleString();
+   card.append(title,progress,status,date);
+   if(u.status==="open"&&new Date(u.expires_at).getTime()>Date.now()){
+    const picker=document.createElement("input");picker.type="file";picker.setAttribute("aria-label","Choose the same file to resume");
+    const resume=document.createElement("button");resume.className="btn outline";resume.textContent="Select same file to resume";resume.disabled=true;
+    picker.onchange=()=>{const f=picker.files?.[0];resume.disabled=!f||f.name!==u.original_filename||f.size!==u.total_size_bytes;};
+    const msg=document.createElement("p");msg.className="muted";msg.setAttribute("role","status");
+    resume.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;resume.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent="Resuming upload · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;});msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;resume.disabled=false;}};
+    card.append(picker,resume,msg);
+   }
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
 async function loadClientProjects(){
  const root=$("client-projects");if(!root)return;root.textContent="Loading your project submissions…";
  try{const d=await api("/v1/client/projects");root.replaceChildren();if(!d.projects.length){root.textContent="You have not submitted any projects yet.";return;}for(const p of d.projects){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;const m=document.createElement("p");m.className="muted";m.textContent=p.category+" · "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.status+" · Deadline: "+(p.preferred_deadline||"Not set");c.append(h,m);try{const dls=await api("/v1/client/projects/"+p.id+"/deliverables");for(const file of dls.deliverables){const b=document.createElement("button");b.className="btn outline";b.textContent="Download approved "+file.original_filename;b.onclick=async()=>{const r=await fetch(API+"/v1/files/"+file.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Download failed");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);};c.append(b);}}catch{}root.append(c);}}catch(e){root.textContent=e.message;}
