@@ -16,6 +16,8 @@ Private media binding: `MEDIA` → `csa-global-media-staging`
 - `POST /v1/offers/:id/deposit/checkout`, `POST /v1/payments/razorpay/verify`, `POST /v1/webhooks/razorpay`
 - `PUT /v1/assignments/:id/submissions`
 - Admin: overview, tender queue, editor queues, offer creation, agreement draft/activation, assignment confirmation, QC queue and QC decisions.
+- `GET /v1/admin/multipart-uploads` — admin/staff-only read-only upload operations summary and latest 50 sessions; no R2 keys or provider upload IDs exposed.
+- `GET /v1/uploads/multipart/history` — signed-in client's/editor's own latest 30 sessions.
 - `GET /v1/admin/deposits/refunds/eligible`, `POST /v1/admin/deposits/:paymentId/refund` — full original-method refund, available only after CSA QC approval; one request per deposit.
 - `GET /v1/editor/deposit-refunds` — editor's own refund status and Razorpay refund reference.
 
