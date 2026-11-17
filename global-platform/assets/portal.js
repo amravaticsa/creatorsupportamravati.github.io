@@ -66,8 +66,24 @@ if(user.role==="client"){
 }else if(user.role==="editor"){
  $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
- $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();
+ $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();loadAdminCleanupRuns();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
+async function loadAdminCleanupRuns(){
+ const root=$("admin-cleanup-runs");if(!root)return;root.textContent="Loading cleanup history…";
+ try{
+  const d=await api("/v1/admin/multipart-cleanup-runs");root.replaceChildren();
+  if(!d.runs.length){root.textContent="No scheduled cleanup execution has been recorded yet.";return;}
+  for(const run of d.runs){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h4");title.textContent=run.status.toUpperCase()+" · "+new Date(run.started_at).toLocaleString();
+   const stats=document.createElement("p");stats.textContent="Checked "+run.checked+" · Aborted "+run.aborted+" · Failed "+run.failed;
+   const finish=document.createElement("small");finish.textContent=run.finished_at?"Finished "+new Date(run.finished_at).toLocaleString():"Execution has not finished";
+   card.append(title,stats,finish);
+   if(run.error_message){const err=document.createElement("p");err.className="muted";err.textContent=run.error_message;card.append(err);}
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
 async function loadAdminMultipartUploads(){
  const metrics=$("admin-multipart-metrics"),root=$("admin-multipart-uploads");if(!root)return;
  root.textContent="Loading upload operations…";
