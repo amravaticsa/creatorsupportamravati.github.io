@@ -59,6 +59,11 @@ jobs:
           grep -q "type:\"retry\"" global-platform/assets/portal.js
           grep -q "Verifying upload" global-platform/assets/portal.js
           grep -q "Upload paused" global-platform/assets/portal.js
+          grep -q "multipartInspect" global-platform/api/src/index.js
+          grep -q "checksum_present" global-platform/api/src/index.js
+          grep -q "missing_parts" global-platform/api/src/index.js
+          grep -q "Inspect session" global-platform/assets/portal.js
+          grep -q "Read-only diagnostics only" global-platform/assets/portal.js
           grep -q "SHA-256" global-platform/api/src/index.js
           grep -q 'createMultipartUpload' global-platform/api/src/index.js
           grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
