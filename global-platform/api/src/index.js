@@ -119,7 +119,8 @@ async function handle(req,env){
  if(m==="POST"&&p==="/v1/uploads/multipart"){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const a=await user(req,env,["client","editor"]),b=await req.json();
-  const purpose=b.purpose==="submission"?"submission":"project_file";
+  if(!["project_file","submission"].includes(b.purpose))return bad("Upload purpose must be project_file or submission.");
+  const purpose=b.purpose;
   const total=Number(b.size_bytes),partSize=50*1024*1024,maxSize=5*1024*1024*1024;
   const mime=txt(b.mime_type,100).toLowerCase(),allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
   if(!Number.isSafeInteger(total)||total<=90*1024*1024||total>maxSize)return bad("Resumable upload supports files larger than 90 MB and up to 5 GB.",413,"invalid_upload_size");
@@ -198,6 +199,18 @@ async function handle(req,env){
    return out({ok:true,status:"aborted"});
   }
   if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  if(session.purpose==="project_file"){
+   const project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(session.project_id).first();
+   if(!project)return bad("Project no longer exists.",404);
+   if(a.role==="client"&&project.client_id!==a.id)return bad("You no longer have access to this project.",403);
+   if(a.role==="editor"){
+    const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision')").bind(session.project_id,a.id).first();
+    if(!assignment)return bad("Your project assignment is no longer active.",403);
+   }
+  }else{
+   const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE id=? AND editor_id=? AND status IN ('active','revision')").bind(session.assignment_id,a.id).first();
+   if(!assignment)return bad("Assignment is no longer active for submission.",403);
+  }
   const rows=await env.DB.prepare("SELECT part_number,etag,size_bytes FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
   const parts=rows.results||[];
   if(parts.length!==session.expected_parts||parts.some((x,i)=>Number(x.part_number)!==i+1))return bad("Some upload parts are missing. Upload all parts before completing.",409,"parts_incomplete");
