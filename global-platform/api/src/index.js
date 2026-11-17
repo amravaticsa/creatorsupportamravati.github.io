@@ -150,7 +150,7 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/v1/admin/submissions/pending"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' ORDER BY s.submitted_at ASC LIMIT 100").all();
+  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,s.original_filename,s.mime_type,s.size_bytes,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' ORDER BY s.submitted_at ASC LIMIT 100").all();
   return out({ok:true,submissions:r.results||[]});
  }
  const qc=p.match(/^\/v1\/admin\/submissions\/([\w-]+)\/review$/);
