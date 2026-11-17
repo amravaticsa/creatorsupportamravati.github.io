@@ -72,3 +72,8 @@ Authenticated clients and editors can retrieve their latest 30 multipart upload 
 ### Multipart part integrity
 
 The Worker computes and stores a SHA-256 digest for every uploaded part. Before resuming, the browser re-hashes all previously uploaded parts from the selected local file and compares them with the server-computed digests. If any part differs, resume is stopped before additional bytes are uploaded. Sessions created before migration 0008 have no part digests and are intentionally rejected for resume; start a fresh upload instead.
+
+
+### Multipart cleanup run monitoring
+
+Hourly scheduled cleanup executions are written to the staging D1 table `multipart_cleanup_runs`, including start/finish time, success/partial/failed status, number checked, number aborted and failures. Admin/staff can read the latest 30 records through `GET /v1/admin/multipart-cleanup-runs`; the admin portal displays this history. This records actual executions rather than assuming a configured Cron schedule has run.
