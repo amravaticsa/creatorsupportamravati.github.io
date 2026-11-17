@@ -176,12 +176,11 @@ async function handle(req,env){
   if(!Number.isInteger(partNumber)||partNumber<1||partNumber>session.expected_parts)return bad("Invalid part number.");
   const expected=Math.min(session.part_size_bytes,session.total_size_bytes-(partNumber-1)*session.part_size_bytes);
   const declared=Number(req.headers.get("content-length")||0);if(declared&&declared!==expected)return bad("Part Content-Length does not match the expected chunk size.",400,"part_size_mismatch");
-  let actual=0;
-  const body=req.body.pipeThrough(new TransformStream({transform(chunk,controller){actual+=chunk.byteLength;if(actual>expected){controller.error(new Error("part_too_large"));return;}controller.enqueue(chunk);}}));
+  const data=await req.arrayBuffer(),actual=data.byteLength;
+  if(actual!==expected)return bad("Uploaded part byte count does not match the expected size.",actual>expected?413:400,"part_size_mismatch");
   let uploaded;
-  try{uploaded=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).uploadPart(partNumber,body);}
-  catch(e){if(String(e?.message||"").includes("part_too_large"))return bad("Uploaded part exceeds its expected size.",413);throw e;}
-  if(actual!==expected)return bad("Uploaded part byte count does not match the expected size.",400,"part_size_mismatch");
+  try{uploaded=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).uploadPart(partNumber,data);}
+  catch(e){throw e;}
   await env.DB.prepare("INSERT INTO multipart_upload_parts(session_id,part_number,etag,size_bytes) VALUES(?,?,?,?) ON CONFLICT(session_id,part_number) DO UPDATE SET etag=excluded.etag,size_bytes=excluded.size_bytes,uploaded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,partNumber,uploaded.etag,actual).run();
   return out({ok:true,upload_id:id,part_number:partNumber,size_bytes:actual,etag:uploaded.etag});
  }
@@ -610,7 +609,27 @@ async function handle(req,env){
  }
  return bad("Route not found.",404,"not_found");
 }
-export default {async fetch(req,env){
+async function cleanupExpiredMultipartUploads(env){
+ const now=new Date().toISOString();
+ const rows=await env.DB.prepare("SELECT id,r2_object_key,r2_upload_id FROM multipart_upload_sessions WHERE status='open' AND expires_at<=? ORDER BY expires_at LIMIT 100").bind(now).all();
+ let aborted=0,failed=0;
+ for(const session of rows.results||[]){
+  try{
+   await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).abort();
+   const result=await env.DB.prepare("UPDATE multipart_upload_sessions SET status='aborted' WHERE id=? AND status='open'").bind(session.id).run();
+   if(result.meta?.changes)aborted++;
+  }catch(error){
+   failed++;
+   console.warn(JSON.stringify({event:"multipart_cleanup_abort_failed",session_id:session.id,error:String(error?.message||error)}));
+  }
+ }
+ console.log(JSON.stringify({event:"multipart_cleanup_completed",checked:(rows.results||[]).length,aborted,failed,at:now}));
+ return {checked:(rows.results||[]).length,aborted,failed};
+}
+export default {async scheduled(controller,env){
+ if(!env.MEDIA||!env.DB)throw new Error("Cleanup requires the staging R2 and D1 bindings.");
+ await cleanupExpiredMultipartUploads(env);
+},async fetch(req,env){
  // File uploads use PUT; include it in CORS so browser preflight succeeds for client and editor uploads.
  const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes","access-control-max-age":"86400"};
  if(allowed.includes(origin))ch["access-control-allow-origin"]=origin;
