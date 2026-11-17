@@ -49,7 +49,7 @@ Required encrypted secrets:
 - R2 bucket is private and not publicly exposed.
 - Client source files are only available to the project owner, CSA admins and the assigned editor.
 - Editor submissions are private until QC approval; clients can download approved deliverables only.
-- Direct single-request uploads remain capped at 90 MB. Resumable R2 multipart uploads support files over 90 MB up to 5 GB, split into 50 MiB parts (minimum 5 MiB except the last part). Upload sessions expire after 24 hours; incomplete sessions still require cleanup/abort handling.
+- Direct single-request uploads remain capped at 90 MB. Resumable R2 multipart uploads support files over 90 MB up to 5 GB, split into 50 MiB parts (minimum 5 MiB except the last part). Upload sessions expire after 24 hours. An hourly scheduled Worker job aborts expired open R2 multipart uploads in batches of up to 100 and marks successful aborts as `aborted`; failed aborts remain open for the next scheduled retry. R2 also automatically aborts unfinished multipart uploads after 7 days.
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
