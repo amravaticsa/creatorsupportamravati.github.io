@@ -182,8 +182,8 @@ async function handle(req,env){
   if(!session)return bad("Upload session not found.",404);
   if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
   if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
-  const rows=await env.DB.prepare("SELECT part_number,size_bytes FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
-  return out({ok:true,upload_id:id,status:session.status,filename:session.original_filename,total_size_bytes:session.total_size_bytes,expected_parts:session.expected_parts,part_size_bytes:session.part_size_bytes,uploaded_parts:(rows.results||[]).map(x=>({part_number:Number(x.part_number),size_bytes:Number(x.size_bytes)})),expires_at:session.expires_at});
+  const rows=await env.DB.prepare("SELECT part_number,size_bytes,sha256 FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  return out({ok:true,upload_id:id,status:session.status,filename:session.original_filename,total_size_bytes:session.total_size_bytes,expected_parts:session.expected_parts,part_size_bytes:session.part_size_bytes,uploaded_parts:(rows.results||[]).map(x=>({part_number:Number(x.part_number),size_bytes:Number(x.size_bytes),sha256:x.sha256||null})),expires_at:session.expires_at});
  }
  if(m==="PUT"&&multipartPart){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
@@ -197,10 +197,11 @@ async function handle(req,env){
   const declared=Number(req.headers.get("content-length")||0);if(declared&&declared!==expected)return bad("Part Content-Length does not match the expected chunk size.",400,"part_size_mismatch");
   const data=await req.arrayBuffer(),actual=data.byteLength;
   if(actual!==expected)return bad("Uploaded part byte count does not match the expected size.",actual>expected?413:400,"part_size_mismatch");
+  const digest=await crypto.subtle.digest("SHA-256",data),partSha256=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
   let uploaded;
   try{uploaded=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).uploadPart(partNumber,data);}
   catch(e){throw e;}
-  await env.DB.prepare("INSERT INTO multipart_upload_parts(session_id,part_number,etag,size_bytes) VALUES(?,?,?,?) ON CONFLICT(session_id,part_number) DO UPDATE SET etag=excluded.etag,size_bytes=excluded.size_bytes,uploaded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,partNumber,uploaded.etag,actual).run();
+  await env.DB.prepare("INSERT INTO multipart_upload_parts(session_id,part_number,etag,size_bytes,sha256) VALUES(?,?,?,?,?) ON CONFLICT(session_id,part_number) DO UPDATE SET etag=excluded.etag,size_bytes=excluded.size_bytes,sha256=excluded.sha256,uploaded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,partNumber,uploaded.etag,actual,partSha256).run();
   return out({ok:true,upload_id:id,part_number:partNumber,size_bytes:actual,etag:uploaded.etag});
  }
  if(m==="POST"&&multipartAction){
