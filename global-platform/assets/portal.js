@@ -92,10 +92,22 @@ async function loadAdminMultipartUploads(){
  try{
   const d=await api("/v1/admin/multipart-uploads");
   metrics.replaceChildren();
-  const labels=[["Open sessions",d.totals.open||0],["Completed",d.totals.completed||0],["Aborted",d.totals.aborted||0],["Expired but open",d.totals.expired_open||0]];
+  const labels=[["Open sessions",d.totals.open||0],["Completed",d.totals.completed||0],["Aborted",d.totals.aborted||0],["Expired but open",d.totals.expired_open||0],["Unknown outcome",d.totals.unknown||0],["Completing",d.totals.completing||0]];
   for(const [label,value] of labels){const card=document.createElement("div");card.className="stat";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;card.append(small,strong);metrics.append(card);}
   root.replaceChildren();
-  if(!d.uploads.length){root.textContent="No multipart upload sessions recorded yet.";return;}
+  const attention=document.createElement("section");attention.className="card";
+  const attentionTitle=document.createElement("h4");attentionTitle.textContent="Sessions requiring attention ("+(d.attention||[]).length+")";attention.append(attentionTitle);
+  if(!(d.attention||[]).length){const clear=document.createElement("p");clear.className="muted";clear.textContent="No stale, expired or uncertain multipart sessions need review.";attention.append(clear);}
+  else for(const item of d.attention){
+   const entry=document.createElement("div");entry.className="card";
+   const heading=document.createElement("strong");heading.textContent=item.original_filename+" · "+(item.public_project_code||"No project code")+" · "+item.status.replaceAll("_"," ");
+   const owner=document.createElement("p");owner.className="muted";owner.textContent=item.uploader_name+" · "+item.email+" · "+item.purpose.replaceAll("_"," ");
+   const reason=document.createElement("p");reason.textContent=item.reason;
+   const age=document.createElement("small");age.textContent="Started "+new Date(item.created_at).toLocaleString()+" · "+item.age_minutes+" minutes ago";
+   entry.append(heading,owner,reason,age);attention.append(entry);
+  }
+  root.append(attention);
+  if(!d.uploads.length){const empty=document.createElement("p");empty.textContent="No multipart upload sessions recorded yet.";root.append(empty);return;}
   for(const u of d.uploads){
    const card=document.createElement("article");card.className="card";
    const h=document.createElement("h4");h.textContent=u.original_filename+" · "+(u.public_project_code||"No project code");
