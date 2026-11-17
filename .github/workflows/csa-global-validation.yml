@@ -42,6 +42,9 @@ jobs:
           grep -q 'createMultipartUpload' global-platform/api/src/index.js
           grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
           grep -q 'csa_multipart_' global-platform/assets/portal.js
+          grep -q 'async scheduled(controller,env)' global-platform/api/src/index.js
+          grep -q 'cleanupExpiredMultipartUploads' global-platform/api/src/index.js
+          grep -q 'uploadPart(partNumber,data)' global-platform/api/src/index.js
           grep -q 'rate_limited' global-platform/api/src/index.js
           grep -q 'api_rate_limits' global-platform/api/src/index.js
           grep -q 'upload_too_large' global-platform/api/src/index.js
