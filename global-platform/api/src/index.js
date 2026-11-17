@@ -156,6 +156,12 @@ async function handle(req,env){
   await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
   return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
  }
+ // Recent multipart upload history is limited to the authenticated account.
+ if(m==="GET"&&p==="/v1/uploads/multipart/history"){
+  const a=await user(req,env,["client","editor"]);
+  const rows=await env.DB.prepare("SELECT s.id,s.project_id,s.assignment_id,s.purpose,s.original_filename,s.total_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,s.completed_at,COALESCE(x.parts_uploaded,0) AS parts_uploaded,COALESCE(x.bytes_uploaded,0) AS bytes_uploaded FROM multipart_upload_sessions s LEFT JOIN (SELECT session_id,COUNT(*) AS parts_uploaded,SUM(size_bytes) AS bytes_uploaded FROM multipart_upload_parts GROUP BY session_id) x ON x.session_id=s.id WHERE s.uploaded_by=? ORDER BY s.created_at DESC LIMIT 30").bind(a.id).all();
+  return out({ok:true,uploads:(rows.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),parts_uploaded:Number(r.parts_uploaded),bytes_uploaded:Number(r.bytes_uploaded)}))});
+ }
  const multipartSession=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)$/);
  if(m==="GET"&&multipartSession){
   const a=await user(req,env,["client","editor"]),id=multipartSession[1];
