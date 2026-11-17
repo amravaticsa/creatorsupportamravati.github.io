@@ -114,7 +114,7 @@ async function handle(req,env){
   return out({ok:true,projects:r.results||[]});
  }
  // Resumable R2 multipart uploads: 50 MiB parts, up to 5 GiB per file.
- const multipartPart=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/(\d+)$/);
+ const multipartPart=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/parts\/(\d+)$/);
  const multipartAction=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/(complete|abort)$/);
  if(m==="POST"&&p==="/v1/uploads/multipart"){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
