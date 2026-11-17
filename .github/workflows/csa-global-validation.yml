@@ -37,6 +37,9 @@ jobs:
           test -s global-platform/migrations/0003_payment_webhook_events.sql
           test -s global-platform/migrations/0004_submission_file_metadata.sql
           test -s global-platform/migrations/0005_editor_deposit_refunds.sql
+          test -s global-platform/migrations/0006_api_rate_limits.sql
+          grep -q 'rate_limited' global-platform/api/src/index.js
+          grep -q 'api_rate_limits' global-platform/api/src/index.js
           grep -q 'upload_too_large' global-platform/api/src/index.js
           grep -q 'content_length_mismatch' global-platform/api/src/index.js
           test -s global-platform/api/wrangler.toml
