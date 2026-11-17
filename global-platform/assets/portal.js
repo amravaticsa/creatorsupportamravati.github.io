@@ -109,7 +109,10 @@ async function loadAdminMultipartUploads(){
    const owner=document.createElement("p");owner.className="muted";owner.textContent=item.uploader_name+" · "+item.email+" · "+item.purpose.replaceAll("_"," ");
    const reason=document.createElement("p");reason.textContent=item.reason;
    const age=document.createElement("small");age.textContent="Started "+new Date(item.created_at).toLocaleString()+" · "+item.age_minutes+" minutes ago";
-   entry.append(heading,owner,reason,age);attention.append(entry);
+   const inspect=document.createElement("button");inspect.className="btn outline";inspect.textContent="Inspect session";
+   const detail=document.createElement("div");detail.className="muted";detail.hidden=true;
+   inspect.onclick=async()=>{inspect.disabled=true;detail.hidden=false;detail.textContent="Loading safe session diagnostics…";try{const report=await api("/v1/admin/multipart-uploads/"+encodeURIComponent(item.id)+"/inspect");const x=report.session;detail.replaceChildren();const summary=document.createElement("p");summary.textContent="Session "+x.id+" · "+x.total_size_bytes+" bytes · "+x.parts_uploaded+" parts · "+x.status;const parts=document.createElement("p");parts.textContent="Expected "+x.expected_parts+" · Received "+report.parts.length+" · Missing "+report.missing_parts.length;const integrity=document.createElement("p");integrity.textContent="Checksum verified parts available: "+report.integrity.parts_with_checksum+" · Without checksum: "+report.integrity.parts_without_checksum;const missing=document.createElement("p");missing.textContent=report.missing_parts.length?"Missing part numbers: "+report.missing_parts.join(", "):"No missing parts recorded in database.";const caution=document.createElement("p");caution.textContent="Read-only diagnostics only. No retry, abort, delete, or refund action was performed.";detail.append(summary,parts,integrity,missing,caution);inspect.textContent="Refresh inspection";}catch(err){detail.textContent="Inspection failed: "+err.message;}finally{inspect.disabled=false;}};
+   entry.append(heading,owner,reason,age,inspect,detail);attention.append(entry);
   }
   root.append(attention);
   if(!d.uploads.length){const empty=document.createElement("p");empty.textContent="No multipart upload sessions recorded yet.";root.append(empty);return;}
