@@ -134,13 +134,19 @@ async function loadUploadHistory(targetId){
    const status=document.createElement("p");status.className="tag "+(u.status==="completed"?"":"blue");status.textContent=u.status.replaceAll("_"," ");
    const date=document.createElement("small");date.textContent="Started: "+new Date(u.created_at).toLocaleString();
    card.append(title,progress,status,date);
-   if(u.status==="open"&&new Date(u.expires_at).getTime()>Date.now()){
-    const picker=document.createElement("input");picker.type="file";picker.setAttribute("aria-label","Choose the same file to resume");
-    const resume=document.createElement("button");resume.className="btn outline";resume.textContent="Select same file to resume";resume.disabled=true;
-    picker.onchange=()=>{const f=picker.files?.[0];resume.disabled=!f||f.name!==u.original_filename||f.size!==u.total_size_bytes;};
+   const canResume=u.status==="open"&&new Date(u.expires_at).getTime()>Date.now();
+   const canRestart=u.status==="aborted"||(u.status==="open"&&new Date(u.expires_at).getTime()<=Date.now());
+   if(canResume||canRestart){
+    const picker=document.createElement("input");picker.type="file";picker.setAttribute("aria-label","Choose the original file");
+    const action=document.createElement("button");action.className="btn outline";action.textContent=canResume?"Select same file to resume":"Select same file to start a fresh upload";action.disabled=true;
+    picker.onchange=()=>{const f=picker.files?.[0];action.disabled=!f||f.name!==u.original_filename||f.size!==u.total_size_bytes;};
     const msg=document.createElement("p");msg.className="muted";msg.setAttribute("role","status");
-    resume.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;resume.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent="Resuming upload · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},u.id);msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;resume.disabled=false;}};
-    card.append(picker,resume,msg);
+    action.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;action.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent=(canResume?"Resuming":"Starting fresh upload")+" · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},canResume?u.id:null);msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;action.disabled=false;}};
+    card.append(picker,action,msg);
+   }else if(u.status==="unknown"||u.status==="completing"){
+    const warning=document.createElement("p");warning.className="muted";warning.textContent="CSA review required before retry. Do not upload again until the storage outcome is checked, to avoid duplicate files.";card.append(warning);
+   }else if(u.status==="completed"){
+    const done=document.createElement("small");done.textContent="This upload is complete.";card.append(done);
    }
    root.append(card);
   }
