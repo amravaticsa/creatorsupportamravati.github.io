@@ -7,11 +7,12 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+user.email+" · "+user.role+" · "+user.status;
 $("logout").onclick=()=>{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");location.href="login.html";};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});const d=await r.json();if(r.status===401){$("account-status").textContent="Session expired. Please sign in again.";sessionStorage.clear();setTimeout(()=>location.href="login.html",1200);}if(!r.ok)throw Error(d.error?.message||"Request failed");return d;}
-async function multipartUpload(file,details,onProgress=()=>{}){
+async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null){
  const identity=[details.purpose,details.project_id||details.assignment_id||"",file.name,file.size,file.lastModified].join("|");
  const resumeKey="csa_multipart_"+btoa(unescape(encodeURIComponent(identity))).replace(/[^a-zA-Z0-9]/g,"").slice(0,100);
  let start=null;
- const saved=localStorage.getItem(resumeKey);
+ const saved=resumeUploadId||localStorage.getItem(resumeKey);
+ if(resumeUploadId)localStorage.setItem(resumeKey,resumeUploadId);
  if(saved){
   const check=await fetch(API+"/v1/uploads/multipart/"+encodeURIComponent(saved),{headers:{authorization:"Bearer "+token}});
   const status=await check.json();
@@ -77,7 +78,7 @@ async function loadUploadHistory(targetId){
     const resume=document.createElement("button");resume.className="btn outline";resume.textContent="Select same file to resume";resume.disabled=true;
     picker.onchange=()=>{const f=picker.files?.[0];resume.disabled=!f||f.name!==u.original_filename||f.size!==u.total_size_bytes;};
     const msg=document.createElement("p");msg.className="muted";msg.setAttribute("role","status");
-    resume.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;resume.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent="Resuming upload · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;});msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;resume.disabled=false;}};
+    resume.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;resume.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent="Resuming upload · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},u.id);msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;resume.disabled=false;}};
     card.append(picker,resume,msg);
    }
    root.append(card);
