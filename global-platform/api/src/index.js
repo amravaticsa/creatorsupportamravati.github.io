@@ -51,8 +51,8 @@ async function handle(req,env){
  if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
  else if(m==="POST"&&["/v1/onboarding/editor","/v1/onboarding/client"].includes(p))policy={scope:"onboarding",limit:5,window:60};
  else if(m==="POST"&&p==="/v1/uploads/multipart")policy={scope:"multipart-create",limit:5,window:60};
- else if(m==="PUT"&&/^\\/v1\\/uploads\\/multipart\\/[\\w-]+\\/parts\\/\\d+$/.test(p))policy={scope:"multipart-part",limit:120,window:300};
- else if(m==="POST"&&/^\\/v1\\/uploads\\/multipart\\/[\\w-]+\\/(complete|abort)$/.test(p))policy={scope:"multipart-finish",limit:10,window:300};
+ else if(m==="PUT"&&/^\/v1\/uploads\/multipart\/[\w-]+\/parts\/\d+$/.test(p))policy={scope:"multipart-part",limit:120,window:300};
+ else if(m==="POST"&&/^\/v1\/uploads\/multipart\/[\w-]+\/(complete|abort)$/.test(p))policy={scope:"multipart-finish",limit:10,window:300};
  else if(m==="PUT"&&(p.startsWith("/v1/projects/")&&p.endsWith("/files")||p.startsWith("/v1/assignments/")&&p.endsWith("/submissions")))policy={scope:"media-upload",limit:6,window:300};
  if(policy){
   const rl=await rateLimit(env,req,policy.scope,policy.limit,policy.window);
@@ -114,8 +114,8 @@ async function handle(req,env){
   return out({ok:true,projects:r.results||[]});
  }
  // Resumable R2 multipart uploads: 50 MiB parts, up to 5 GiB per file.
- const multipartPart=p.match(/^\\/v1\\/uploads\\/multipart\\/([\\w-]+)\\/parts\\/(\\d+)$/);
- const multipartAction=p.match(/^\\/v1\\/uploads\\/multipart\\/([\\w-]+)\\/(complete|abort)$/);
+ const multipartPart=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/(\d+)$/);
+ const multipartAction=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/(complete|abort)$/);
  if(m==="POST"&&p==="/v1/uploads/multipart"){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const a=await user(req,env,["client","editor"]),b=await req.json();
@@ -155,7 +155,7 @@ async function handle(req,env){
   await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
   return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
  }
- const multipartSession=p.match(/^\\/v1\\/uploads\\/multipart\\/([\\w-]+)$/);
+ const multipartSession=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)$/);
  if(m==="GET"&&multipartSession){
   const a=await user(req,env,["client","editor"]),id=multipartSession[1];
   const session=await env.DB.prepare("SELECT id,purpose,original_filename,total_size_bytes,part_size_bytes,expected_parts,status,expires_at,uploaded_by FROM multipart_upload_sessions WHERE id=?").bind(id).first();
