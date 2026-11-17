@@ -63,3 +63,5 @@ Required encrypted secrets:
 ### Upload history and recovery
 
 Authenticated clients and editors can retrieve their latest 30 multipart upload sessions from `GET /v1/uploads/multipart/history`. The response is scoped to the signed-in account and includes file name, purpose, byte/part progress, status, timestamps and associated project or assignment IDs. The portal displays this history; an unexpired open upload can be resumed by selecting the same file (matching filename and size). The endpoint does not expose R2 object keys or provider multipart upload IDs.
+
+- Admin portal includes a read-only large-file upload operations panel with status totals, progress and expired-session visibility.
