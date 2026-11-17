@@ -39,6 +39,10 @@ Required encrypted secrets:
 - Checkout is disabled/fails closed until valid keys and webhook secret are configured.
 - Test Mode only until deposit/refund/legal/cross-border review is complete.
 
+## API abuse controls
+- D1-backed fixed-window rate limits are applied by client IP (SHA-256 hashed; raw IPs are not stored) to Google login (10/minute), client/editor onboarding (5/minute) and media uploads/submissions (6 per 5 minutes).
+- Rate-limited requests return HTTP 429 with a `Retry-After` header. Rate-limit counters are stored in the isolated staging D1 database and expired rows are periodically pruned.
+
 ## Private file handling
 - R2 bucket is private and not publicly exposed.
 - Client source files are only available to the project owner, CSA admins and the assigned editor.
@@ -47,7 +51,7 @@ Required encrypted secrets:
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
-- Staging D1 migrations `0001`–`0005` have been applied; verify the target database before any future migration or deployment.
+- Staging D1 migrations `0001`–`0006` have been applied; verify the target database before any future migration or deployment.
 - Refunds require an explicit CSA Admin action after Quality Approved; provider status is reconciled by signed Razorpay refund webhooks. Both the API response and webhook must match the original payment ID, full amount and currency, and a locally recorded CSA refund request before the deposit is marked fully refunded. Refund requests are single-use/idempotency-keyed; mismatches and uncertain provider outcomes are marked unknown for manual Razorpay dashboard reconciliation and must not be retried blindly.
 - No automatic email/WhatsApp notifications, editor payout automation, client final sign-off or large-file multipart upload yet.
 - Google OAuth settings, admin allowlist and Razorpay encrypted secrets are configured on the staging Worker. Configuration is not proof of end-to-end payment/refund success.
