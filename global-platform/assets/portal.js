@@ -67,9 +67,33 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
 if(user.role==="client"){
  $("client-panel").hidden=false;
  loadClientProjects();loadUploadHistory("client-upload-history");
- $("project-form").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:f.get("title"),category:f.get("category"),brief:f.get("brief"),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
- $("project-message").textContent="Submitting…";try{const d=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});$("project-message").textContent="Project submitted: "+d.project_code+". Uploading selected files…";const files=Array.from(e.target.elements.project_files.files||[]);for(const file of files){if(file.size>5*1024*1024*1024)throw Error(file.name+" is over the 5 GB staging limit.");if(file.size>90*1024*1024){await multipartUpload(file,{purpose:"project_file",project_id:d.project_id},(sent,total,part,count)=>{$("project-message").textContent="Uploading "+file.name+" · Part "+part+"/"+count+" · "+Math.round(sent/total*100)+"%";},null,state=>{if(state.type==="retry")$("project-message").textContent="Connection issue · retry "+state.attempt+"/3 · waiting "+Math.ceil(state.delay/1000)+"s · "+file.name;if(state.type==="completing")$("project-message").textContent="All parts uploaded · verifying and completing "+file.name;if(state.type==="error")$("project-message").textContent="Upload paused · "+state.message+" · You can resume from upload history.";});}else{const up=await fetch(API+"/v1/projects/"+d.project_id+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});const result=await up.json();if(!up.ok)throw Error(result.error?.message||"Upload failed for "+file.name);}} $("project-message").textContent="Project "+d.project_code+" submitted and "+files.length+" file(s) uploaded privately to CSA.";e.target.reset();loadClientProjects();}catch(err){$("project-message").textContent=err.message;}
- };
+  $("project-form").onsubmit=async e=>{
+   e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
+   const submit=form.querySelector('button[type="submit"]');if(!form.reportValidity())return;
+   form.dataset.submitting="1";if(submit){submit.disabled=true;submit.textContent="Submitting to CSA…";}
+   const f=new FormData(form),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:String(f.get("title")||"").trim(),category:f.get("category"),brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
+   const startedAt=Date.now();let project=null;
+   $("project-message").textContent="Submitting your project to CSA. Please do not close this page…";
+   try{
+    try{project=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});}
+    catch(submitError){
+     // A network/server error can arrive after the database commit; reconcile before ever inviting a retry.
+     try{const check=await api("/v1/client/projects");const match=(check.projects||[]).find(p=>p.title===payload.title&&p.category===payload.category&&Number(p.budget_amount_minor)===minor&&Date.parse(p.created_at)>=startedAt-120000);if(match)project={project_id:match.id,project_code:match.public_project_code,reconciled:true};}catch{}
+     if(!project)throw Error(submitError.message+" We could not confirm whether CSA received it. Check “Your projects with CSA” before trying again.");
+    }
+    $("project-message").textContent="Project "+project.project_code+" received by CSA. Now uploading your selected files…";
+    const files=Array.from(form.elements.project_files?.files||[]);let uploaded=0;
+    for(const file of files){
+     if(file.size>5*1024*1024*1024)throw Error(file.name+" is over the 5 GB staging limit.");
+     if(file.size>90*1024*1024){await multipartUpload(file,{purpose:"project_file",project_id:project.project_id},(sent,total,part,count)=>{$("project-message").textContent="CSA received "+project.project_code+" · Uploading "+file.name+" · Part "+part+"/"+count+" · "+Math.round(sent/total*100)+"%";},null,state=>{if(state.type==="retry")$("project-message").textContent="Project received · Connection retry "+state.attempt+"/3 · "+file.name;if(state.type==="completing")$("project-message").textContent="Project received · Verifying "+file.name;if(state.type==="error")$("project-message").textContent="Project received · Upload paused: "+state.message+" · Resume from upload history.";});}
+     else{const up=await fetch(API+"/v1/projects/"+project.project_id+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});let result={};try{result=await up.json();}catch{}if(!up.ok)throw Error(result.error?.message||"Upload failed for "+file.name);}
+     uploaded++;
+    }
+    $("project-message").textContent="Success! Project "+project.project_code+" has been submitted to CSA"+(files.length?" and "+uploaded+" file(s) uploaded securely.":".");
+    form.reset();loadClientProjects();loadUploadHistory("client-upload-history");
+   }catch(err){$("project-message").textContent=(project?"Project "+project.project_code+" is safely saved with CSA, but file upload needs attention: ":"")+err.message;loadClientProjects();}
+   finally{delete form.dataset.submitting;if(submit){submit.disabled=false;submit.textContent="Submit Project to CSA";}}
+  };
 }else if(user.role==="editor"){
  $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
