@@ -2,7 +2,7 @@
 
 Cloudflare Worker: `csa-global-api`
 Endpoint: https://csa-global-api.creatorsupportamravati.workers.dev
-Database binding: `DB` → `csa-global-platform`
+Database binding: `DB` → `csa-global-platform-staging` (isolated staging database; do not bind this Worker to production D1)
 Private media binding: `MEDIA` → `csa-global-media-staging`
 
 ## Implemented routes
