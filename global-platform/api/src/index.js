@@ -156,6 +156,19 @@ async function handle(req,env){
   await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
   return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
  }
+ // Read-only inspection for a single multipart session. Never returns R2 object keys or provider upload IDs.
+ const multipartInspect=p.match(/^\\/v1\\/admin\\/multipart-uploads\\/([\\w-]+)\\/inspect$/);
+ if(m==="GET"&&multipartInspect){
+  await user(req,env,["admin","staff"]);
+  const id=multipartInspect[1];
+  const session=await env.DB.prepare("SELECT s.id,s.purpose,s.original_filename,s.total_size_bytes,s.part_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,s.completed_at,s.project_id,s.assignment_id,u.email,u.role,COALESCE(cp.display_name,ep.display_name,u.email) AS uploader_name,p.public_project_code,p.title AS project_title FROM multipart_upload_sessions s JOIN users u ON u.id=s.uploaded_by LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id LEFT JOIN projects p ON p.id=s.project_id WHERE s.id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  const rows=await env.DB.prepare("SELECT part_number,size_bytes,created_at,sha256 IS NOT NULL AS checksum_present FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  const parts=(rows.results||[]).map(r=>({part_number:Number(r.part_number),size_bytes:Number(r.size_bytes),created_at:r.created_at,checksum_present:Boolean(r.checksum_present)}));
+  const present=new Set(parts.map(r=>r.part_number)),expected=Number(session.expected_parts);
+  const missing=[];for(let n=1;n<=expected;n++)if(!present.has(n))missing.push(n);
+  return out({ok:true,session:{...session,total_size_bytes:Number(session.total_size_bytes),part_size_bytes:Number(session.part_size_bytes),expected_parts:expected,age_minutes:Math.max(0,Math.floor((Date.now()-new Date(session.created_at).getTime())/60000)),expired:session.status==="open"&&new Date(session.expires_at).getTime()<=Date.now()},parts,missing_parts:missing,integrity:{parts_with_checksum:parts.filter(x=>x.checksum_present).length,parts_without_checksum:parts.filter(x=>!x.checksum_present).length}});
+ }
  // Admin-only operational view of multipart upload sessions; no R2 credentials or object keys returned.
  if(m==="GET"&&p==="/v1/admin/multipart-uploads"){
   await user(req,env,["admin","staff"]);
