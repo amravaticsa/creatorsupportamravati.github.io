@@ -4,6 +4,10 @@ const bad=(message,status=400,code="bad_request")=>out({ok:false,error:{code,mes
 const uid=(p)=>p+"_"+crypto.randomUUID().replaceAll("-","");
 const txt=(v,n=2000)=>typeof v==="string"?v.trim().slice(0,n):"";
 const amt=(v)=>Number.isSafeInteger(v)&&v>=0?v:null;
+function safeHttpUrl(value,max=500){
+ const raw=txt(value,max);if(!raw)return "";
+ try{const u=new URL(raw);return ["https:","http:"].includes(u.protocol)&&!u.username&&!u.password?u.toString():"";}catch{return "";}
+}
 function decode(s){s=s.replace(/-/g,"+").replace(/_/g,"/");return JSON.parse(atob(s+"=".repeat((4-s.length%4)%4)));}
 async function claims(req,env){
  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,""),p=token.split(".");
@@ -55,20 +59,23 @@ async function handle(req,env){
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
    await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
   }else{
-   const country=txt(profile.country,100),portfolio=txt(profile.portfolio_url,500),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
-   if(!country||!portfolio||!skills.length)return bad("Editor country, portfolio URL and at least one specialization are required.");
+   const country=txt(profile.country,100),portfolio=safeHttpUrl(profile.portfolio_url,500),sample=safeHttpUrl(profile.sample_url,500),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
+   if(!country||!portfolio||!skills.length)return bad("Editor country, a valid HTTP(S) portfolio URL and at least one specialization are required.");
+   if(profile.sample_url&&!sample)return bad("Sample URL must use a valid HTTP or HTTPS address.");
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
-   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),portfolio,txt(profile.sample_url,500)||null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
+   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),portfolio,sample||null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
   }
   await log(env,newId,"google_account_registered",role,newId,{email_domain:c.email.split("@")[1]});
   return out({ok:true,user_id:newId,role,status:role==="editor"?"pending":"active",email:c.email},201);
  }
  if(m==="POST"&&p==="/v1/onboarding/editor"){
   const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),country=txt(b.country,100);
-  if(!name||!country||!Array.isArray(b.specializations)||!b.specializations.length||!txt(b.portfolio_url,500))return bad("Name, country, specializations and portfolio are required.");
+  const portfolio=safeHttpUrl(b.portfolio_url,500),sample=safeHttpUrl(b.sample_url,500);
+  if(!name||!country||!Array.isArray(b.specializations)||!b.specializations.length||!portfolio)return bad("Name, country, specializations and a valid HTTP(S) portfolio URL are required.");
+  if(b.sample_url&&!sample)return bad("Sample URL must use a valid HTTP or HTTPS address.");
   const idu=uid("usr");
   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
-  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(b.city,100)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),txt(b.portfolio_url,500),txt(b.sample_url,500)||null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
+  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(b.city,100)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),portfolio,sample||null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
   await log(env,idu,"editor_registration_submitted","editor",idu);
   return out({ok:true,status:"pending_verification",message:"Registration is free. No deposit is charged until an editor chooses to accept a project offer."},201);
  }
