@@ -34,8 +34,27 @@ function constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length
 async function log(env,actor,action,type,entity,meta={}){
  await env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,?,?,?,?)").bind(uid("log"),actor,action,type,entity,JSON.stringify(meta)).run();
 }
+async function rateLimit(env,req,scope,limit,windowSeconds=60){
+ const ip=req.headers.get("CF-Connecting-IP")||"unknown";
+ const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(scope+"|"+ip));
+ const key=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const now=Math.floor(Date.now()/1000),windowStart=Math.floor(now/windowSeconds)*windowSeconds;
+ const row=await env.DB.prepare("INSERT INTO api_rate_limits(bucket_key,window_start,hits,expires_at) VALUES(?,?,1,?) ON CONFLICT(bucket_key,window_start) DO UPDATE SET hits=hits+1 RETURNING hits").bind(key,windowStart,windowStart+windowSeconds*2).first();
+ const hits=Number(row?.hits||0);
+ if(hits===1&&Math.floor(now/60)%15===0)await env.DB.prepare("DELETE FROM api_rate_limits WHERE expires_at<?").bind(now-86400).run();
+ return {allowed:hits<=limit,retryAfter:Math.max(1,windowStart+windowSeconds-now)};
+}
 async function handle(req,env){
  const u=new URL(req.url),p=u.pathname.replace(/\/$/,""),m=req.method;
+ // IP-based abuse controls for unauthenticated entry points and expensive upload routes.
+ let policy=null;
+ if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
+ else if(m==="POST"&&["/v1/onboarding/editor","/v1/onboarding/client"].includes(p))policy={scope:"onboarding",limit:5,window:60};
+ else if(m==="PUT"&&(p.startsWith("/v1/projects/")&&p.endsWith("/files")||p.startsWith("/v1/assignments/")&&p.endsWith("/submissions")))policy={scope:"media-upload",limit:12,window:60};
+ if(policy){
+  const rl=await rateLimit(env,req,policy.scope,policy.limit,policy.window);
+  if(!rl.allowed)return new Response(JSON.stringify({ok:false,error:{code:"rate_limited",message:"Too many requests. Please wait before trying again."}}),{status:429,headers:{...H,"retry-after":String(rl.retryAfter)}});
+ }
  if(m==="GET"&&p==="/health")return out({ok:true,service:"CSA Global API",status:"healthy",google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
  if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
  if(m==="POST"&&p==="/v1/auth/google"){
