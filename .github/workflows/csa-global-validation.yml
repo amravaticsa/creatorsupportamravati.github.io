@@ -42,6 +42,10 @@ jobs:
           grep -q 'createMultipartUpload' global-platform/api/src/index.js
           grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
           grep -q 'csa_multipart_' global-platform/assets/portal.js
+          grep -q '/v1/uploads/multipart/history' global-platform/api/src/index.js
+          grep -q 'loadUploadHistory' global-platform/assets/portal.js
+          grep -q 'client-upload-history' global-platform/portal.html
+          grep -q 'editor-upload-history' global-platform/portal.html
           grep -q 'async scheduled(controller,env)' global-platform/api/src/index.js
           grep -q 'cleanupExpiredMultipartUploads' global-platform/api/src/index.js
           grep -q 'uploadPart(partNumber,data)' global-platform/api/src/index.js
