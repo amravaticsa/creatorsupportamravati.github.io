@@ -41,6 +41,12 @@ jobs:
           test -s global-platform/migrations/0007_multipart_uploads.sql
           test -s global-platform/migrations/0008_multipart_part_sha256.sql
           test -s global-platform/migrations/0009_multipart_cleanup_runs.sql
+          test -s global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "multipart_upload_incidents" global-platform/api/src/index.js
+          grep -q "renderMultipartIncidentPanel" global-platform/assets/portal.js
+          grep -q "incident_type" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "resolution_status" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "append-only" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "multipart_cleanup_runs" global-platform/api/src/index.js
           grep -q "loadAdminCleanupRuns" global-platform/assets/portal.js
           grep -q "admin-cleanup-runs" global-platform/portal.html
