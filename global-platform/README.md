@@ -1,5 +1,10 @@
 # CSA Global — Managed Editing Platform
 
+## Client-facing brand policy
+- Public client pages and client sign-in present CSA as the single managed creative production provider.
+- Do not disclose subcontractor, freelancer, editor-network or individual editor details in client-facing pages, messages or project views.
+- Editor onboarding and project workspaces are separate access paths; internal assignment and QC remain CSA-managed.
+
 ## Operating model
 - Project allocation is managed by CSA; clients do not select or contact editors directly.
 - Editor registration is open and free.
