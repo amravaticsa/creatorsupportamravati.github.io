@@ -16,7 +16,16 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
  if(saved){
   const check=await fetch(API+"/v1/uploads/multipart/"+encodeURIComponent(saved),{headers:{authorization:"Bearer "+token}});
   const status=await check.json();
-  if(check.ok&&status.filename===file.name&&Number(status.total_size_bytes)===file.size){start=status;onProgress(0,file.size,0,status.expected_parts);}
+  if(check.ok&&status.filename===file.name&&Number(status.total_size_bytes)===file.size){
+   for(const part of status.uploaded_parts||[]){
+    if(!part.sha256)throw Error("This older upload session has no integrity checksum. It cannot be safely resumed; please start a fresh upload.");
+    const from=(Number(part.part_number)-1)*Number(status.part_size_bytes),to=Math.min(file.size,from+Number(status.part_size_bytes));
+    const digest=await crypto.subtle.digest("SHA-256",await file.slice(from,to).arrayBuffer());
+    const localHash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+    if(localHash!==part.sha256)throw Error("Selected file content does not match the previously uploaded parts. Choose the original file to resume.");
+   }
+   start=status;onProgress(0,file.size,0,status.expected_parts);
+  }
   else if(check.status===404||check.status===410){localStorage.removeItem(resumeKey);}
   else if(!check.ok)throw Error(status.error?.message||"Could not resume the previous upload.");
  }
