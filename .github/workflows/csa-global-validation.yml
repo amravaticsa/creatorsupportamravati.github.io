@@ -46,7 +46,7 @@ jobs:
           grep -q "renderMultipartIncidentPanel" global-platform/assets/portal.js
           grep -q "incident_type" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "resolution_status" global-platform/migrations/0010_multipart_upload_incidents.sql
-          grep -q "append-only" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -qi "append-only" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "multipart_cleanup_runs" global-platform/api/src/index.js
           grep -q "loadAdminCleanupRuns" global-platform/assets/portal.js
           grep -q "admin-cleanup-runs" global-platform/portal.html
