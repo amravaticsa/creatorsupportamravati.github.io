@@ -17,6 +17,7 @@ Private media binding: `MEDIA` → `csa-global-media-staging`
 - `PUT /v1/assignments/:id/submissions`
 - Admin: overview, tender queue, editor queues, offer creation, agreement draft/activation, assignment confirmation, QC queue and QC decisions.
 - `GET /v1/admin/multipart-uploads` — admin/staff-only read-only upload operations summary and latest 50 sessions; no R2 keys or provider upload IDs exposed.
+- `GET|POST /v1/admin/multipart-uploads/:id/incidents` — admin/staff-only append-only incident and resolution timeline for a specific upload session; bounded notes and allow-listed incident/status values.
 - `GET /v1/uploads/multipart/history` — signed-in client's/editor's own latest 30 sessions.
 - `GET /v1/admin/deposits/refunds/eligible`, `POST /v1/admin/deposits/:paymentId/refund` — full original-method refund, available only after CSA QC approval; one request per deposit.
 - `GET /v1/editor/deposit-refunds` — editor's own refund status and Razorpay refund reference.
@@ -55,7 +56,7 @@ Required encrypted secrets:
 
 ## Staging-only limitations
 - No active legal agreement is seeded. Admin must add and activate a reviewed agreement before editors can accept terms.
-- Staging D1 migrations `0001`–`0008` have been applied; verify the target database before any future migration or deployment.
+- Staging D1 migrations `0001`–`0010` have been applied only after verification; verify the target database before any future migration or deployment.
 - Refunds require an explicit CSA Admin action after Quality Approved; provider status is reconciled by signed Razorpay refund webhooks. Both the API response and webhook must match the original payment ID, full amount and currency, and a locally recorded CSA refund request before the deposit is marked fully refunded. Refund requests are single-use/idempotency-keyed; mismatches and uncertain provider outcomes are marked unknown for manual Razorpay dashboard reconciliation and must not be retried blindly.
 - No automatic email/WhatsApp notifications, editor payout automation or client final sign-off yet.
 - Google OAuth settings, admin allowlist and Razorpay encrypted secrets are configured on the staging Worker. Configuration is not proof of end-to-end payment/refund success.
@@ -77,3 +78,8 @@ The Worker computes and stores a SHA-256 digest for every uploaded part. Before 
 ### Multipart cleanup run monitoring
 
 Hourly scheduled cleanup executions are written to the staging D1 table `multipart_cleanup_runs`, including start/finish time, success/partial/failed status, number checked, number aborted and failures. Admin/staff can read the latest 30 records through `GET /v1/admin/multipart-cleanup-runs`; the admin portal displays this history. This records actual executions rather than assuming a configured Cron schedule has run.
+
+
+### Multipart upload incident and resolution audit
+
+Admin/staff can inspect an upload session and append an incident/resolution event. Each record captures the session, authenticated actor, allow-listed incident type, resolution status, bounded note (maximum 1,000 characters) and timestamp. Events are append-only so later updates do not erase the earlier investigation trail. Supported outcomes are reviewed, awaiting user, re-upload requested, resolved and escalated. This is an audit-only workflow: it does not retry or abort multipart uploads, delete R2 objects, or trigger refunds. The API exposes no R2 object keys, provider upload IDs or file contents through this feature.
