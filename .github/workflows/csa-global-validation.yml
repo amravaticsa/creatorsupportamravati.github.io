@@ -44,6 +44,9 @@ jobs:
           grep -q 'csa_multipart_' global-platform/assets/portal.js
           grep -q '/v1/uploads/multipart/history' global-platform/api/src/index.js
           grep -q 'loadUploadHistory' global-platform/assets/portal.js
+          grep -q '/v1/admin/multipart-uploads' global-platform/api/src/index.js
+          grep -q 'loadAdminMultipartUploads' global-platform/assets/portal.js
+          grep -q 'admin-multipart-uploads' global-platform/portal.html
           grep -q 'client-upload-history' global-platform/portal.html
           grep -q 'editor-upload-history' global-platform/portal.html
           grep -q 'async scheduled(controller,env)' global-platform/api/src/index.js
