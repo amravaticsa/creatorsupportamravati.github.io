@@ -8,26 +8,45 @@ $("account-status").textContent="Signed in as "+user.email+" · "+user.role+" ·
 $("logout").onclick=()=>{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");location.href="login.html";};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});const d=await r.json();if(r.status===401){$("account-status").textContent="Session expired. Please sign in again.";sessionStorage.clear();setTimeout(()=>location.href="login.html",1200);}if(!r.ok)throw Error(d.error?.message||"Request failed");return d;}
 async function multipartUpload(file,details,onProgress=()=>{}){
- const start=await api("/v1/uploads/multipart",{method:"POST",body:JSON.stringify({purpose:details.purpose,project_id:details.project_id,assignment_id:details.assignment_id,filename:file.name,mime_type:file.type||"application/octet-stream",size_bytes:file.size,notes:details.notes||""})});
+ const identity=[details.purpose,details.project_id||details.assignment_id||"",file.name,file.size,file.lastModified].join("|");
+ const resumeKey="csa_multipart_"+btoa(unescape(encodeURIComponent(identity))).replace(/[^a-zA-Z0-9]/g,"").slice(0,100);
+ let start=null;
+ const saved=localStorage.getItem(resumeKey);
+ if(saved){
+  const check=await fetch(API+"/v1/uploads/multipart/"+encodeURIComponent(saved),{headers:{authorization:"Bearer "+token}});
+  const status=await check.json();
+  if(check.ok&&status.filename===file.name&&Number(status.total_size_bytes)===file.size){start=status;onProgress(0,file.size,0,status.expected_parts);}
+  else if(check.status===404||check.status===410){localStorage.removeItem(resumeKey);}
+  else if(!check.ok)throw Error(status.error?.message||"Could not resume the previous upload.");
+ }
+ if(!start){
+  start=await api("/v1/uploads/multipart",{method:"POST",body:JSON.stringify({purpose:details.purpose,project_id:details.project_id,assignment_id:details.assignment_id,filename:file.name,mime_type:file.type||"application/octet-stream",size_bytes:file.size,notes:details.notes||""})});
+  localStorage.setItem(resumeKey,start.upload_id);
+ }
  try{
+  const completed=new Set((start.uploaded_parts||[]).map(x=>Number(x.part_number)));
+  let sent=(start.uploaded_parts||[]).reduce((n,x)=>n+Number(x.size_bytes||0),0);
   for(let part=1;part<=start.expected_parts;part++){
+   if(completed.has(part))continue;
    const from=(part-1)*start.part_size_bytes,to=Math.min(file.size,from+start.part_size_bytes),chunk=file.slice(from,to);
-   let sent=false,lastError;
-   for(let attempt=1;attempt<=3&&!sent;attempt++){
+   let done=false,lastError;
+   for(let attempt=1;attempt<=3&&!done;attempt++){
     try{
      const r=await fetch(API+"/v1/uploads/multipart/"+start.upload_id+"/parts/"+part,{method:"PUT",headers:{authorization:"Bearer "+token,"content-type":"application/octet-stream"},body:chunk});
-     const d=await r.json();if(!r.ok)throw Error(d.error?.message||"Upload part "+part+" failed");sent=true;
+     const d=await r.json();if(!r.ok)throw Error(d.error?.message||"Upload part "+part+" failed");done=true;
     }catch(err){lastError=err;if(attempt<3)await new Promise(resolve=>setTimeout(resolve,800*attempt));}
    }
-   if(!sent)throw lastError||Error("Upload part "+part+" failed");
-   onProgress(Math.min(to,file.size),file.size,part,start.expected_parts);
+   if(!done)throw lastError||Error("Upload part "+part+" failed");
+   sent+=chunk.size;onProgress(sent,file.size,part,start.expected_parts);
   }
-  return await api("/v1/uploads/multipart/"+start.upload_id+"/complete",{method:"POST",body:"{}"});
+  const result=await api("/v1/uploads/multipart/"+start.upload_id+"/complete",{method:"POST",body:"{}"});
+  localStorage.removeItem(resumeKey);
+  return result;
  }catch(err){
-  try{await api("/v1/uploads/multipart/"+start.upload_id+"/abort",{method:"POST",body:"{}"});}catch{}
-  throw err;
+  throw Error((err.message||"Upload failed")+". Upload session is saved; select the same file again to resume.");
  }
 }
+
 if(user.role==="client"){
  $("client-panel").hidden=false;
  loadClientProjects();
