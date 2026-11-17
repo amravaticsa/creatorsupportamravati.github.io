@@ -46,6 +46,9 @@ jobs:
           grep -q "admin-cleanup-runs" global-platform/portal.html
           grep -q "partSha256" global-platform/api/src/index.js
           grep -q "part.sha256" global-platform/assets/portal.js
+          grep -q "requestError.retryable" global-platform/assets/portal.js
+          grep -q "Retry-After" global-platform/assets/portal.js
+          grep -q "Math.pow(2,attempt-1)" global-platform/assets/portal.js
           grep -q "SHA-256" global-platform/api/src/index.js
           grep -q 'createMultipartUpload' global-platform/api/src/index.js
           grep -q 'resumeMultipartUpload' global-platform/api/src/index.js
