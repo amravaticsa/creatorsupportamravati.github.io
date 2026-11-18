@@ -67,6 +67,31 @@
 .csa-course-landing .course-bottom-cta h2{margin:0 0 8px;color:#fff}.csa-course-landing .course-bottom-cta p{margin:0 0 18px;color:#d9e9ec;line-height:1.7}
 @media(max-width:850px){.csa-course-landing .course-intro-grid{grid-template-columns:1fr}.csa-course-landing .course-grid{grid-template-columns:1fr}}
 @media(max-width:580px){.csa-course-landing .course-shell{width:min(100% - 28px,1160px)}.csa-course-landing .course-hero{padding:55px 0 48px}.csa-course-landing .course-stats{gap:8px}.csa-course-landing .course-stat{padding:11px 9px}.csa-course-landing .course-stat strong{font-size:1.12rem}.csa-course-landing .course-stat span{font-size:.72rem}.csa-course-landing .course-card{grid-template-columns:112px minmax(0,1fr);min-height:160px}.csa-course-landing .course-card img{min-height:160px}.csa-course-landing .course-card .pad{padding:12px}.csa-course-landing .course-card h3{font-size:.94rem}.csa-course-landing .course-card p{font-size:.8rem}.csa-course-landing .curriculum-head{display:block}.csa-course-landing .course-faq{padding:20px}}
+
+/* CSA course thumbnail refinement — 18 Nov 2026 */
+.csa-course-landing .course-card{
+  grid-template-columns:minmax(0,1fr) minmax(0,1.18fr);
+  align-items:stretch;
+}
+.csa-course-landing .course-card img{
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:0;
+  aspect-ratio:16/9;
+  object-fit:cover;
+  object-position:center;
+}
+@media(max-width:580px){
+  .csa-course-landing .course-card{grid-template-columns:minmax(0,1fr);min-height:0}
+  .csa-course-landing .course-card img{
+    width:100%;
+    height:auto;
+    min-height:0;
+    aspect-ratio:16/9;
+    object-fit:cover;
+  }
+}
 </style>
 </head>
 <body class="csa-course-landing">
