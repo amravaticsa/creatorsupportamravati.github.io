@@ -213,10 +213,9 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
   }
 
   function showError(message) {
-    if (homeRoot) {
-      homeRoot.setAttribute("aria-busy", "false");
-      homeRoot.replaceChildren(errorState(message));
-    }
+    // Keep the homepage visually complete even when the optional live feed is offline.
+    // The homepage uses the local Coming Soon slider as a graceful fallback.
+    if (homeRoot) render(homeRoot, []);
     if (pageRoot) {
       pageRoot.setAttribute("aria-busy", "false");
       if (filterRoot) filterRoot.replaceChildren();
