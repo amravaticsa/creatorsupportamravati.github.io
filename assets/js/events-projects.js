@@ -69,7 +69,7 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
       ["Community, NGO & Charity Events", "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=900&q=85", "Community gatherings, NGO programs, charity events, blood donation camps and social initiatives."],
       ["Memorial & Tribute Programs", "https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=900&q=85", "Memorial meetings, tribute events and remembrance programs covered respectfully."],
       ["School Lectures, Guest Talks & Convocations", "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=900&q=85", "Guest lectures, expert talks, convocations, seminars and educational events."],
-      ["Live Sports Commentary & Match Streaming", "https://images.unsplash.com/photo-1461896836934-ima?auto=format&fit=crop&w=900&q=85", "Local matches, tournaments and competitions with live commentary and score overlays."],
+      ["Live Sports Commentary & Match Streaming", "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=900&q=85", "Local matches, tournaments and competitions with live commentary and score overlays."],
       ["Factory, Office & Facility Inaugurations", "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=85", "Factory openings, office launches, facility inaugurations and industrial events."]
     ];
     slides.forEach(([title, image, description]) => {
