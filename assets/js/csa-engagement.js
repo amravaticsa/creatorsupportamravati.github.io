@@ -27,7 +27,7 @@ const style=`
 @media(max-width:600px){#csa-live-pill{left:10px;bottom:10px}.csa-eng-actions .csa-eng-btn{flex:1}}
 `;
 const st=document.createElement("style");st.textContent=style;document.head.appendChild(st);
-const pill=document.createElement("div");pill.id="csa-live-pill";pill.innerHTML='<span class="dot"></span><span id="csa-live-text">Live visitors: connecting…</span>';document.body.appendChild(pill);
+// Public visitor counter badge intentionally disabled; analytics continue in Firebase.
 let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null;
 function setLive(s){const el=document.getElementById("csa-live-text");if(el)el.textContent=s}
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
