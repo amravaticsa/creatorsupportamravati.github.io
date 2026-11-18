@@ -5,8 +5,8 @@ const ready=cfg.apiKey && !String(cfg.apiKey).includes("PASTE_") && cfg.projectI
 const onArticle=!!document.querySelector("main article.article, article.article, .article");
 const postId=location.pathname.replace(/\/$/,"").replace(/[^a-zA-Z0-9_-]/g,"_").replace(/^_+|_+$/g,"")||"home";
 const style=`
-#csa-live-pill{position:fixed;left:14px;bottom:14px;z-index:9998;background:#10233f;color:#fff;border:1px solid #2b466b;border-radius:999px;padding:9px 13px;font:600 12px Inter,Arial,sans-serif;box-shadow:0 5px 22px #10233f30}
-#csa-live-pill .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#f0ad4e;margin-right:7px}
+#csa-live-pill{position:fixed;left:16px;bottom:16px;z-index:9998;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 32px);background:rgba(16,35,63,.96);color:#fff;border:1px solid #365273;border-radius:12px;padding:10px 14px;font:600 12px/1.4 Inter,Arial,sans-serif;box-shadow:0 8px 28px #10233f35;backdrop-filter:blur(8px)}
+#csa-live-pill .dot{display:inline-block;flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#29c58a;box-shadow:0 0 0 3px #29c58a25}
 #csa-engagement{margin:30px 0 12px;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;font:14px/1.5 Inter,Arial,sans-serif;color:#172b4d}
 #csa-engagement h2{font-size:20px;margin:0 0 8px;color:#142746}
 #csa-engagement p{margin:5px 0 12px;color:#657187}
@@ -24,10 +24,11 @@ const style=`
 .csa-comment-delete{margin-top:9px;border:1px solid #dc2626;background:#fff;color:#b91c1c;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer}
 .csa-eng-note{font-size:12px;color:#788397}
 .csa-social-links{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}.csa-social-links a{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid #d2dae5;border-radius:9px;background:#fff;color:#243650;font-weight:700;text-decoration:none}.csa-social-links a:hover{border-color:#0f9d8c;color:#087d70}#csa-comment-form{display:grid;gap:9px;margin-top:14px}#csa-comment-form textarea{width:100%;min-height:84px;border:1px solid #d2dae5;border-radius:9px;padding:12px;font:14px Inter,Arial,sans-serif;resize:vertical}
-@media(max-width:600px){#csa-live-pill{left:10px;bottom:10px}.csa-eng-actions .csa-eng-btn{flex:1}}
+@media(max-width:600px){#csa-live-pill{left:10px;bottom:10px;padding:9px 11px;font-size:11px}.csa-eng-actions .csa-eng-btn{flex:1}}
 `;
 const st=document.createElement("style");st.textContent=style;document.head.appendChild(st);
-// Public visitor counter badge intentionally disabled; analytics continue in Firebase.
+// Site-wide live visitor and page-view counter.
+function ensureLivePill(){if(document.getElementById("csa-live-pill"))return;const pill=document.createElement("div");pill.id="csa-live-pill";pill.setAttribute("role","status");pill.setAttribute("aria-live","polite");pill.innerHTML='<span class="dot" aria-hidden="true"></span><span id="csa-live-text">Live views loading…</span>';document.body.appendChild(pill)}
 let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null;
 function setLive(s){const el=document.getElementById("csa-live-text");if(el)el.textContent=s}
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
@@ -140,6 +141,7 @@ function ensureCompleteFooter(){
 // Start non-critical engagement features after the page has loaded and the browser is idle.
 function startEngagement(){
  ensureCompleteFooter();
+ ensureLivePill();
  if((document.querySelector("main article.article")||document.querySelector(".blog-grid"))&&!document.querySelector("script[data-csa-blog-recommendations]")){const s=document.createElement("script");s.src="/assets/js/csa-blog-recommendations.js?v=20261115-8";s.defer=true;s.dataset.csaBlogRecommendations="1";document.head.appendChild(s);}
  if("requestIdleCallback" in window)window.requestIdleCallback(()=>boot(),{timeout:3000});
  else window.setTimeout(boot,1200);
