@@ -43,7 +43,14 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
       ["Product Photography & Shoots", "https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?auto=format&fit=crop&w=900&q=85", "Premium product visuals, catalogue images and promotional videos."],
       ["Birthday & Special Events", "https://images.pexels.com/photos/796606/pexels-photo-796606.jpeg?auto=compress&cs=tinysrgb&w=1200&q=85", "Celebrate milestones with memorable photo and video coverage."],
       ["Brand Promotional Shoots", "https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?auto=format&fit=crop&w=900&q=85", "Creative campaigns, brand films and social media content."],
-      ["Podcast & Creator Productions", "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=900&q=85", "Multi-camera podcasts, interviews and creator-led shows."]
+      ["Podcast & Creator Productions", "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=900&q=85", "Multi-camera podcasts, interviews and creator-led shows."],
+      ["Wedding Live Coverage & Streaming", "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=85", "Live wedding ceremonies, varmala, pheras and real-time streaming for family and guests."],
+      ["Religious & Spiritual Programs – Live", "https://images.unsplash.com/photo-1604608672516-8f3ce5b7b7b7?auto=format&fit=crop&w=900&q=85", "Bhajan, kirtan, pravachan, jagran, aarti, yatra and religious functions streamed live."],
+      ["Concerts, Cultural Shows & Stage Events", "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=85", "Concerts, festivals, dance performances, award shows and stage programs."],
+      ["Political Rallies & Public Meetings", "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=900&q=85", "Public meetings, rallies, speeches, press conferences and community gatherings."],
+      ["School, College & Sports Events", "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=900&q=85", "Annual days, graduations, competitions, tournaments and school or college functions."],
+      ["Corporate Seminars & Conferences – Live", "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=900&q=85", "Business conferences, seminars, training sessions, product launches and panel discussions."],
+      ["Inauguration & Grand Opening – Live", "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=900&q=85", "Shop openings, office inaugurations, launches and ribbon-cutting ceremonies streamed live."]
     ];
     slides.forEach(([title, image, description]) => {
       const card = make("article", "csa-coming-card");
