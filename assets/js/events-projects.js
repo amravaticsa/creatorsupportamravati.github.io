@@ -154,9 +154,11 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
     root.setAttribute("aria-busy", "false");
     root.replaceChildren();
     if (!items.length) {
+      root.classList.add("has-coming-soon");
       root.append(emptyState());
       return;
     }
+    root.classList.remove("has-coming-soon");
     items.forEach(item => root.append(card(item)));
   }
 
