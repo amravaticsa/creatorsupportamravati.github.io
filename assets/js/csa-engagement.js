@@ -5,8 +5,8 @@ const ready=cfg.apiKey && !String(cfg.apiKey).includes("PASTE_") && cfg.projectI
 const onArticle=!!document.querySelector("main article.article, article.article, .article");
 const postId=location.pathname.replace(/\/$/,"").replace(/[^a-zA-Z0-9_-]/g,"_").replace(/^_+|_+$/g,"")||"home";
 const style=`
-#csa-live-pill{position:fixed;left:14px;bottom:14px;z-index:9998;background:#10233f;color:#fff;border:1px solid #2b466b;border-radius:999px;padding:9px 13px;font:600 12px Inter,Arial,sans-serif;box-shadow:0 5px 22px #10233f30}
-#csa-live-pill .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#f0ad4e;margin-right:7px}
+#csa-live-pill{position:fixed;left:16px;bottom:16px;z-index:9998;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 32px);background:rgba(16,35,63,.96);color:#fff;border:1px solid #365273;border-radius:12px;padding:10px 14px;font:600 12px/1.4 Inter,Arial,sans-serif;box-shadow:0 8px 28px #10233f35;backdrop-filter:blur(8px)}
+#csa-live-pill .dot{display:inline-block;flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#29c58a;box-shadow:0 0 0 3px #29c58a25}
 #csa-engagement{margin:30px 0 12px;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;font:14px/1.5 Inter,Arial,sans-serif;color:#172b4d}
 #csa-engagement h2{font-size:20px;margin:0 0 8px;color:#142746}
 #csa-engagement p{margin:5px 0 12px;color:#657187}
@@ -23,10 +23,12 @@ const style=`
 .csa-comment p{margin:7px 0 0;white-space:pre-wrap;color:#39485e}
 .csa-comment-delete{margin-top:9px;border:1px solid #dc2626;background:#fff;color:#b91c1c;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer}
 .csa-eng-note{font-size:12px;color:#788397}
-@media(max-width:600px){#csa-live-pill{left:10px;bottom:10px}.csa-eng-actions .csa-eng-btn{flex:1}}
+.csa-social-links{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}.csa-social-links a{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid #d2dae5;border-radius:9px;background:#fff;color:#243650;font-weight:700;text-decoration:none}.csa-social-links a:hover{border-color:#0f9d8c;color:#087d70}#csa-comment-form{display:grid;gap:9px;margin-top:14px}#csa-comment-form textarea{width:100%;min-height:84px;border:1px solid #d2dae5;border-radius:9px;padding:12px;font:14px Inter,Arial,sans-serif;resize:vertical}
+@media(max-width:600px){#csa-live-pill{left:10px;bottom:10px;padding:9px 11px;font-size:11px}.csa-eng-actions .csa-eng-btn{flex:1}}
 `;
 const st=document.createElement("style");st.textContent=style;document.head.appendChild(st);
-// Public visitor counter badge intentionally disabled; analytics continue in Firebase.
+// Site-wide live visitor and page-view counter.
+function ensureLivePill(){if(document.getElementById("csa-live-pill"))return;const pill=document.createElement("div");pill.id="csa-live-pill";pill.setAttribute("role","status");pill.setAttribute("aria-live","polite");pill.innerHTML='<span class="dot" aria-hidden="true"></span><span id="csa-live-text">Live views loading…</span>';document.body.appendChild(pill)}
 let firebaseReady=false,auth=null,db=null,rtdb=null,currentUser=null;
 function setLive(s){const el=document.getElementById("csa-live-text");if(el)el.textContent=s}
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
@@ -86,13 +88,13 @@ function setupPresence(){
 function renderArticle(note){
  const article=document.querySelector("main article.article, article.article, .article");if(!article||document.getElementById("csa-engagement"))return;
  const box=document.createElement("section");box.id="csa-engagement";
- box.innerHTML='<h2>आपको यह Article कैसा लगा?</h2><p>अपनी प्रतिक्रिया दें, इसे शेयर करें या सवाल पूछें।</p><div class="csa-eng-actions"><button class="csa-eng-btn primary" id="csa-like" type="button">👍 Like <span id="csa-like-count">0</span></button><button class="csa-eng-btn" id="csa-share" type="button">↗ Share</button><button class="csa-eng-btn" id="csa-google-login" type="button">Continue with Google</button></div><p class="csa-eng-note">Public comments are temporarily paused while we review comment moderation settings.</p><p class="csa-eng-note" id="csa-eng-note"></p>';
+ box.innerHTML='<h2>आपको यह Article कैसा लगा?</h2><p>Like करें, दोस्तों के साथ share करें या अपना सवाल/comment हमें भेजें।</p><div class="csa-eng-actions"><button class="csa-eng-btn primary" id="csa-like" type="button">👍 Like <span id="csa-like-count">0</span></button><button class="csa-eng-btn" id="csa-share" type="button">↗ Share <span id="csa-share-count">0</span></button></div><div class="csa-social-links" aria-label="Share this article"><a id="csa-whatsapp-share" target="_blank" rel="noopener">WhatsApp</a><a id="csa-facebook-share" target="_blank" rel="noopener">Facebook</a><a id="csa-linkedin-share" target="_blank" rel="noopener">LinkedIn</a><a id="csa-x-share" target="_blank" rel="noopener">X</a><a id="csa-copy-link" href="#">Copy Link</a></div><h3>💬 Comments (<span id="csa-comment-count">0</span>)</h3><form id="csa-comment-form"><textarea id="csa-comment-text" maxlength="1000" required placeholder="इस article के बारे में अपनी राय या सवाल लिखें..."></textarea><button class="csa-eng-btn primary" type="submit">Send Comment on WhatsApp</button></form><p class="csa-eng-note">Comments फिलहाल WhatsApp के जरिए भेजे जा रहे हैं ताकि CSA टीम उन्हें review कर सके।</p><div class="csa-social-links"><a href="https://www.instagram.com/creatorsupportamravati/" target="_blank" rel="noopener">Instagram पर Follow करें</a><a href="https://www.youtube.com/@creatorsupportamravati" target="_blank" rel="noopener">YouTube Subscribe करें</a><a href="https://www.facebook.com/profile.php?id=61583566914851" target="_blank" rel="noopener">Facebook Follow करें</a></div><p class="csa-eng-note" id="csa-eng-note"></p>';
  article.appendChild(box);
- document.getElementById("csa-share").addEventListener("click",async()=>{const data={title:document.title,url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(location.href);noteText("Article link copied.");}}catch(e){}});
- document.getElementById("csa-google-login").onclick=signIn;
+ document.getElementById("csa-share").addEventListener("click",async()=>{const data={title:document.title,url:location.href};try{if(navigator.share){await navigator.share(data);await recordShare("native");}else{await navigator.clipboard.writeText(location.href);await recordShare("copy");noteText("Article link copied.");}}catch(e){}});
+ const pageUrl=encodeURIComponent(location.href),pageTitle=encodeURIComponent(document.title);document.getElementById("csa-whatsapp-share").href="https://wa.me/?text="+pageTitle+"%20"+pageUrl;document.getElementById("csa-facebook-share").href="https://www.facebook.com/sharer/sharer.php?u="+pageUrl;document.getElementById("csa-linkedin-share").href="https://www.linkedin.com/sharing/share-offsite/?url="+pageUrl;document.getElementById("csa-x-share").href="https://twitter.com/intent/tweet?text="+pageTitle+"&url="+pageUrl;["csa-whatsapp-share","csa-facebook-share","csa-linkedin-share","csa-x-share"].forEach(id=>document.getElementById(id).addEventListener("click",()=>recordShare(id.replace("csa-","").replace("-share",""))));document.getElementById("csa-copy-link").addEventListener("click",async e=>{e.preventDefault();try{await navigator.clipboard.writeText(location.href);await recordShare("copy");noteText("Article link copied.");}catch(e){noteText("Copy नहीं हुआ; browser address bar से link copy करें.");}});document.getElementById("csa-comment-form").addEventListener("submit",submitComment);
  document.getElementById("csa-like").addEventListener("click",toggleLike);
 
- noteText(note||"Google Login is required to Like. Share is available to everyone.");
+ noteText(note||"Likes, comments and shares are counted for this article.");
 }
 function noteText(t){const el=document.getElementById("csa-eng-note");if(el)el.textContent=t}
 async function signIn(){if(!firebaseReady)return;try{const p=new firebase.auth.GoogleAuthProvider();const result=await auth.signInWithPopup(p);currentUser=result.user;refreshAuthUI();}catch(e){noteText(e.code==="auth/popup-blocked"?"Popup blocked. Please allow popups and try again.":e.message)}}
@@ -103,21 +105,44 @@ function refreshAuthUI(){
 }
 async function setupArticle(){
  renderArticle();
- const likeRef=db.collection("csaArticles").doc(postId).collection("likes");
- likeRef.onSnapshot(s=>{const el=document.getElementById("csa-like-count");if(el)el.textContent=s.size;});
+ const articleRef=db.collection("csaArticles").doc(postId);
+ const likeRef=articleRef.collection("likes");
+ likeRef.onSnapshot(s=>{const el=document.getElementById("csa-like-count");if(el)el.textContent=s.size;},e=>console.error("CSA likes count:",e));
+ articleRef.collection("comments").onSnapshot(s=>{const el=document.getElementById("csa-comment-count");if(el)el.textContent=s.size;},e=>console.error("CSA comments count:",e));
+ articleRef.collection("shares").onSnapshot(s=>{const el=document.getElementById("csa-share-count");if(el)el.textContent=s.size;},e=>console.error("CSA shares count:",e));
  auth.onAuthStateChanged(async u=>{
   const btn=document.getElementById("csa-like");if(!btn)return;
-  if(!u){btn.dataset.liked="false";btn.innerHTML='👍 Like <span id="csa-like-count">0</span>';return}
-  try{const d=await likeRef.doc(u.uid).get();btn.dataset.liked=d.exists?"true":"false";btn.innerHTML=(d.exists?"💚 Liked ":"👍 Like ")+'<span id="csa-like-count">0</span>';}catch(e){}
+  if(!u){btn.dataset.liked="false";return;}
+  try{const d=await likeRef.doc(u.uid).get();btn.dataset.liked=d.exists?"true":"false";btn.innerHTML=(d.exists?"💚 Liked ":"👍 Like ")+"<span id=\"csa-like-count\">"+(document.getElementById("csa-like-count")?.textContent||"0")+"</span>";}catch(e){console.error(e);}
  });
 }
+async function recordShare(source){if(!db)return;try{await db.collection("csaArticles").doc(postId).collection("shares").add({source:source,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.error("CSA share count save failed:",e);noteText("Share count save nahi hua. Firebase Firestore rules check karein.");}}
+async function submitComment(e){
+ e.preventDefault();const field=document.getElementById("csa-comment-text");const comment=field.value.trim();if(!comment||!db)return;
+ const submit=e.submitter;if(submit)submit.disabled=true;
+ try{await db.collection("csaArticles").doc(postId).collection("comments").add({text:comment,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:"pending"});field.value="";noteText("Comment submit ho gaya.");const msg="CSA Blog Comment\nArticle: "+document.title+"\nLink: "+location.href+"\nComment: "+comment;window.open("https://wa.me/919225515679?text="+encodeURIComponent(msg),"_blank","noopener");}
+ catch(err){console.error("CSA comment save failed:",err);noteText("Comment save nahi hua. Firebase Firestore rules check karein.");}
+ finally{if(submit)submit.disabled=false;}
+}
 async function toggleLike(){
- if(!currentUser){noteText("Like करने के लिए पहले Google से sign in करें.");await signIn();if(!currentUser)return}
+ if(!currentUser){noteText("Like karne ke liye Google sign-in zaroori hai.");await signIn();if(!currentUser)return;}
  const ref=db.collection("csaArticles").doc(postId).collection("likes").doc(currentUser.uid);const btn=document.getElementById("csa-like");btn.disabled=true;
- try{const d=await ref.get();if(d.exists){await ref.delete();btn.dataset.liked="false";}else{await ref.set({uid:currentUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});btn.dataset.liked="true";}btn.innerHTML=(d.exists?"👍 Like ":"💚 Liked ")+'<span id="csa-like-count">'+(document.getElementById("csa-like-count")?.textContent||"0")+'</span>';}catch(e){noteText("Like save nahi hua. Firebase rules check karein.");}finally{btn.disabled=false}
+ try{const d=await ref.get();if(d.exists){await ref.delete();}else{await ref.set({uid:currentUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}}
+ catch(e){console.error("CSA like save failed:",e);noteText("Like save nahi hua. Firebase Firestore rules check karein.");}
+ finally{btn.disabled=false;}
+}
+function ensureCompleteFooter(){
+ const markup='<div class="container"><div class="footer-grid"><div><a class="brand" href="/index.html"><img src="/assets/images/logo.png" alt="Creator Support Amravati" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><p>Creative production and digital growth support for businesses, creators and brands.</p><p>Vyankatesh Complex, Shop No. F-101, Mahendra Colony, Amravati</p></div><div><h3>Explore</h3><div class="footer-links"><a href="/about.html">About Us</a><a href="/services.html">Our Services</a><a href="/portfolio.html">Portfolio</a><a href="/blog.html">Blog &amp; Insights</a><a href="/contact.html">Contact</a></div></div><div><h3>Contact</h3><div class="footer-links"><a href="tel:+919225515679">92255 15679</a><a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a><span>Mon–Sat · 10:00 AM–7:00 PM</span></div></div></div><div class="footer-bottom"><span>© 2026 Creator Support Amravati. All rights reserved.</span><span><a href="/privacy-policy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/refund-policy.html">Refund</a> · <a href="/disclaimer.html">Disclaimer</a> · <a href="/copyright-policy.html">Copyright</a></span></div></div>';
+ let footer=document.querySelector("footer.site-footer");
+ if(!footer){footer=document.createElement("footer");footer.className="site-footer";document.body.appendChild(footer);}
+ const complete=footer.querySelector(".footer-grid")&&footer.textContent.includes("Creative production and digital growth support")&&footer.textContent.includes("Copyright");
+ if(!complete)footer.innerHTML=markup;
 }
 // Start non-critical engagement features after the page has loaded and the browser is idle.
 function startEngagement(){
+ ensureCompleteFooter();
+ ensureLivePill();
+ if((document.querySelector("main article.article")||document.querySelector(".blog-grid"))&&!document.querySelector("script[data-csa-blog-recommendations]")){const s=document.createElement("script");s.src="/assets/js/csa-blog-recommendations.js?v=20261115-8";s.defer=true;s.dataset.csaBlogRecommendations="1";document.head.appendChild(s);}
  if("requestIdleCallback" in window)window.requestIdleCallback(()=>boot(),{timeout:3000});
  else window.setTimeout(boot,1200);
 }
