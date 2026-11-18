@@ -92,11 +92,63 @@
     object-fit:cover;
   }
 }
+
+/* Premium course landing hero refresh — 18 Nov 2026 */
+.csa-course-landing .course-hero{padding:68px 0 64px}
+.csa-course-landing .course-hero-inner{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(360px,.96fr);gap:clamp(32px,5vw,70px);align-items:center;position:relative;z-index:1}
+.csa-course-landing .course-hero-copy{min-width:0}
+.csa-course-landing .course-hero h1{font-size:clamp(2.35rem,4.5vw,4.1rem);margin:22px 0 17px}
+.csa-course-landing .course-hero p{max-width:650px;margin:0}
+.csa-course-landing .course-hero-visual{position:relative;min-width:0;padding:12px 12px 24px 0}
+.csa-course-landing .course-visual-frame{position:relative;padding:10px;border:1px solid #ffffff35;border-radius:22px;background:#ffffff12;box-shadow:0 28px 70px #0005;transform:rotate(1deg)}
+.csa-course-landing .course-main-thumb{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:contain;border-radius:14px;background:#071a2d}
+.csa-course-landing .course-visual-caption{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 7px 5px;color:#fff}
+.csa-course-landing .course-visual-caption span{color:#9ceadd;font-size:.68rem;font-weight:850;letter-spacing:.15em}
+.csa-course-landing .course-visual-caption strong{font-size:1rem}
+.csa-course-landing .course-visual-note{position:absolute;right:-8px;bottom:0;display:flex;align-items:center;gap:12px;padding:13px 17px;border:1px solid #ffffff35;border-radius:14px;background:#fff;color:#123344;box-shadow:0 14px 34px #0003}
+.csa-course-landing .course-play{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#dff8f2;color:#087f75;font-size:.9rem}
+.csa-course-landing .course-visual-note strong,.csa-course-landing .course-visual-note small{display:block}
+.csa-course-landing .course-visual-note strong{font-size:.88rem}
+.csa-course-landing .course-visual-note small{margin-top:2px;color:#667985;font-size:.72rem}
+.csa-course-landing .course-stats{max-width:720px;margin-top:30px}
+.csa-course-landing .course-stat strong{font-size:1.2rem}
+.csa-course-landing .course-intro{padding-top:54px}
+.csa-course-landing .course-panel{box-shadow:0 12px 34px #102a3b0a}
+.csa-course-landing .curriculum{padding-top:58px}
+.csa-course-landing .course-card{grid-template-columns:minmax(0,1fr) minmax(0,1.12fr)}
+.csa-course-landing .course-card img{width:100%;height:auto;min-height:0;aspect-ratio:16/9;object-fit:cover;align-self:start}
+.csa-course-landing .course-card .pad{padding:20px}
+@media(max-width:900px){
+ .csa-course-landing .course-hero-inner{grid-template-columns:1fr;gap:34px}
+ .csa-course-landing .course-hero-copy{max-width:760px}
+ .csa-course-landing .course-hero-visual{width:min(100%,720px);margin-inline:auto}
+ .csa-course-landing .course-main-thumb{width:100%}
+}
+@media(max-width:580px){
+ .csa-course-landing .course-hero{padding:48px 0 52px}
+ .csa-course-landing .course-hero-inner{gap:27px}
+ .csa-course-landing .course-hero h1{font-size:clamp(2.1rem,10vw,3rem)}
+ .csa-course-landing .course-hero-visual{padding:5px 5px 22px 0}
+ .csa-course-landing .course-visual-frame{padding:7px;border-radius:16px}
+ .csa-course-landing .course-main-thumb{border-radius:10px}
+ .csa-course-landing .course-visual-caption{padding:10px 4px 3px}
+ .csa-course-landing .course-visual-caption span{font-size:.58rem}
+ .csa-course-landing .course-visual-caption strong{font-size:.85rem}
+ .csa-course-landing .course-visual-note{right:0;padding:10px 12px}
+ .csa-course-landing .course-visual-note small{font-size:.65rem}
+ .csa-course-landing .course-stats{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:25px}
+ .csa-course-landing .course-stat strong{font-size:1rem}
+ .csa-course-landing .course-stat span{font-size:.68rem}
+ .csa-course-landing .course-card{grid-template-columns:minmax(0,1fr)}
+ .csa-course-landing .course-card img{width:100%;height:auto;aspect-ratio:16/9}
+ .csa-course-landing .course-card .pad{padding:16px}
+}
+
 </style>
 </head>
 <body class="csa-course-landing">
 <header class="site-header"><div class="container header-inner"><a class="brand" href="index.html"><img src="assets/images/logo.png" alt="Creator Support Amravati logo" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><button class="menu-toggle" aria-label="Open navigation" aria-expanded="false" onclick="const n=document.querySelector('.main-nav');const o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">☰</button><nav class="main-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="about.html">About</a><a href="services.html">Services</a><a href="blog.html">Blog</a><a href="contact.html">Contact</a></nav></div></header>
-<section class="course-hero"><div class="course-shell"><span class="course-kicker">✦ CSA Creator Academy · Free Hindi Course</span><img class="course-main-thumb" src="assets/blog/youtube-course-01.svg?v=20261117" alt="YouTube Complete Course thumbnail" width="1200" height="675" fetchpriority="high" style="display:block;width:min(100%,680px);aspect-ratio:16/9;object-fit:cover;border-radius:18px;margin-top:26px;box-shadow:0 18px 45px #0005"><h1>YouTube Complete Course<br><span>Basic से Advanced तक</span></h1><p>अपना YouTube channel शुरू करने से लेकर content strategy, professional shooting, editing, SEO, analytics और sustainable monetization तक—एक structured learning path। हर chapter पढ़ें, practical task पूरा करें और अपनी सीख को अपने channel पर लागू करें।</p><div class="course-actions"><a class="course-btn" href="#course-curriculum">अभी सीखना शुरू करें ↓</a><a class="course-btn secondary" href="blog.html">सभी ब्लॉग देखें</a></div><div class="course-stats"><div class="course-stat"><strong>14 Chapters</strong><span>Step-by-step curriculum</span></div><div class="course-stat"><strong>Hindi</strong><span>Easy, practical explanations</span></div><div class="course-stat"><strong>Beginner → Pro</strong><span>Learn at your own pace</span></div></div></div></section>
+<section class="course-hero"><div class="course-shell course-hero-inner"><div class="course-hero-copy"><span class="course-kicker">✦ CSA Creator Academy · Free Hindi Course</span><h1>YouTube Complete Course<br><span>Basic से Advanced तक</span></h1><p>अपना YouTube channel शुरू करने से लेकर content strategy, professional shooting, editing, SEO, analytics और sustainable monetization तक—एक structured learning path। हर chapter पढ़ें, practical task पूरा करें और अपनी सीख को अपने channel पर लागू करें।</p><div class="course-actions"><a class="course-btn" href="#course-curriculum">अभी सीखना शुरू करें ↓</a><a class="course-btn secondary" href="blog.html">सभी ब्लॉग देखें</a></div><div class="course-stats"><div class="course-stat"><strong>14</strong><span>Practical Chapters</span></div><div class="course-stat"><strong>100% Free</strong><span>Hindi Learning Series</span></div><div class="course-stat"><strong>Beginner → Pro</strong><span>Self-paced Learning</span></div></div></div><div class="course-hero-visual"><div class="course-visual-frame"><img class="course-main-thumb" src="assets/blog/youtube-course-01.svg?v=20261118" alt="CSA Creator Academy — YouTube Complete Course, 14 chapters" width="1200" height="675" fetchpriority="high"><div class="course-visual-caption"><span>YOUR CREATOR JOURNEY</span><strong>Learn. Create. Grow.</strong></div></div><div class="course-visual-note"><span class="course-play">▶</span><span><strong>14 step-by-step lessons</strong><small>From channel setup to creator business</small></span></div></div></div></section>
 <main class="course-shell">
 <section class="course-intro"><div class="course-intro-grid"><div class="course-panel"><h2>यह course किसके लिए है?</h2><p>यह learning series नए creators, students, educators, freelancers, small-business owners और उन लोगों के लिए है जो YouTube को एक skill, audience platform या creator business के रूप में समझना चाहते हैं। किसी महंगे camera या studio से शुरुआत जरूरी नहीं—पहले planning, viewer value और साफ audio-video पर ध्यान दें।</p><div class="course-note"><strong>Learning approach:</strong> chapters को क्रम से पढ़ें। हर lesson के बाद अपना छोटा assignment पूरा करें। Views, subscribers या income की कोई guarantee नहीं होती; असली लक्ष्य useful content और sustainable skills बनाना है।</div></div><aside class="course-panel"><h2>आप क्या सीखेंगे?</h2><ul class="course-points"><li>Channel niche, audience research और branding</li><li>Ideas, scripting, hooks और storytelling</li><li>Camera, mobile, audio, lighting और editing</li><li>YouTube SEO, thumbnails, Shorts और live</li><li>Analytics, monetization और creator business</li></ul></aside></div></section>
 <section class="curriculum" id="course-curriculum"><div class="curriculum-head"><div><span class="curriculum-label">Your learning roadmap</span><h2>Complete Course Curriculum</h2><p>14 chapters को इसी क्रम में पढ़ें। हर lesson में concepts, practical examples, action steps और आगे सीखने के लिए references दिए गए हैं।</p></div></div>
