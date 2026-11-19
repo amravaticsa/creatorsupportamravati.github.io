@@ -69,3 +69,11 @@ Migrations `0001` through `0010` are present in `global-platform/migrations/`. S
 - Do not deploy to production or enable live payments until all release gates are signed off.
 
 Never commit secrets or ask users to enter passwords, OTPs, card data or secret keys into public forms or repository files.
+
+
+### Admin identity integration audit (2026-11-19)
+- Super Admin D1 currently contains exactly one `active` `super_admin` account and no other admin accounts. No account email, user ID or credential is recorded in this status note.
+- CSA Global staging D1 currently contains one active `client` account and zero `admin` accounts.
+- The standalone Super Admin service exposes `/api/admins` for Super-Admin-controlled invitations and role management; this is not the same identity store as CSA Global's `users` table.
+- The integration must map invited admin identities to Global portal authorization without trusting a client-supplied role, allowlist-only self-registration, or a browser-stored role claim. Prefer a short-lived, signed server-to-server identity assertion with strict issuer/audience/expiry/nonce validation and explicit admin status/role lookup. Do not implement by sharing a password or copying session cookies across hosts.
+- Direct HTTP checks from the management execution environment were blocked by its outbound-host policy (403), so service reachability and unauthenticated route behavior remain unverified by those probes.
