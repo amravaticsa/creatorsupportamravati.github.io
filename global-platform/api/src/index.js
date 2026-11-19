@@ -30,16 +30,16 @@ const GLOBAL_ROLE_PERMISSIONS={
 };
 function adminPermissionFor(req){
  const p=new URL(req.url).pathname.replace(/\/$/,""),m=req.method;
- if(/^\/v1\/files\/[\\w-]+$/.test(p))return null;
+ if(/^\/v1\/files\/[\w-]+$/.test(p))return null;
  if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/projects","/v1/admin/offers/ready"].includes(p))return "projects.manage";
- if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\\w-]+\/assign$/.test(p)))return "projects.manage";
+ if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
- if(m==="POST"&&/^\/v1\/admin\/deposits\/[\\w-]+\/refund$/.test(p))return "finance.refunds";
- if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\\w-]+\/activate$/.test(p))))return "content.manage";
- if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\\w-]+\/verify$/.test(p)))return "content.manage";
+ if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
+ if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
+ if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/verify$/.test(p)))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/overview")return ["projects.manage","content.manage","finance.read","support.manage"];
- if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
- if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\\w-]+\/incidents$/.test(p))return "support.manage";
+ if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
+ if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\w-]+\/incidents$/.test(p))return "support.manage";
  return "__deny__";
 }
 function globalAdminCan(u,permission){
