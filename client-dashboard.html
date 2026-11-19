@@ -20,6 +20,44 @@
 .cd-tracker{margin-top:24px}.cd-status{display:inline-block;background:#e9f5f2;color:#116d5e;border-radius:30px;padding:6px 11px;font-size:13px;font-weight:750}.cd-history{border-left:2px solid #dce8e6;padding-left:15px;margin:15px 0}.cd-history p{font-size:13px;color:var(--muted);margin:0 0 12px}.cd-file{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:9px;font-size:13px}.cd-progress{height:8px;background:#e8edf2;border-radius:20px;overflow:hidden;margin:10px 0}.cd-progress span{height:100%;width:0;display:block;background:var(--teal);transition:width .2s}
 @media(max-width:760px){.cd-hero,.cd-layout{grid-template-columns:1fr}.cd-hero-side{max-width:none}.cd-two{grid-template-columns:1fr}.cd{padding-top:22px}}
 </style>
+<style>
+/* Client portal refresh */
+.cd{max-width:1180px;--ink:#17243b;--muted:#68758a;--line:#e5eaf1;--brand:#123d58;--teal:#168b7a;padding:30px 0 76px;color:var(--ink)}
+.cd-hero{background:linear-gradient(125deg,#102b43 0%,#165e67 100%);border-radius:24px;padding:clamp(24px,4vw,42px);box-shadow:0 18px 44px #102b431c}
+.cd-hero h1{font-size:clamp(30px,4vw,44px);line-height:1.12;margin:12px 0;color:#fff}
+.cd-hero p{max-width:650px;line-height:1.7}
+.cd-hero-side{max-width:270px}
+.cd-layout{grid-template-columns:minmax(0,1.35fr) minmax(270px,.65fr);gap:20px}
+.cd-card{border-radius:18px;box-shadow:0 8px 28px #17243b0a}
+.cd-card h2{letter-spacing:-.3px}
+.cd-upload-card{margin-top:18px;padding:18px;background:#f7fafc;border:1px dashed #b9cbd5;border-radius:14px}
+.cd-upload-card h3{margin:0 0 6px;font-size:17px}
+.cd-upload-card input{display:block;width:100%;margin:12px 0}
+.cd-payment{background:#fff8e9;border:1px solid #f1dfb6;border-radius:13px;padding:15px;margin-top:18px}
+.cd-payment strong{display:block;color:#765319;margin-bottom:5px}
+.cd-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:22px 0 18px}
+.cd-stage{position:relative;text-align:center;padding:0 7px}
+.cd-stage:not(:last-child):after{content:"";height:3px;background:#e5eaf0;position:absolute;top:15px;left:58%;width:84%;z-index:0}
+.cd-stage.done:not(:last-child):after{background:#168b7a}
+.cd-stage .dot{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;margin:0 auto 9px;background:#edf1f5;color:#8793a3;border:2px solid #dce3ea;position:relative;z-index:1;font-size:12px;font-weight:800}
+.cd-stage.done .dot,.cd-stage.current .dot{background:#168b7a;color:white;border-color:#168b7a}
+.cd-stage.current .dot{box-shadow:0 0 0 5px #168b7a20}
+.cd-stage b{display:block;font-size:11px;line-height:1.35}
+.cd-stage small{display:block;color:#8a95a4;font-size:10px;margin-top:4px}
+.cd-stage.done small,.cd-stage.current small{color:#168b7a}
+.cd-status-panel{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fbfcfd}
+.cd-status-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cd-status{background:#e8f5f1;color:#116d5e}
+.cd-file{background:#fff}
+.cd-upload-zone{border:1px dashed #b7c9d3;background:#f7fafb;border-radius:12px;padding:16px;margin-top:16px}
+.cd-upload-zone input{max-width:100%;margin:10px 0}
+.cd-upload-zone .cd-btn{margin-top:8px}
+.cd-payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.cd-payment-grid div{background:#fff;border:1px solid #f1dfb6;padding:10px;border-radius:9px}
+.cd-payment-grid small{display:block;color:#866b39;font-size:11px}
+.cd-payment-grid b{font-size:17px;color:#543e16}
+@media(max-width:760px){.cd-layout{grid-template-columns:1fr}.cd-hero,.cd-layout{grid-template-columns:1fr}.cd-stage b{font-size:9px}.cd-stage small{font-size:9px}.cd-timeline{margin-left:-5px;margin-right:-5px}.cd-payment-grid{grid-template-columns:1fr 1fr}}
+</style>
 </head>
 <body>
 <header class="site-header"><div class="container header-inner"><a class="brand" href="index.html"><img src="assets/images/logo.png" alt="CSA logo" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><nav class="main-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="video-editing.html">Video Editing</a><a href="contact.html">Contact</a></nav><a class="nav-cta" href="#new-request">New Request ↗</a></div></header>
@@ -38,11 +76,11 @@
 <div class="cd-msg cd-hide" id="requestMessage" role="status" aria-live="polite"></div>
 <div id="uploadArea" class="cd-hide"><h3>Footage upload karein</h3><p class="cd-help">Aap abhi files upload kar sakte hain ya baad mein Order ID se project open karke upload kar sakte hain. Large files parts mein upload hoti hain. Maximum 100 GB per file.</p><label class="cd-form">Select raw video / audio / image files<input id="rawFiles" type="file" multiple accept="video/*,audio/*,image/*,.zip,.7z,.rar,.pdf"></label><div class="cd-progress"><span id="uploadProgress"></span></div><p class="cd-help" id="uploadStatus" aria-live="polite"></p><button class="cd-btn cd-btn-light" id="uploadButton" type="button">Upload selected files</button></div>
 </form></section>
-<aside class="cd-card"><h2>Kaise kaam karega?</h2><p class="cd-sub">Aapko technical process samajhne ki zaroorat nahi.</p><div class="cd-steps">
+<aside class="cd-card"><h2>Project ka process</h2><p class="cd-sub">Application se final delivery tak har update yahin milega.</p><div class="cd-steps">
 <div class="cd-step"><div class="cd-num">1</div><div><b>Request bhejein</b><span>Apni video type aur basic details share karein.</span></div></div>
 <div class="cd-step"><div class="cd-num">2</div><div><b>CSA review & quotation</b><span>Hamari team requirement check karke quotation aur timeline confirm karegi.</span></div></div>
-<div class="cd-step"><div class="cd-num">3</div><div><b>Editing & preview</b><span>Approval ke baad CSA team editing process aur preview update share karegi.</span></div></div>
-<div class="cd-step"><div class="cd-num">4</div><div><b>Final delivery</b><span>Approved final video aapko isi dashboard se milega.</span></div></div>
+<div class="cd-step"><div class="cd-num">3</div><div><b>50% advance payment</b><span>Quotation approve hone ke baad 50% advance; baaki 50% final delivery se pehle.</span></div></div><div class="cd-step"><div class="cd-num">4</div><div><b>Editing & preview</b><span>Payment confirmation ke baad editing aur preview update milega.</span></div></div>
+<div class="cd-step"><div class="cd-num">5</div><div><b>Final delivery</b><span>Remaining 50% payment ke baad final video yahin download hoga.</span></div></div>
 </div><hr style="border:0;border-top:1px solid var(--line);margin:22px 0"><p class="cd-help"><strong>Need help?</strong><br>+91 92255 15679<br>amravati.csa@gmail.com<br>Monday–Saturday, 10 AM–7 PM</p></aside>
 </div>
 <section class="cd-card cd-tracker" id="track-project"><h2>Apna project track karein</h2><p class="cd-sub">Pehle request bhejne ke baad mila Order ID aur private access code enter karein.</p><form class="cd-form" id="trackForm"><div class="cd-two"><label>Order ID<input name="orderCode" required placeholder="CSA-VE-XXXXXXXX"></label><label>Private access code<input name="accessToken" required autocomplete="off" placeholder="Your private code"></label></div><button class="cd-btn" type="submit">View My Project</button></form><div class="cd-msg cd-hide" id="trackMessage" role="status"></div><div id="trackResult" class="cd-hide"></div></section>
