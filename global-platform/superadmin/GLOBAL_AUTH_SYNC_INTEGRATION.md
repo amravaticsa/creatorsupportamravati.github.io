@@ -57,3 +57,17 @@ Deployed to staging only:
 Verified: both Workers report the `staging` environment; both expose the secret binding; source markers for the sender/hooks and receiver/replay guard are present; the staging D1 authorization table currently has zero rows. No live admin sync has yet been performed, because no test admin invitation has been accepted for this integration test.
 
 Production Workers, production D1, production R2, DNS, and payment settings remain untouched.
+
+## Security review finding — Global role permissions
+
+The synchronization receiver preserves each Super Admin role in `source_role`, but the current Global API login flow creates all invited administrators with the single Global role `admin`. The Global API authorization helper currently checks only that the email has an active registry row; it does not enforce the synchronized `source_role` against individual admin routes. Consequently, the four source roles (`project_admin`, `editor_admin`, `finance_admin`, and `support_admin`) currently have the same Global API admin permissions.
+
+This is a known authorization gap, not a verified role-based access-control implementation. Do not invite real Global administrators or enable production access until a least-privilege route-to-role matrix is approved and enforced server-side. The role names alone are not sufficient to infer the intended permission boundaries. Keep this item open rather than silently assigning permissions.
+
+Suggested review categories for the owner to approve:
+- Project workflow: project review, matching, offers, assignments, quality-control decisions.
+- Editor operations: editor verification and editor account review.
+- Finance: payment, deposit, refund and finance records.
+- Support: read-only account/project lookup and support actions.
+
+Every write route must enforce its own server-side permission; hiding UI controls is not an authorization boundary.
