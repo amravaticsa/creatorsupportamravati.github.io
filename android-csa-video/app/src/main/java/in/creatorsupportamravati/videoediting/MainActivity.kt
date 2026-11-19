@@ -1,4 +1,4 @@
-package in.creatorsupportamravati.videoediting
+package com.creatorsupportamravati.videoediting
 
 import android.Manifest
 import android.app.Activity
