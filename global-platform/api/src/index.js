@@ -22,15 +22,44 @@ async function claims(req,env){
  if(c.iss!==env.AUTH_ISSUER||!(c.aud===env.AUTH_AUDIENCE||(Array.isArray(c.aud)&&c.aud.includes(env.AUTH_AUDIENCE)))||!Number.isFinite(c.exp)||!Number.isFinite(c.iat)||c.exp<=now||c.iat>now+60||c.email_verified!==true||typeof c.sub!=="string"||!c.sub||typeof c.email!=="string"||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email))throw Error("Token claims or verified email are invalid.");
  return c;
 }
+const GLOBAL_ROLE_PERMISSIONS={
+ project_admin:["projects.manage"],
+ editor_admin:["content.manage"],
+ finance_admin:["finance.read","finance.refunds"],
+ support_admin:["support.manage"]
+};
+function adminPermissionFor(req){
+ const p=new URL(req.url).pathname.replace(/\/$/,""),m=req.method;
+ if(/^\/v1\/files\/[\\w-]+$/.test(p))return null;
+ if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/projects","/v1/admin/offers/ready"].includes(p))return "projects.manage";
+ if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\\w-]+\/assign$/.test(p)))return "projects.manage";
+ if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
+ if(m==="POST"&&/^\/v1\/admin\/deposits\/[\\w-]+\/refund$/.test(p))return "finance.refunds";
+ if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\\w-]+\/activate$/.test(p))))return "content.manage";
+ if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\\w-]+\/verify$/.test(p)))return "content.manage";
+ if(m==="GET"&&p==="/v1/admin/overview")return ["projects.manage","content.manage","finance.read","support.manage"];
+ if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
+ if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\\w-]+\/incidents$/.test(p))return "support.manage";
+ return "__deny__";
+}
+function globalAdminCan(u,permission){
+ return !!u&&u.role==="admin"&&(GLOBAL_ROLE_PERMISSIONS[u.source_role]||[]).includes(permission);
+}
 async function user(req,env,roles){
  const c=await claims(req,env);
  const u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();
  if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");
  if(!roles.includes(u.role))throw Error("Role is not permitted.");
- // Admin access is checked against the live Super Admin authorization registry on every request.
  if(u.role==="admin"){
-  const a=await env.DB.prepare("SELECT 1 AS ok FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();
-  if(!a)throw Error("CSA Super Admin authorization is inactive.");
+  const a=await env.DB.prepare("SELECT source_role FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();
+  if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");
+  const required=adminPermissionFor(req);
+  if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");
+  if(required!==null){
+   const needs=Array.isArray(required)?required:[required];
+   if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");
+  }
+  return {...u,source_role:a.source_role};
  }
  return u;
 }
@@ -498,6 +527,7 @@ async function handle(req,env){
   let file=await env.DB.prepare("SELECT f.id,f.project_id,f.uploaded_by,f.r2_object_key,f.original_filename,f.mime_type,f.size_bytes,f.access_scope,p.client_id,'source' AS kind FROM project_files f JOIN projects p ON p.id=f.project_id WHERE f.id=?").bind(fileMatch[1]).first();
   if(!file)file=await env.DB.prepare("SELECT s.id,a.project_id,s.submitted_by AS uploaded_by,s.r2_object_key,s.original_filename,s.mime_type,s.size_bytes,'admin_only' AS access_scope,p.client_id,'submission' AS kind,s.qc_status,a.editor_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id WHERE s.id=?").bind(fileMatch[1]).first();
   if(!file)return bad("File not found.",404);
+  if(a.role==="admin"&&!globalAdminCan(a,file.kind==="submission"?"content.manage":"projects.manage"))return bad("Your Global admin role cannot access this file type.",403);
   let allowed=a.role==="admin"||a.role==="staff"||a.id===file.client_id||a.id===file.uploaded_by;
   if(a.role==="editor"&&!allowed){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(file.project_id,a.id).first();allowed=!!assignment&&file.access_scope==="assigned_editor";}
   if(a.role==="client"&&file.kind==="submission")allowed=allowed&&file.qc_status==="approved";
