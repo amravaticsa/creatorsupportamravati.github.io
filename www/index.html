@@ -19,10 +19,10 @@
     <p>Secure employee access for Creator Support Amravati.</p>
     <div class="loader" aria-label="Loading"></div>
     <p id="status">Connecting to the secure employee portal…</p>
-    <p><a href="https://admin.creatorsupportamravati.in/employee">Open employee portal in browser</a></p>
+    <p><a href="https://employee.creatorsupportamravati.in/employee">Open employee portal in browser</a></p>
   </main>
   <script>
-    const target='https://admin.creatorsupportamravati.in/employee';
+    const target='https://employee.creatorsupportamravati.in/employee';
     const status=document.getElementById('status');
     const go=()=>{status.textContent='Opening secure CSA Employee…';window.location.replace(target)};
     if(navigator.onLine){setTimeout(go,450)}else{status.textContent='Internet connection required. Reconnect and reopen CSA Employee.'}
