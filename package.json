@@ -1,0 +1,25 @@
+{
+  "name": "csa-employee-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CSA Employee mobile app for Android and iOS",
+  "scripts": {
+    "build": "node scripts/verify-app.js",
+    "cap:sync": "cap sync",
+    "android:open": "cap open android",
+    "ios:open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.0.2",
+    "@capacitor/browser": "^7.0.2",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/geolocation": "^7.1.5",
+    "@capacitor/ios": "^7.4.3",
+    "@capacitor/splash-screen": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}
