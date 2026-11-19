@@ -32,7 +32,18 @@ export default {async fetch(req,env){
    const order=await env.CSA_VIDEO_DB.prepare("SELECT order_code,customer_name,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,currency,payment_status,order_status,created_at,updated_at FROM video_editing_orders WHERE id=?").bind(a.id).first();
    const files=await env.CSA_VIDEO_DB.prepare("SELECT id,original_filename,content_type,file_size_bytes,file_role,upload_state,created_at FROM video_editing_files WHERE order_id=? ORDER BY created_at").bind(a.id).all();
    const history=await env.CSA_VIDEO_DB.prepare("SELECT old_status,new_status,note,created_at FROM video_editing_status_history WHERE order_id=? ORDER BY created_at").bind(a.id).all();
-   return json({order,files:files.results||[],history:history.results||[]});
+   const feedback=await env.CSA_VIDEO_DB.prepare("SELECT rating,comment,created_at FROM video_editing_feedback WHERE order_id=?").bind(a.id).first().catch(()=>null);
+   return json({order,files:files.results||[],history:history.results||[],feedback:feedback||null});
+  }
+  if(p[0]==="api"&&p[1]==="orders"&&p.length===4&&p[3]==="feedback"&&req.method==="POST"){
+   const a=await customer(env,p[2],req);if(!a)return json({error:"Unauthorized"},401);
+   const order=await env.CSA_VIDEO_DB.prepare("SELECT id,order_status FROM video_editing_orders WHERE id=?").bind(a.id).first();
+   if(!order||!order.order_status.toLowerCase().includes("completed"))return json({error:"You can rate CSA after your project is completed."},403);
+   const b=await req.json(),rating=Number(b.rating),comment=clean(b.comment,1200);
+   if(!Number.isInteger(rating)||rating<1||rating>5)return json({error:"Choose a rating from 1 to 5 stars."},400);
+   await env.CSA_VIDEO_DB.prepare("CREATE TABLE IF NOT EXISTS video_editing_feedback (order_id TEXT PRIMARY KEY, rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5), comment TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+   await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_feedback (order_id,rating,comment) VALUES (?,?,?) ON CONFLICT(order_id) DO UPDATE SET rating=excluded.rating,comment=excluded.comment,created_at=CURRENT_TIMESTAMP").bind(a.id,rating,comment).run();
+   return json({ok:true,message:"Thank you for rating Creator Support Amravati."});
   }
   if(p[0]==="api"&&p[1]==="orders"&&p.length===5&&p[3]==="files"&&p[4]==="initiate"&&req.method==="POST"){
    const a=await customer(env,p[2],req);if(!a)return json({error:"Unauthorized"},401);const order=await env.CSA_VIDEO_DB.prepare("SELECT id,order_code FROM video_editing_orders WHERE id=?").bind(a.id).first();return json({ok:true,...await beginUpload(env,order,await req.json(),"raw","customer")},201);
