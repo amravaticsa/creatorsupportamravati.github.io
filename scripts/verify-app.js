@@ -5,7 +5,7 @@ const shell = fs.readFileSync('www/index.html', 'utf8');
 const checks = [
   ['App name', pkg.name === 'csa-employee-mobile'],
   ['Android and iOS Capacitor packages', !!pkg.dependencies['@capacitor/android'] && !!pkg.dependencies['@capacitor/ios']],
-  ['Secure portal origin', config.includes('https://admin.creatorsupportamravati.in/employee')],
+  ['Secure portal origin', config.includes('https://employee.creatorsupportamravati.in/employee')],
   ['HTTPS only', config.includes('cleartext: false')],
   ['Mobile app shell', shell.includes('CSA Employee')]
 ];
