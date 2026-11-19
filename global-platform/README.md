@@ -77,3 +77,11 @@ Never commit secrets or ask users to enter passwords, OTPs, card data or secret 
 - The standalone Super Admin service exposes `/api/admins` for Super-Admin-controlled invitations and role management; this is not the same identity store as CSA Global's `users` table.
 - The integration must map invited admin identities to Global portal authorization without trusting a client-supplied role, allowlist-only self-registration, or a browser-stored role claim. Prefer a short-lived, signed server-to-server identity assertion with strict issuer/audience/expiry/nonce validation and explicit admin status/role lookup. Do not implement by sharing a password or copying session cookies across hosts.
 - Direct HTTP checks from the management execution environment were blocked by its outbound-host policy (403), so service reachability and unauthenticated route behavior remain unverified by those probes.
+
+
+### Super Admin → Global admin gate (prepared, not deployed)
+- Staging source now rejects /v1/auth/google requests with role=admin unless the verified Google email already has an active row in global_admin_authorizations. The old ADMIN_EMAILS allowlist is no longer sufficient to create an admin identity.
+- New migration: global-platform/migrations/0011_global_admin_authorizations.sql. It creates a deny-by-default authorization registry keyed by normalized email and the source Super Admin account ID.
+- Deployment order is mandatory: apply migration 0011 to the staging D1 database first, then deploy the updated staging API Worker. Deploying the code before the migration would make the admin-auth query fail. This has not been applied or deployed yet.
+- The secure server-to-server sync endpoint and matching sender in csa-superadmin-api-staging are not implemented yet. Until that bridge exists, no newly invited admin can sign in to the Global portal; this is intentional fail-closed behavior.
+- Staging branch code changes do not auto-deploy the Direct Upload Pages site or Worker. No production resource, database, DNS, payment setting, or Super Admin account was changed by this preparation.
