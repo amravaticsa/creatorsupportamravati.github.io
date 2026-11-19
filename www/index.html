@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102A43">
+  <title>CSA Employee</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#102a43;color:#fff;font:16px system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px;text-align:center}
+    main{max-width:340px} .mark{width:92px;height:92px;border-radius:25px;background:#fff;color:#102a43;display:grid;place-items:center;font-size:25px;font-weight:850;margin:0 auto 24px;box-shadow:0 16px 40px #0003}
+    p{color:#c8d8e4;line-height:1.6}.loader{width:30px;height:30px;border:3px solid #ffffff40;border-top-color:#0f9d8c;border-radius:50%;animation:s .8s linear infinite;margin:26px auto}@keyframes s{to{transform:rotate(360deg)}}
+    a{color:#7de0d4}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">CSA</div>
+    <h1>CSA Employee</h1>
+    <p>Secure employee access for Creator Support Amravati.</p>
+    <div class="loader" aria-label="Loading"></div>
+    <p id="status">Connecting to the secure employee portal…</p>
+    <p><a href="https://admin.creatorsupportamravati.in/employee">Open employee portal in browser</a></p>
+  </main>
+  <script>
+    const target='https://admin.creatorsupportamravati.in/employee';
+    const status=document.getElementById('status');
+    const go=()=>{status.textContent='Opening secure CSA Employee…';window.location.replace(target)};
+    if(navigator.onLine){setTimeout(go,450)}else{status.textContent='Internet connection required. Reconnect and reopen CSA Employee.'}
+    window.addEventListener('online',go);
+  </script>
+</body>
+</html>
