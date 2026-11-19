@@ -72,7 +72,7 @@ $("payNowButton").addEventListener("click",async()=>{
   if(!Number.isSafeInteger(amount)||amount<100||amount>500000)throw Error("Enter a valid project budget between ₹100 and ₹5,00,000.");
   if(typeof window.Razorpay!=="function")throw Error("Razorpay checkout could not load. Refresh and try again.");
   const data=draftFormData;
-  const created=await fetch(PAYMENT_API+"/api/create-order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({totalAmount:amount,paymentType:type,name:data.name,email:data.email,contact:data.phone,whatsappOptIn:true})});
+  const created=await fetch(PAYMENT_API+"/api/create-order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({totalAmount:amount,paymentType:type,name:data.name,email:data.email,contact:data.phone,whatsappOptIn:true,draftCode})});
   const order=await created.json();if(!created.ok)throw Error(order.error||"Unable to create payment order.");
   const options={key:order.keyId,amount:order.amount,currency:order.currency,name:order.businessName||"Creator Support Amravati",description:order.description,order_id:order.orderId,prefill:{name:data.name,email:data.email,contact:data.phone},theme:{color:"#123d58"},
    handler:async response=>{
