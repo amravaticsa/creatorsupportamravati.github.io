@@ -44,13 +44,14 @@ $("trackForm").addEventListener("submit",async e=>{
  catch(err){show(msg,"Project open nahi ho paya: "+err.message+". Application ID aur private access code check karein.");}
 });
 function norm(v){return String(v||"").toLowerCase().replace(/[_–—-]+/g," ").replace(/\s+/g," ").trim();}
-function stageFor(status,payment){
+function stageFor(status,payment,amount){
  const s=norm(status),p=norm(payment);
  if(s.includes("cancel"))return 0;
  if(s.includes("completed")||s.includes("download available"))return 5;
  if(s.includes("preview"))return 4;
  if(s.includes("editing")||s.includes("revision")||s.includes("final editing"))return 3;
  if(p.includes("paid")||p.includes("partial"))return 3;
+ if(Number(amount||0)>0)return 2;
  if(s.includes("file")||s.includes("review")||s.includes("hold"))return 1;
  return 0;
 }
@@ -61,7 +62,7 @@ function render(d){
  const head=document.createElement("div");head.className="cd-status-head";
  const h=document.createElement("h3");h.textContent="Application status · "+(o.order_code||orderCode);head.append(h);
  const pill=document.createElement("span");pill.className="cd-status";pill.textContent=humanStatus(o.order_status);head.append(pill);panel.append(head);
- const current=stageFor(o.order_status,o.payment_status);
+ const current=stageFor(o.order_status,o.payment_status,o.quoted_amount_paise);
  const timeline=document.createElement("div");timeline.className="cd-timeline";
  stageNames.forEach((name,i)=>{const item=document.createElement("div");item.className="cd-stage"+(i<current?" done":i===current?" current":"");const dot=document.createElement("span");dot.className="dot";dot.textContent=i<current?"✓":String(i+1);const b=document.createElement("b");b.textContent=name;const small=document.createElement("small");small.textContent=i<current?"Completed":i===current?"Current stage":"Pending";item.append(dot,b,small);timeline.append(item);});panel.append(timeline);
  const summary=document.createElement("p");summary.className="cd-help";summary.textContent="Video type: "+(o.service_package||"Video editing")+" · Deadline: "+(o.deadline||"To be confirmed")+" · Last updated: "+(o.updated_at||"");panel.append(summary);
