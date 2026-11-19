@@ -5,6 +5,7 @@ on:
     branches: [csa-employee-mobile-app]
     paths:
       - 'package.json'
+      - 'package-lock.json'
       - 'capacitor.config.ts'
       - 'www/**'
       - 'scripts/**'
@@ -12,6 +13,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,20 +24,20 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npx cap add android
-      - name: Add attendance permissions
-        run: |
-          sed -i '/<application/i\\    <uses-permission android:name="android.permission.CAMERA" />\\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
+      - name: Configure native permissions
+        run: node scripts/patch-android-manifest.js
       - run: npx cap sync android
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
-      - name: Build debug APK
+      - name: Build debug APK for private staff testing
         working-directory: android
         run: ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: csa-employee-android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 30
