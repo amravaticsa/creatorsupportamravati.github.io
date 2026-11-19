@@ -10,7 +10,7 @@ const permissions = [
 for (const permission of permissions) {
   const tag = '<uses-permission android:name="' + permission + '" />';
   if (!xml.includes('android:name="' + permission + '"')) {
-    xml = xml.replace('<application', '    ' + tag + '\\n    <application');
+    xml = xml.replace('<application', '    ' + tag + '\n    <application');
   }
 }
 fs.writeFileSync(path, xml);
