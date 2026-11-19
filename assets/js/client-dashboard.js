@@ -21,9 +21,9 @@ $("clientOrderForm").addEventListener("submit",async e=>{
   "Work frequency: "+(d.workFrequency||"Not specified"),
   "Editing level: "+(d.editingLevel||"Not specified"),
   "Required work / deliverables: "+(d.workScope||"Not specified")
- ].join("\\n");
- d.instructions=(d.instructions?d.instructions+"\\n\\n":"")+tenderDetails;
- if(d.reference)d.instructions+="\\nReference link: "+d.reference;
+ ].join("\n");
+ d.instructions=(d.instructions?d.instructions+"\n\n":"")+tenderDetails;
+ if(d.reference)d.instructions+="\nReference link: "+d.reference;
  try{
   const result=await api("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
   orderCode=result.orderCode;accessToken=result.accessToken;save(orderCode,accessToken);
