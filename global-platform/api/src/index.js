@@ -19,7 +19,7 @@ async function claims(req,env){
  const sig=Uint8Array.from(atob(p[2].replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-p[2].length%4)%4)),x=>x.charCodeAt(0));
  if(!await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,sig,new TextEncoder().encode(p[0]+"."+p[1])))throw Error("Invalid token signature.");
  const now=Math.floor(Date.now()/1000);
- if(c.iss!==env.AUTH_ISSUER||!(c.aud===env.AUTH_AUDIENCE||(Array.isArray(c.aud)&&c.aud.includes(env.AUTH_AUDIENCE)))||c.exp<=now||c.iat>now+60||c.email_verified!==true||!c.sub||!c.email)throw Error("Token claims or verified email are invalid.");
+ if(c.iss!==env.AUTH_ISSUER||!(c.aud===env.AUTH_AUDIENCE||(Array.isArray(c.aud)&&c.aud.includes(env.AUTH_AUDIENCE)))||!Number.isFinite(c.exp)||!Number.isFinite(c.iat)||c.exp<=now||c.iat>now+60||c.email_verified!==true||typeof c.sub!=="string"||!c.sub||typeof c.email!=="string"||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email))throw Error("Token claims or verified email are invalid.");
  return c;
 }
 async function user(req,env,roles){
