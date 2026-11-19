@@ -77,6 +77,10 @@ function render(d){
  const timeline=document.createElement("div");timeline.className="cd-timeline";
  stageNames.forEach((name,i)=>{const item=document.createElement("div");item.className="cd-stage"+(i<current?" done":i===current?" current":"");const dot=document.createElement("span");dot.className="dot";dot.textContent=i<current?"✓":String(i+1);const b=document.createElement("b");b.textContent=name;const small=document.createElement("small");small.textContent=i<current?"Completed":i===current?"Current stage":"Pending";item.append(dot,b,small);timeline.append(item);});panel.append(timeline);
  const summary=document.createElement("p");summary.className="cd-help";summary.textContent="Video type: "+(o.service_package||"Video editing")+" · Deadline: "+(o.deadline||"To be confirmed")+" · Last updated: "+(o.updated_at||"");panel.append(summary);
+ if(o.instructions){
+  const reqTitle=document.createElement("h4");reqTitle.textContent="Your submitted work requirements";panel.append(reqTitle);
+  const req=document.createElement("p");req.className="cd-help";req.style.whiteSpace="pre-wrap";req.textContent=o.instructions;panel.append(req);
+ }
  const amount=Number(o.quoted_amount_paise||0)/100;
  const payment=norm(o.payment_status);
  const pay=document.createElement("div");pay.className="cd-payment";
