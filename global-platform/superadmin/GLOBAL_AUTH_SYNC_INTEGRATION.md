@@ -1,6 +1,6 @@
 # Super Admin → CSA Global authorization sync integration
 
-Status: helper source committed to the `staging` branch; it is NOT imported into or deployed with the Super Admin Worker yet. The Global API receiver exists in Global API staging source, and replay-protection migration 0012 is applied to the staging D1 database.
+Status: sender and receiver are deployed to the two staging Workers. The shared HMAC secret is configured on both staging Workers. Migration 0012 is applied to staging D1. Static deployment checks passed; an end-to-end sync using a real test admin invitation is still pending.
 
 ## Source helper
 
@@ -16,11 +16,11 @@ The helper:
 
 ## Required Worker secret
 
-Configure the same high-entropy `ADMIN_SYNC_HMAC_SECRET` as a secret binding on:
+The same randomly generated high-entropy `ADMIN_SYNC_HMAC_SECRET` is now configured as a secret binding on both staging Workers:
 - `csa-superadmin-api-staging`
 - `csa-global-api-staging`
 
-Do not put the secret in source control, plain-text Worker vars, browser JavaScript, logs, or chat. Secret provisioning has not been completed.
+Presence of both secret bindings was verified without reading their values. The secret is not in source control, plain-text Worker vars, browser JavaScript, logs, or chat.
 
 ## Required lifecycle hooks in Super Admin Worker
 
@@ -49,4 +49,11 @@ import { syncGlobalAdminAuthorizations } from "./global-admin-sync.js";
 
 ## Current deployment boundary
 
-No Super Admin Worker source deployment has been made by this integration commit. No secret has been provisioned. No admin authorization rows have been inserted. Production Workers, production D1, production R2, DNS, and payment settings remain untouched.
+Deployed to staging only:
+- Global API receiver with corrected HMAC newline canonicalization and timestamp/email validation.
+- Super Admin sender helper, invitation-acceptance hook, admin role/status update hook, and Super Admin-only manual retry endpoint.
+- Shared HMAC secret bindings on both staging Workers.
+
+Verified: both Workers report the `staging` environment; both expose the secret binding; source markers for the sender/hooks and receiver/replay guard are present; the staging D1 authorization table currently has zero rows. No live admin sync has yet been performed, because no test admin invitation has been accepted for this integration test.
+
+Production Workers, production D1, production R2, DNS, and payment settings remain untouched.
