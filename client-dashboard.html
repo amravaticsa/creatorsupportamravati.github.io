@@ -1,100 +1,12 @@
 <!doctype html>
-<html lang="hi">
+<html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Client Dashboard | Creator Support Amravati</title>
-<meta name="description" content="Submit your video editing requirements, upload footage and track your project securely with Creator Support Amravati.">
-<link rel="canonical" href="https://creatorsupportamravati.in/client-dashboard.html">
-<link rel="stylesheet" href="assets/css/style.css">
-<style>
-.cd{--ink:#17243b;--muted:#68758a;--line:#e5eaf1;--brand:#123d58;--teal:#168b7a;padding:38px 0 76px;color:var(--ink)}
-.cd-hero{background:linear-gradient(130deg,#102c43,#176c70);color:#fff;border-radius:24px;padding:clamp(24px,5vw,48px);display:grid;grid-template-columns:1.5fr .8fr;gap:24px;align-items:center}
-.cd-hero h1{font-size:clamp(30px,4.5vw,46px);line-height:1.1;margin:8px 0 12px;color:#fff}.cd-hero p{color:#e2f1f2;font-size:16px;max-width:650px}.cd-pill{display:inline-flex;background:#ffffff20;border:1px solid #ffffff40;padding:7px 12px;border-radius:30px;font-size:13px}
-.cd-hero-side{background:#ffffff12;border:1px solid #ffffff35;border-radius:18px;padding:20px}.cd-hero-side strong{display:block;font-size:19px;margin-bottom:8px}.cd-hero-side span{color:#e2f1f2;font-size:14px}
-.cd-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:22px;margin-top:24px;align-items:start}
-.cd-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3vw,26px);box-shadow:0 10px 32px #14233b0a}.cd-card h2{font-size:22px;margin:0 0 6px}.cd-sub{color:var(--muted);font-size:14px;margin:0 0 20px}
-.cd-form{display:grid;gap:14px}.cd-form label{display:grid;gap:7px;font-size:13px;font-weight:700}.cd-form input,.cd-form select,.cd-form textarea{width:100%;border:1px solid #d8e0e9;border-radius:10px;padding:12px 13px;font:inherit;color:var(--ink);background:#fff;min-width:0}.cd-form textarea{min-height:112px;resize:vertical}.cd-form input:focus,.cd-form select:focus,.cd-form textarea:focus{outline:3px solid #168b7a22;border-color:var(--teal)}
-.cd-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cd-btn{border:0;background:var(--brand);color:white;border-radius:10px;padding:14px 18px;font:inherit;font-weight:750;cursor:pointer}.cd-btn:hover{background:#1c526e}.cd-btn:disabled{opacity:.55;cursor:wait}.cd-btn-light{background:#edf3f6;color:var(--brand)}.cd-help{font-size:12px;color:var(--muted);line-height:1.55}
-.cd-msg{padding:13px;border-radius:11px;background:#eef6f5;border:1px solid #d6ebe6;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}.cd-hide{display:none!important}
-.cd-steps{display:grid;gap:14px}.cd-step{display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:start}.cd-num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e8f4f2;color:#137767;font-weight:800}.cd-step b{display:block;font-size:14px;margin:1px 0 3px}.cd-step span{font-size:13px;color:var(--muted)}
-.cd-tracker{margin-top:24px}.cd-status{display:inline-block;background:#e9f5f2;color:#116d5e;border-radius:30px;padding:6px 11px;font-size:13px;font-weight:750}.cd-history{border-left:2px solid #dce8e6;padding-left:15px;margin:15px 0}.cd-history p{font-size:13px;color:var(--muted);margin:0 0 12px}.cd-file{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:9px;font-size:13px}.cd-progress{height:8px;background:#e8edf2;border-radius:20px;overflow:hidden;margin:10px 0}.cd-progress span{height:100%;width:0;display:block;background:var(--teal);transition:width .2s}
-@media(max-width:760px){.cd-hero,.cd-layout{grid-template-columns:1fr}.cd-hero-side{max-width:none}.cd-two{grid-template-columns:1fr}.cd{padding-top:22px}}
-</style>
-<style>
-/* Client portal refresh */
-.cd{max-width:1180px;--ink:#17243b;--muted:#68758a;--line:#e5eaf1;--brand:#123d58;--teal:#168b7a;padding:30px 0 76px;color:var(--ink)}
-.cd-hero{background:linear-gradient(125deg,#102b43 0%,#165e67 100%);border-radius:24px;padding:clamp(24px,4vw,42px);box-shadow:0 18px 44px #102b431c}
-.cd-hero h1{font-size:clamp(30px,4vw,44px);line-height:1.12;margin:12px 0;color:#fff}
-.cd-hero p{max-width:650px;line-height:1.7}
-.cd-hero-side{max-width:270px}
-.cd-layout{grid-template-columns:minmax(0,1.35fr) minmax(270px,.65fr);gap:20px}
-.cd-card{border-radius:18px;box-shadow:0 8px 28px #17243b0a}
-.cd-card h2{letter-spacing:-.3px}
-.cd-upload-card{margin-top:18px;padding:18px;background:#f7fafc;border:1px dashed #b9cbd5;border-radius:14px}
-.cd-upload-card h3{margin:0 0 6px;font-size:17px}
-.cd-upload-card input{display:block;width:100%;margin:12px 0}
-.cd-payment{background:#fff8e9;border:1px solid #f1dfb6;border-radius:13px;padding:15px;margin-top:18px}
-.cd-payment strong{display:block;color:#765319;margin-bottom:5px}
-.cd-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:22px 0 18px}
-.cd-stage{position:relative;text-align:center;padding:0 7px}
-.cd-stage:not(:last-child):after{content:"";height:3px;background:#e5eaf0;position:absolute;top:15px;left:58%;width:84%;z-index:0}
-.cd-stage.done:not(:last-child):after{background:#168b7a}
-.cd-stage .dot{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;margin:0 auto 9px;background:#edf1f5;color:#8793a3;border:2px solid #dce3ea;position:relative;z-index:1;font-size:12px;font-weight:800}
-.cd-stage.done .dot,.cd-stage.current .dot{background:#168b7a;color:white;border-color:#168b7a}
-.cd-stage.current .dot{box-shadow:0 0 0 5px #168b7a20}
-.cd-stage b{display:block;font-size:11px;line-height:1.35}
-.cd-stage small{display:block;color:#8a95a4;font-size:10px;margin-top:4px}
-.cd-stage.done small,.cd-stage.current small{color:#168b7a}
-.cd-status-panel{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fbfcfd}
-.cd-status-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.cd-status{background:#e8f5f1;color:#116d5e}
-.cd-file{background:#fff}
-.cd-upload-zone{border:1px dashed #b7c9d3;background:#f7fafb;border-radius:12px;padding:16px;margin-top:16px}
-.cd-upload-zone input{max-width:100%;margin:10px 0}
-.cd-upload-zone .cd-btn{margin-top:8px}
-.cd-payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-.cd-payment-grid div{background:#fff;border:1px solid #f1dfb6;padding:10px;border-radius:9px}
-.cd-payment-grid small{display:block;color:#866b39;font-size:11px}
-.cd-payment-grid b{font-size:17px;color:#543e16}
-@media(max-width:760px){.cd-layout{grid-template-columns:1fr}.cd-hero,.cd-layout{grid-template-columns:1fr}.cd-stage b{font-size:9px}.cd-stage small{font-size:9px}.cd-timeline{margin-left:-5px;margin-right:-5px}.cd-payment-grid{grid-template-columns:1fr 1fr}}
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="0;url=video-editing.html">
+<link rel="canonical" href="https://creatorsupportamravati.in/video-editing.html">
+<title>Video Editing Client Portal | Creator Support Amravati</title>
+<script>window.location.replace("video-editing.html");</script>
 </head>
-<body>
-<header class="site-header"><div class="container header-inner"><a class="brand" href="index.html"><img src="assets/images/logo.png" alt="CSA logo" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><nav class="main-nav" aria-label="Main navigation"><a href="index.html">Home</a><a href="services.html">Services</a><a href="portfolio.html">Portfolio</a><a href="video-editing.html">Video Editing</a><a href="contact.html">Contact</a></nav><a class="nav-cta" href="#new-request">New Request ↗</a></div></header>
-<main class="container cd">
-<section class="cd-hero"><div><span class="cd-pill">CSA CLIENT DESK · VIDEO EDITING</span><h1>Aapka video project,<br>ab ek hi jagah.</h1><p>Apni editing requirement bhejiye, footage upload kijiye aur project ka status yahin check kijiye. Aapka poora project Creator Support Amravati ki team handle karegi.</p></div><div class="cd-hero-side"><strong>Simple. Secure. Supported.</strong><span>Quotation, updates, preview aur final delivery — sab kuch CSA ke through.</span></div></section>
-<section class="cd-card" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
- <div><h2 style="margin:0 0 5px">CSA ko share karein</h2><p class="cd-sub" style="margin:0">Apne friends, family ya business contacts ko video editing service ka link bhejein.</p></div>
- <div style="display:flex;gap:9px;flex-wrap:wrap"><button class="cd-btn" type="button" id="shareCsa">Share Website ↗</button><button class="cd-btn cd-btn-light" type="button" id="copyCsaLink">Copy Link</button></div>
- <p class="cd-help" id="shareMessage" style="width:100%;margin:0" aria-live="polite"></p>
-</section>
-<div class="cd-layout">
-<section class="cd-card" id="new-request"><h2>Naya editing request bhejein</h2><p class="cd-sub">Bas kuch basic details bhariye. CSA team aapki requirement review karke aapse contact karegi.</p>
-<form class="cd-form" id="clientOrderForm">
-<div class="cd-two"><label>Aapka naam *<input name="name" required maxlength="100" autocomplete="name" placeholder="Full name"></label><label>WhatsApp number *<input name="phone" required maxlength="30" autocomplete="tel" placeholder="+91"></label></div>
-<div class="cd-two"><label>Email address *<input name="email" type="email" required maxlength="160" autocomplete="email" placeholder="name@example.com"></label><label>Country *<input name="country" required maxlength="80" value="India" autocomplete="country-name"></label></div>
-<label>Kis tarah ka video edit karwana hai? *<select name="package" required><option value="">Select your video type</option><option>Social Media Reels / Shorts</option><option>YouTube Long-Form Video</option><option>Podcast Editing</option><option>Business / Brand Promotional Video</option><option>Wedding / Event Video</option><option>Product Video</option><option>Bulk / Monthly Editing</option><option>Other Custom Project</option></select></label>
-<div class="cd-two"><label>Raw footage kitni der ka hai?<input name="duration" placeholder="Example: 45 minutes"></label><label>Final video format<select name="aspectRatio"><option>9:16 Vertical (Reels/Shorts)</option><option>16:9 Landscape (YouTube)</option><option>1:1 Square</option><option>Multiple formats</option></select></label></div>
-<div class="cd-two"><label>Delivery kab tak chahiye?<input name="deadline" type="date"></label><label>Reference video link (optional)<input name="reference" type="url" placeholder="https://"></label></div>
-<section class="cd-upload-card" style="border-style:solid;background:#f8fbfc"><h3>Project Budget & Work Details</h3><p class="cd-help">Tender ki tarah apna estimated budget aur required work detail dein. Isse CSA aapko accurate quotation de payega.</p>
-<div class="cd-two"><label>Estimated total budget (INR) *<select name="clientBudget" id="clientBudget" required><option value="">Select your budget</option><option>Below ₹1,000</option><option>₹1,000 – ₹3,000</option><option>₹3,000 – ₹5,000</option><option>₹5,000 – ₹10,000</option><option>₹10,000 – ₹25,000</option><option>₹25,000 – ₹50,000</option><option>₹50,000 – ₹1,00,000</option><option>₹1,00,000 – ₹2,00,000</option><option>Above ₹2,00,000</option><option>Custom budget</option><option>Open to CSA quotation</option></select></label><label>Budget flexibility<select name="budgetFlexibility"><option>Fixed budget</option><option>Flexible for quality</option><option>Need CSA guidance</option></select></label></div><label id="customBudgetWrap" class="cd-hide">Enter your custom budget (INR) *<input id="customBudgetAmount" name="customBudgetAmount" type="number" min="1" max="100000000" step="1" inputmode="numeric" placeholder="Example: 7,500"></label>
-<div class="cd-two"><label>Kitne final videos chahiye? *<input name="videoQuantity" type="number" min="1" max="1000" required placeholder="Example: 10"></label><label>Har final video ki approx. length<input name="finalDuration" maxlength="80" placeholder="Example: 30–60 seconds"></label></div>
-<div class="cd-two"><label>Work frequency<select name="workFrequency"><option>One-time project</option><option>Weekly work</option><option>Monthly / Retainer work</option><option>Bulk project</option></select></label><label>Editing requirements<select name="editingLevel"><option>Basic cut & trim</option><option>Professional editing</option><option>Advanced effects / motion graphics</option><option>Premium / cinematic editing</option><option>Not sure – guide me</option></select></label></div>
-<label>Required work / deliverables *<textarea name="workScope" required maxlength="1200" placeholder="Example: 10 reels editing, subtitles, background music, colour correction, logo animation, 2 revisions, source files etc."></textarea></label></section>
-<label>Apni requirement batayein<textarea name="instructions" maxlength="3000" placeholder="Kitne videos chahiye? Captions, language, music, effects ya koi example/reference? Yahan likh dein."></textarea></label>
-<button class="cd-btn" id="submitRequest" type="submit">Send Editing Request</button>
-<div class="cd-msg cd-hide" id="requestMessage" role="status" aria-live="polite"></div>
-<div id="uploadArea" class="cd-upload-card cd-hide"><h3>Step 2 · Raw footage upload</h3><p class="cd-help">Request submit hone ke baad yahan apne raw video clips, audio aur reference files upload karein. Agar files baad mein ready hon, to Application ID se status page kholkar bhi upload kar sakte hain.</p><label class="cd-form">Choose raw clips / project files<input id="rawFiles" type="file" multiple accept="video/*,audio/*,image/*,.zip,.7z,.rar,.pdf"></label><div class="cd-progress"><span id="uploadProgress"></span></div><p class="cd-help" id="uploadStatus" aria-live="polite"></p><button class="cd-btn cd-btn-light" id="uploadButton" type="button">Upload raw footage</button></div>
-</form></section>
-<aside class="cd-card"><h2>Project ka process</h2><p class="cd-sub">Application se final delivery tak har update yahin milega.</p><div class="cd-steps">
-<div class="cd-step"><div class="cd-num">1</div><div><b>Request bhejein</b><span>Apni video type aur basic details share karein.</span></div></div>
-<div class="cd-step"><div class="cd-num">2</div><div><b>CSA review & quotation</b><span>Hamari team requirement check karke quotation aur timeline confirm karegi.</span></div></div>
-<div class="cd-step"><div class="cd-num">3</div><div><b>50% advance payment</b><span>Quotation approve hone ke baad 50% advance; baaki 50% final delivery se pehle.</span></div></div><div class="cd-step"><div class="cd-num">4</div><div><b>Editing & preview</b><span>Payment confirmation ke baad editing aur preview update milega.</span></div></div>
-<div class="cd-step"><div class="cd-num">5</div><div><b>Final delivery</b><span>Remaining 50% payment ke baad final video yahin download hoga.</span></div></div>
-</div><hr style="border:0;border-top:1px solid var(--line);margin:22px 0"><p class="cd-help"><strong>Need help?</strong><br>+91 92255 15679<br>amravati.csa@gmail.com<br>Monday–Saturday, 10 AM–7 PM</p></aside>
-</div>
-<section class="cd-card cd-tracker" id="track-project"><h2>Apna project track karein</h2><p class="cd-sub">Pehle request bhejne ke baad mila Order ID aur private access code enter karein.</p><form class="cd-form" id="trackForm"><div class="cd-two"><label>Order ID<input name="orderCode" required placeholder="CSA-VE-XXXXXXXX"></label><label>Private access code<input name="accessToken" required autocomplete="off" placeholder="Your private code"></label></div><button class="cd-btn" type="submit">View My Project</button></form><div class="cd-msg cd-hide" id="trackMessage" role="status"></div><div id="trackResult" class="cd-hide"></div></section>
-</main>
-<footer class="site-footer"><div class="container"><div class="footer-grid"><div><a class="brand" href="index.html"><img src="assets/images/logo.png" alt="" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><p>Your video editing partner.</p></div><div><h3>Quick Links</h3><div class="footer-links"><a href="video-editing.html">Video Editing</a><a href="portfolio.html">Portfolio</a><a href="contact.html">Contact</a></div></div><div><h3>Contact CSA</h3><div class="footer-links"><a href="tel:+919225515679">+91 92255 15679</a><a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a></div></div></div><div class="footer-bottom"><span>© 2026 Creator Support Amravati</span><span><a href="privacy-policy.html">Privacy</a> · <a href="terms.html">Terms</a></span></div></div></footer>
-<script src="assets/js/client-dashboard.js?v=20261119-custom-budget"></script>
-</body></html>
+<body><p>The client portal has moved. <a href="video-editing.html">Continue to Video Editing Services</a>.</p></body>
+</html>

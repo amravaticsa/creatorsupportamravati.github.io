@@ -56,7 +56,7 @@ $("clientOrderForm").addEventListener("submit",async e=>{
  try{
   const result=await api("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
   orderCode=result.orderCode;accessToken=result.accessToken;save(orderCode,accessToken);
-  show(msg,"Aapki application successfully submit ho gayi!\n\nApplication / Order ID: "+orderCode+"\nPrivate access code: "+accessToken+"\n\nIs code ko sambhal kar rakhein. Ab neeche raw footage upload kar sakte hain. Aapka status bhi isi page par milega.");
+  show(msg,"Your request has been submitted successfully!\n\nApplication / Order ID: "+orderCode+"\nPrivate access code: "+accessToken+"\n\nKeep these details safe. You can now upload your raw footage below and track your project on this page.");
   $("uploadArea").classList.remove("cd-hide");$("uploadArea").dataset.order=orderCode;$("uploadArea").dataset.token=accessToken;
   $("trackForm").elements.orderCode.value=orderCode;$("trackForm").elements.accessToken.value=accessToken;
   $("track-project").scrollIntoView({behavior:"smooth",block:"start"});
@@ -70,18 +70,18 @@ async function uploadFile(file,code,token,progress){
  await api("/api/uploads/"+init.fileId,{method:"POST",headers:auth(token)});
 }
 async function uploadSelected(input,code,token,note,bar,button){
- const files=Array.from(input.files||[]);if(!files.length){note.textContent="Pehle apne raw clips select karein.";return;}
+ const files=Array.from(input.files||[]);if(!files.length){note.textContent="Please select your raw footage files first.";return;}
  button.disabled=true;const total=files.reduce((n,f)=>n+f.size,0);let done=0;
  try{for(const f of files){note.textContent=f.name+" upload ho rahi hai…";await uploadFile(f,code,token,x=>bar.style.width=((done+f.size*x)/total*100)+"%");done+=f.size;}
- note.textContent="Upload complete! Aapki raw footage CSA ko mil gayi hai.";input.value="";
- }catch(err){note.textContent="Upload ruk gaya: "+err.message+". Internet check karke dobara try karein.";}
+ note.textContent="Upload complete! Your raw footage has been received by Creator Support Amravati.";input.value="";
+ }catch(err){note.textContent="Upload paused: "+err.message+". Internet check karke dobara try karein.";}
  finally{button.disabled=false;}
 }
 $("uploadButton").addEventListener("click",()=>uploadSelected($("rawFiles"),$("uploadArea").dataset.order,$("uploadArea").dataset.token,$("uploadStatus"),$("uploadProgress"),$("uploadButton")));
 $("trackForm").addEventListener("submit",async e=>{
  e.preventDefault();const f=new FormData(e.currentTarget);orderCode=String(f.get("orderCode")).trim().toUpperCase();accessToken=String(f.get("accessToken")).trim();const msg=$("trackMessage"),root=$("trackResult");hide(msg);hide(root);
  try{const d=await api("/api/orders/"+encodeURIComponent(orderCode),{headers:auth(accessToken)});save(orderCode,accessToken);render(d);}
- catch(err){show(msg,"Project open nahi ho paya: "+err.message+". Application ID aur private access code check karein.");}
+ catch(err){show(msg,"Unable to open the project: "+err.message+". Please check your Order ID and private access code.");}
 });
 function norm(v){return String(v||"").toLowerCase().replace(/[_–—-]+/g," ").replace(/\s+/g," ").trim();}
 function stageFor(status,payment,amount){
