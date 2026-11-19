@@ -20,6 +20,11 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npx cap add ios
+      - name: Add attendance permission descriptions
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'CSA Employee uses the camera to capture attendance selfie evidence.'" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'CSA Employee uses your location to verify office or field attendance.'" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSLocationAlwaysAndWhenInUseUsageDescription string 'CSA Employee uses your location only while you submit attendance.'" ios/App/App/Info.plist
       - run: npx cap sync ios
       - name: Verify iOS project
         run: test -d ios/App/App.xcodeproj
