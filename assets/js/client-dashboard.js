@@ -10,6 +10,15 @@ async function api(path,options={}){const r=await fetch(API+path,options);let d=
 function save(code,token){try{localStorage.setItem("csa_video_last_order",code);localStorage.setItem("csa_video_order_"+code,token);}catch{}}
 function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}}catch{}}
 const publicShareUrl="https://creatorsupportamravati.in/video-editing.html";
+const budgetSelect=$("clientBudget"),customBudgetWrap=$("customBudgetWrap"),customBudgetAmount=$("customBudgetAmount");
+function syncCustomBudget(){
+ const enabled=budgetSelect.value==="Custom budget";
+ customBudgetWrap.classList.toggle("cd-hide",!enabled);
+ customBudgetAmount.required=enabled;
+ if(!enabled)customBudgetAmount.value="";
+}
+budgetSelect.addEventListener("change",syncCustomBudget);
+syncCustomBudget();
 $("shareCsa").addEventListener("click",async()=>{
  const data={title:"Creator Support Amravati",text:"Professional video editing services by Creator Support Amravati. Check details here:",url:publicShareUrl};
  try{if(navigator.share){await navigator.share(data);$("shareMessage").textContent="Share options opened.";}else{await navigator.clipboard.writeText(publicShareUrl);$("shareMessage").textContent="Website link copied. Ab aap ise kisi ko bhi share kar sakte hain.";}}
@@ -22,6 +31,16 @@ $("copyCsaLink").addEventListener("click",async()=>{
 $("clientOrderForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");btn.disabled=true;hide(msg);
  const d=Object.fromEntries(new FormData(e.currentTarget).entries());
+ if(d.clientBudget==="Custom budget"){
+  const amount=Number(d.customBudgetAmount);
+  if(!Number.isFinite(amount)||amount<=0){
+   show(msg,"Please enter a valid custom budget amount.");
+   btn.disabled=false;
+   return;
+  }
+  d.clientBudget="Custom budget: ₹"+amount.toLocaleString("en-IN");
+ }
+ delete d.customBudgetAmount;
  const tenderDetails=[
   "CLIENT TENDER / WORK REQUIREMENTS",
   "Estimated budget: "+(d.clientBudget||"Not specified"),
