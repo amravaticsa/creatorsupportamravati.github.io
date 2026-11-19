@@ -29,7 +29,7 @@ export default {async fetch(req,env){
   }
   if(p[0]==="api"&&p[1]==="orders"&&p.length===3&&req.method==="GET"){
    const a=await customer(env,p[2],req);if(!a)return json({error:"Invalid Order ID or access token"},401);
-   const order=await env.CSA_VIDEO_DB.prepare("SELECT order_code,customer_name,service_package,project_type,video_duration,aspect_ratio,deadline,quoted_amount_paise,currency,payment_status,order_status,created_at,updated_at FROM video_editing_orders WHERE id=?").bind(a.id).first();
+   const order=await env.CSA_VIDEO_DB.prepare("SELECT order_code,customer_name,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,currency,payment_status,order_status,created_at,updated_at FROM video_editing_orders WHERE id=?").bind(a.id).first();
    const files=await env.CSA_VIDEO_DB.prepare("SELECT id,original_filename,content_type,file_size_bytes,file_role,upload_state,created_at FROM video_editing_files WHERE order_id=? ORDER BY created_at").bind(a.id).all();
    const history=await env.CSA_VIDEO_DB.prepare("SELECT old_status,new_status,note,created_at FROM video_editing_status_history WHERE order_id=? ORDER BY created_at").bind(a.id).all();
    return json({order,files:files.results||[],history:history.results||[]});
