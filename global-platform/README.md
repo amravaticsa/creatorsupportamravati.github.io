@@ -22,7 +22,7 @@
 - Admin sign-in: `/admin-login.html`
 - Operations portal: `/portal.html`
 
-**Current staging limitation:** the Cloudflare Pages deployment is reporting HTTP 500 despite a successful static deployment. Browser-level end-to-end testing is blocked until the Pages site serves normally. Do not treat the frontend as production-ready.
+**Current staging status (2026-11-19):** the deployed staging homepage has been opened successfully in a connected browser. This confirms the homepage renders, but does not prove Google sign-in or client/editor/admin workflows pass end-to-end. Keep the site marked as staging until those tests are completed.
 
 ## Isolated Cloudflare staging resources
 - Worker: `csa-global-api-staging`
@@ -41,7 +41,7 @@ The production Worker, production D1 database, production R2 bucket and live CSA
 - Editor onboarding, verification queue and managed project offers.
 - Project-specific agreement review and explicit acceptance.
 - Razorpay order creation, server-side captured-payment verification and signed webhook processing.
-- Private R2 source-file upload/download with role and assignment checks; current staging upload limit is 90 MB per file.
+- Private R2 source-file upload/download with role and assignment checks; direct uploads support files up to 90 MB and resumable multipart uploads support files larger than 90 MB up to 5 GiB.
 - Editor assignment inbox and work-submission upload.
 - Admin quality-control queue with approve, request-changes and reject decisions.
 - Client access to approved deliverables.
@@ -56,14 +56,14 @@ The production Worker, production D1 database, production R2 bucket and live CSA
 - Keep all payment work in Razorpay Test Mode. A configured credential is not proof that a complete checkout/refund has been tested.
 
 ## Database migrations
-Apply migrations `0001` through `0005` only to the isolated staging D1 database. Migration `0005_editor_deposit_refunds.sql` creates the refund status table and a unique ledger guard against duplicate refund entries. Never run these staging migrations against production.
+Migrations `0001` through `0010` are present in `global-platform/migrations/`. Staging has the newer rate-limit, multipart-upload, checksum, cleanup-run and incident tables. Production is behind this schema and must not be migrated until a downloadable, verified backup is retained and the exact migration state is checked. Never apply staging migrations blindly to production.
 
 ## Remaining release gates
-- Resolve the Cloudflare Pages HTTP 500 issue and confirm the deployed frontend is reachable.
+- Confirm the full deployed frontend (not only the homepage) and API are reachable, then complete browser-level tests for Google sign-in, client project submission, file upload/download, editor workflow, QC and refund status.
 - Complete browser-level tests for Google sign-in, client project submission, file upload/download, editor workflow, QC and refund status.
 - Run payment/refund tests only with explicit approval and Razorpay Test Mode; no real-money payment or refund has been initiated.
 - Complete legal review and approval of client/editor agreements before activating them.
-- Add resumable/multipart upload support for large video files.
+- Complete end-to-end tests for resumable/multipart upload, including resume, checksum verification, completion reconciliation and expired-session cleanup.
 - Complete backup/restore, rate limiting/abuse controls, operational policies and independent security review.
 - Do not deploy to production or enable live payments until all release gates are signed off.
 
