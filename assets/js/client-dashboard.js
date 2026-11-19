@@ -162,7 +162,7 @@ function render(d){
   payText.textContent="Project budget: "+(o.currency||"INR")+" "+amount.toLocaleString("en-IN",{maximumFractionDigits:2})+". "+(o.payment_type==="full"?"100% full payment received.":"50% advance received: "+advance.toLocaleString("en-IN",{maximumFractionDigits:2})+". Remaining 50% before final delivery: "+balance.toLocaleString("en-IN",{maximumFractionDigits:2})+".");
   const grid=document.createElement("div");grid.className="cd-payment-grid";
   [[ "50% Advance",advance ],[ "50% Before final delivery",balance ]].forEach(([label,value])=>{const cell=document.createElement("div"),small=document.createElement("small"),b=document.createElement("b");small.textContent=label;b.textContent=(o.currency||"INR")+" "+value.toLocaleString("en-IN",{maximumFractionDigits:2});cell.append(small,b);grid.append(cell);});pay.append(grid);
-  const info=document.createElement("p");info.className="cd-help";info.textContent=payment.includes("paid")?"Advance payment status: payment recorded.":"CSA team will share the secure payment option after quotation approval. Please do not pay to a personal account.";pay.append(info);
+  const info=document.createElement("p");info.className="cd-help";info.textContent=payment.includes("paid")?(o.payment_type==="full"?"Full payment status: payment recorded.":"50% advance payment status: payment recorded."):"Payment status is awaiting CSA confirmation.";pay.append(info);
  }else{payText.textContent="CSA team pehle aapki requirement review karke quotation share karegi. Quotation approve hone ke baad 50% advance payment hoga; remaining 50% final delivery se pehle.";pay.append(payText);}
  panel.append(pay);
  if(norm(o.order_status).includes("completed")){
