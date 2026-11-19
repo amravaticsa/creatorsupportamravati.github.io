@@ -70,10 +70,10 @@ async function handle(req,env){
   if(raw.length>65536)return bad("Authorization snapshot is too large.",413,"sync_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
   const seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
-  if(!/^\\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/i.test(sig))return bad("Invalid sync authentication headers.",401,"sync_auth_invalid");
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/i.test(sig))return bad("Invalid sync authentication headers.",401,"sync_auth_invalid");
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
-  const canonical="POST\\n/internal/admin-authorizations/sync\\n"+ts+"\\n"+nonce+"\\n"+bodyHash;
+  const canonical="POST\n/internal/admin-authorizations/sync\n"+ts+"\n"+nonce+"\n"+bodyHash;
   const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
   if(!constantTime(expected,sig))return bad("Sync signature is invalid.",401,"sync_signature_invalid");
   let snapshot;
@@ -82,7 +82,7 @@ async function handle(req,env){
   const seenIds=new Set(),seenEmails=new Set(),records=[];
   for(const item of snapshot){
    const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20);
-   if(!sourceId||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
+   if(!sourceId||!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
    if(seenIds.has(sourceId)||seenEmails.has(email))return bad("Snapshot contains duplicate admin identities.");
    seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status});
   }
