@@ -85,3 +85,5 @@ Never commit secrets or ask users to enter passwords, OTPs, card data or secret 
 - Deployment order is mandatory: apply migration 0011 to the staging D1 database first, then deploy the updated staging API Worker. Deploying the code before the migration would make the admin-auth query fail. Migration 0011 has now been applied and verified on the isolated CSA Global staging D1 database only; the updated Worker code has not been deployed.
 - The secure server-to-server sync endpoint and matching sender in csa-superadmin-api-staging are not implemented yet. No authorization rows have been inserted. Until that bridge exists, no newly invited admin can sign in to the Global portal; this is intentional fail-closed behavior.
 - Staging branch code changes do not auto-deploy the Direct Upload Pages site or Worker. No production resource, database, DNS, payment setting, or Super Admin account was changed by this preparation.
+
+- Identity bridge design and required staging security tests: `global-platform/ADMIN_IDENTITY_BRIDGE.md`.
