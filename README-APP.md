@@ -5,7 +5,7 @@ Cross-platform native shell for the existing Creator Support Amravati Employee P
 ## Architecture
 - Android and iOS app IDs: `in.creatorsupportamravati.employee`
 - App name: CSA Employee
-- Capacitor 7 native container.
+- Capacitor 8 native container (Android API 36 target).
 - Existing Cloudflare Worker + D1 + R2 employee services remain the source of truth.
 - Employee portal: https://admin.creatorsupportamravati.in/employee
 - HTTPS only; no backend credentials are embedded in the app.
