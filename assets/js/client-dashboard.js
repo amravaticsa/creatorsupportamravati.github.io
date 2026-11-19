@@ -9,6 +9,16 @@ let orderCode="",accessToken="";
 async function api(path,options={}){const r=await fetch(API+path,options);let d={};try{d=await r.json();}catch{}if(!r.ok)throw Error(d.error||"Request failed ("+r.status+")");return d;}
 function save(code,token){try{localStorage.setItem("csa_video_last_order",code);localStorage.setItem("csa_video_order_"+code,token);}catch{}}
 function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}}catch{}}
+const publicShareUrl="https://creatorsupportamravati.in/video-editing.html";
+$("shareCsa").addEventListener("click",async()=>{
+ const data={title:"Creator Support Amravati",text:"Professional video editing services by Creator Support Amravati. Check details here:",url:publicShareUrl};
+ try{if(navigator.share){await navigator.share(data);$("shareMessage").textContent="Share options opened.";}else{await navigator.clipboard.writeText(publicShareUrl);$("shareMessage").textContent="Website link copied. Ab aap ise kisi ko bhi share kar sakte hain.";}}
+ catch(e){if(e.name!=="AbortError")$("shareMessage").textContent="Share nahi ho paya. Copy Link button use karein.";}
+});
+$("copyCsaLink").addEventListener("click",async()=>{
+ try{await navigator.clipboard.writeText(publicShareUrl);$("shareMessage").textContent="CSA website link copied successfully.";}
+ catch{$("shareMessage").textContent="Link: "+publicShareUrl;}
+});
 $("clientOrderForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");btn.disabled=true;hide(msg);
  const d=Object.fromEntries(new FormData(e.currentTarget).entries());
@@ -94,6 +104,24 @@ function render(d){
   const info=document.createElement("p");info.className="cd-help";info.textContent=payment.includes("paid")?"Advance payment status: payment recorded.":"CSA team will share the secure payment option after quotation approval. Please do not pay to a personal account.";pay.append(info);
  }else{payText.textContent="CSA team pehle aapki requirement review karke quotation share karegi. Quotation approve hone ke baad 50% advance payment hoga; remaining 50% final delivery se pehle.";pay.append(payText);}
  panel.append(pay);
+ if(norm(o.order_status).includes("completed")){
+  const rate=document.createElement("section");rate.className="cd-upload-zone";
+  const rt=document.createElement("h3");rt.textContent="Rate your CSA experience";rate.append(rt);
+  const desc=document.createElement("p");desc.className="cd-help";desc.textContent="Aapka feedback hamari service ko behtar banane mein madad karta hai.";rate.append(desc);
+  const form=document.createElement("form");form.className="cd-form";
+  const label=document.createElement("label");label.textContent="Your rating (1–5 stars)";
+  const stars=document.createElement("div");stars.style.display="flex";stars.style.gap="8px";stars.setAttribute("role","group");stars.setAttribute("aria-label","Rate CSA from 1 to 5 stars");
+  let selected=Number(d.feedback?.rating||0);
+  const starButtons=[];
+  for(let n=1;n<=5;n++){const b=document.createElement("button");b.type="button";b.textContent="★";b.style.cssText="font-size:30px;border:0;background:transparent;color:"+(n<=selected?"#e5a000":"#b8c2cc")+";cursor:pointer;padding:0 3px";b.setAttribute("aria-label",n+" stars");b.addEventListener("click",()=>{selected=n;starButtons.forEach((x,k)=>x.style.color=k<selected?"#e5a000":"#b8c2cc");});starButtons.push(b);stars.append(b);}
+  label.append(stars);form.append(label);
+  const commentLabel=document.createElement("label");commentLabel.textContent="Your feedback (optional)";
+  const comment=document.createElement("textarea");comment.maxLength=1200;comment.placeholder="Tell us about your experience…";comment.value=d.feedback?.comment||"";commentLabel.append(comment);form.append(commentLabel);
+  const send=document.createElement("button");send.type="submit";send.className="cd-btn";send.textContent=d.feedback?"Update rating":"Submit rating";form.append(send);
+  const feedbackMsg=document.createElement("p");feedbackMsg.className="cd-help";feedbackMsg.setAttribute("aria-live","polite");form.append(feedbackMsg);
+  form.addEventListener("submit",async ev=>{ev.preventDefault();if(!selected){feedbackMsg.textContent="Please select a star rating.";return;}send.disabled=true;try{await api("/api/orders/"+encodeURIComponent(o.order_code)+"/feedback",{method:"POST",headers:{...auth(accessToken),"Content-Type":"application/json"},body:JSON.stringify({rating:selected,comment:comment.value})});feedbackMsg.textContent="Thank you! Your rating has been saved.";send.textContent="Update rating";}catch(err){feedbackMsg.textContent="Rating save nahi hui: "+err.message;}finally{send.disabled=false;}});
+  rate.append(form);panel.append(rate);
+ }
  if(d.history&&d.history.length){const title=document.createElement("h4");title.textContent="Application activity";panel.append(title);const hist=document.createElement("div");hist.className="cd-history";d.history.forEach(item=>{const p=document.createElement("p");p.textContent=(item.created_at||"")+" · "+humanStatus(item.new_status)+(item.note?" — "+item.note:"");hist.append(p);});panel.append(hist);}
  root.append(panel);
  const raw=(d.files||[]).filter(f=>f.file_role==="raw"&&f.upload_state==="complete");
