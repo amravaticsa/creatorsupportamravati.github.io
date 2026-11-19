@@ -71,3 +71,24 @@ Suggested review categories for the owner to approve:
 - Support: read-only account/project lookup and support actions.
 
 Every write route must enforce its own server-side permission; hiding UI controls is not an authorization boundary.
+
+### Confirmed source-of-truth permission model
+
+The staging Super Admin Worker already defines these role permissions:
+- `super_admin`: full administrative permissions.
+- `project_admin`: `projects.manage`, `admins.read`.
+- `editor_admin`: `content.manage`.
+- `finance_admin`: `finance.read`.
+- `support_admin`: `support.manage`.
+
+The Super Admin Worker checks these permissions for its own admin-management endpoints. The Global API does not currently consume this permission list: its `user()` guard checks only that an email has an active authorization row, and the Google login flow creates a Global `admin` identity for every invited source role. Therefore, the source role is synchronized but not yet enforced by Global API routes.
+
+### Global API route families found during staging review
+
+- Project operations: project listing, offer creation/assignment, quality-control review, project overview.
+- Editor operations: verified/pending editor lists and editor verification.
+- Finance operations: eligible-deposit/refund listing and refund action.
+- Administration/content: agreement listing, creation and activation.
+- Shared support visibility: project/file and operational views.
+
+Before implementation, each route must be assigned a permission and every write route must check it server-side. In particular, the current `support_admin` permission name does not establish whether support staff may view financial or editor-sensitive data. No role has been granted new Global permissions as part of this review.
