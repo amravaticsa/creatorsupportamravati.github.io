@@ -1,24 +1,26 @@
 (() => {
 "use strict";
 const API="https://csa-video-api.creatorsupportamravati.workers.dev";
+const PAYMENT_API="https://csa-payment-api.creatorsupportamravati.workers.dev";
 const $=id=>document.getElementById(id);
 const hide=el=>el.classList.add("cd-hide");
 const show=(el,msg)=>{el.textContent=msg;el.classList.remove("cd-hide");};
 const auth=token=>({Authorization:"Bearer "+token});
-let orderCode="",accessToken="";
+let orderCode="",accessToken="",draftCode="",draftToken="",verifiedPayment=null,projectTotal=0,draftFormData=null;
 async function api(path,options={}){const r=await fetch(API+path,options);let d={};try{d=await r.json();}catch{}if(!r.ok)throw Error(d.error||"Request failed ("+r.status+")");return d;}
 function save(code,token){try{localStorage.setItem("csa_video_last_order",code);localStorage.setItem("csa_video_order_"+code,token);}catch{}}
 function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}}catch{}}
 const publicShareUrl="https://creatorsupportamravati.in/video-editing.html";
-const budgetSelect=$("clientBudget"),customBudgetWrap=$("customBudgetWrap"),customBudgetAmount=$("customBudgetAmount");
-function syncCustomBudget(){
- const enabled=budgetSelect.value==="Custom budget";
- customBudgetWrap.classList.toggle("cd-hide",!enabled);
- customBudgetAmount.required=enabled;
- if(!enabled)customBudgetAmount.value="";
+const budgetSelect=$("clientBudget"),budgetAmountInput=$("projectBudgetAmount");
+function currentPaymentType(){return document.querySelector('input[name="paymentType"]:checked')?.value||"advance";}
+function updatePaymentBreakdown(){
+ const amount=Number(budgetAmountInput.value||0),type=currentPaymentType();
+ if(!amount||amount<100){$("paymentBreakdown").textContent="Enter your exact project budget to calculate payment.";return;}
+ const due=type==="advance"?Math.round(amount*50)/100:amount;
+ $("paymentBreakdown").textContent=(type==="advance"?"50% advance payable now: ":"100% full payment payable now: ")+"₹"+due.toLocaleString("en-IN",{maximumFractionDigits:2})+" · Project budget: ₹"+amount.toLocaleString("en-IN");
 }
-budgetSelect.addEventListener("change",syncCustomBudget);
-syncCustomBudget();
+document.querySelectorAll('input[name="paymentType"]').forEach(x=>x.addEventListener("change",updatePaymentBreakdown));
+budgetAmountInput.addEventListener("input",updatePaymentBreakdown);
 $("shareCsa").addEventListener("click",async()=>{
  const data={title:"Creator Support Amravati",text:"Professional video editing services by Creator Support Amravati. Check details here:",url:publicShareUrl};
  try{if(navigator.share){await navigator.share(data);$("shareMessage").textContent="Share options opened.";}else{await navigator.clipboard.writeText(publicShareUrl);$("shareMessage").textContent="Website link copied. Ab aap ise kisi ko bhi share kar sakte hain.";}}
@@ -28,41 +30,81 @@ $("copyCsaLink").addEventListener("click",async()=>{
  try{await navigator.clipboard.writeText(publicShareUrl);$("shareMessage").textContent="CSA website link copied successfully.";}
  catch{$("shareMessage").textContent="Link: "+publicShareUrl;}
 });
-$("clientOrderForm").addEventListener("submit",async e=>{
- e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");btn.disabled=true;hide(msg);
- const d=Object.fromEntries(new FormData(e.currentTarget).entries());
- if(d.clientBudget==="Custom budget"){
-  const amount=Number(d.customBudgetAmount);
-  if(!Number.isFinite(amount)||amount<=0){
-   show(msg,"Please enter a valid custom budget amount.");
-   btn.disabled=false;
-   return;
-  }
-  d.clientBudget="Custom budget: ₹"+amount.toLocaleString("en-IN");
- }
- delete d.customBudgetAmount;
- const tenderDetails=[
-  "CLIENT TENDER / WORK REQUIREMENTS",
-  "Estimated budget: "+(d.clientBudget||"Not specified"),
-  "Budget flexibility: "+(d.budgetFlexibility||"Not specified"),
-  "Number of final videos: "+(d.videoQuantity||"Not specified"),
-  "Approx. final video length: "+(d.finalDuration||"Not specified"),
-  "Work frequency: "+(d.workFrequency||"Not specified"),
-  "Editing level: "+(d.editingLevel||"Not specified"),
-  "Required work / deliverables: "+(d.workScope||"Not specified")
- ].join("\n");
- d.instructions=(d.instructions?d.instructions+"\n\n":"")+tenderDetails;
- if(d.reference)d.instructions+="\nReference link: "+d.reference;
+function buildProjectData(){
+ const d=Object.fromEntries(new FormData($("clientOrderForm")).entries());
+ const amount=Number(d.projectBudgetAmount);
+ if(!Number.isSafeInteger(amount)||amount<100||amount>500000)throw Error("Enter an exact project budget between ₹100 and ₹5,00,000.");
+ projectTotal=amount;
+ const tender=["CLIENT TENDER / WORK REQUIREMENTS","Estimated budget range: "+(d.clientBudget||"Not specified"),"Exact project budget: ₹"+amount.toLocaleString("en-IN"),"Budget flexibility: "+(d.budgetFlexibility||"Not specified"),"Number of final videos: "+(d.videoQuantity||"Not specified"),"Approx. final video length: "+(d.finalDuration||"Not specified"),"Work frequency: "+(d.workFrequency||"Not specified"),"Editing level: "+(d.editingLevel||"Not specified"),"Required work / deliverables: "+(d.workScope||"Not specified")].join("\n");
+ d.instructions=(d.instructions?d.instructions+"\n\n":"")+tender;if(d.reference)d.instructions+="\nReference link: "+d.reference;
+ d.projectBudgetPaise=amount*100;delete d.projectBudgetAmount;delete d.paymentType;return d;
+}
+async function createDraftIfNeeded(){
+ if(draftCode&&draftToken)return;
+ draftFormData=buildProjectData();
+ const result=await api("/api/orders/draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(draftFormData)});
+ draftCode=result.draftCode;draftToken=result.accessToken;
+ Array.from($("clientOrderForm").elements).forEach(el=>{if(el.name!=="paymentType"&&!["rawFiles","uploadBeforePayment","payNowButton","submitRequest"].includes(el.id)&&el.type!=="button"&&el.type!=="submit")el.disabled=true;});
+}
+async function uploadDraftFile(file,progress){
+ const init=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/files",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({filename:file.name,contentType:file.type||"application/octet-stream",size:file.size})});
+ for(let part=1;part<=init.totalParts;part++){const begin=(part-1)*init.partSize,end=Math.min(file.size,begin+init.partSize);await api("/api/uploads/"+init.fileId,{method:"PUT",headers:{...auth(draftToken),"X-Part-Number":String(part),"Content-Type":"application/octet-stream"},body:file.slice(begin,end)});progress(end/file.size);}
+ await api("/api/uploads/"+init.fileId,{method:"POST",headers:auth(draftToken)});
+}
+$("uploadBeforePayment").addEventListener("click",async()=>{
+ const form=$("clientOrderForm"),input=$("rawFiles"),note=$("uploadStatus"),button=$("uploadBeforePayment");
+ if(!form.reportValidity())return;
+ const files=Array.from(input.files||[]);if(!files.length){note.textContent="Please select at least one raw clip before continuing.";return;}
+ button.disabled=true;hide($("requestMessage"));
  try{
-  const result=await api("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
-  orderCode=result.orderCode;accessToken=result.accessToken;save(orderCode,accessToken);
-  show(msg,"Your request has been submitted successfully!\n\nApplication / Order ID: "+orderCode+"\nPrivate access code: "+accessToken+"\n\nKeep these details safe. You can now upload your raw footage below and track your project on this page.");
-  $("uploadArea").classList.remove("cd-hide");$("uploadArea").dataset.order=orderCode;$("uploadArea").dataset.token=accessToken;
+  await createDraftIfNeeded();const total=files.reduce((n,f)=>n+f.size,0);let done=0;
+  for(const file of files){note.textContent="Uploading "+file.name+"…";await uploadDraftFile(file,x=>$("uploadProgress").style.width=((done+file.size*x)/total*100)+"%");done+=file.size;}
+  note.textContent="All selected raw clips uploaded securely. You can now choose your payment option.";input.value="";
+  $("paymentSection").classList.remove("cd-hide");updatePaymentBreakdown();$("paymentSection").scrollIntoView({behavior:"smooth",block:"center"});
+ }catch(err){note.textContent="Upload could not be completed: "+err.message+". Retry to continue.";}
+ finally{button.disabled=false;}
+});
+$("payNowButton").addEventListener("click",async()=>{
+ const button=$("payNowButton"),note=$("paymentMessage");button.disabled=true;note.textContent="";
+ try{
+  if(!draftCode||!draftToken)throw Error("Upload your raw clips first.");
+  const amount=Number(budgetAmountInput.value),type=currentPaymentType();
+  if(!Number.isSafeInteger(amount)||amount<100||amount>500000)throw Error("Enter a valid project budget between ₹100 and ₹5,00,000.");
+  if(typeof window.Razorpay!=="function")throw Error("Razorpay checkout could not load. Refresh and try again.");
+  const data=draftFormData;
+  const created=await fetch(PAYMENT_API+"/api/create-order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({totalAmount:amount,paymentType:type,name:data.name,email:data.email,contact:data.phone,whatsappOptIn:true})});
+  const order=await created.json();if(!created.ok)throw Error(order.error||"Unable to create payment order.");
+  const options={key:order.keyId,amount:order.amount,currency:order.currency,name:order.businessName||"Creator Support Amravati",description:order.description,order_id:order.orderId,prefill:{name:data.name,email:data.email,contact:data.phone},theme:{color:"#123d58"},
+   handler:async response=>{
+    note.textContent="Payment received by checkout. Verifying securely with Razorpay…";
+    try{
+     const vr=await fetch(PAYMENT_API+"/api/verify-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(response)}),verified=await vr.json();
+     if(!vr.ok||!verified.verified||verified.paymentStatus!=="captured")throw Error(verified.error||verified.message||"Payment is not yet captured.");
+     verifiedPayment={orderId:response.razorpay_order_id,paymentId:response.razorpay_payment_id,type};
+     note.textContent="Payment successfully verified. Your Send Editing Request button is now enabled.";$("submitRequest").disabled=false;
+     $("submitRequest").scrollIntoView({behavior:"smooth",block:"center"});
+    }catch(err){verifiedPayment=null;note.textContent="Payment verification pending: "+err.message+" Your application remains unsubmitted. Contact CSA with your payment ID if money was deducted.";}
+   },
+   modal:{ondismiss:()=>{if(!verifiedPayment)note.textContent="Payment window closed. No editing request has been submitted.";}}
+  };
+  const checkout=new window.Razorpay(options);checkout.on("payment.failed",response=>{note.textContent="Payment failed: "+(response.error?.description||"Please try again.");});checkout.open();
+ }catch(err){note.textContent=err.message;}
+ finally{button.disabled=false;}
+});
+$("clientOrderForm").addEventListener("submit",async e=>{
+ e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");hide(msg);
+ if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips and complete verified payment before submitting the application.");return;}
+ btn.disabled=true;
+ try{
+  const result=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/finalize",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({paymentOrderId:verifiedPayment.orderId,paymentId:verifiedPayment.paymentId})});
+  orderCode=result.orderCode;accessToken=draftToken;save(orderCode,accessToken);
+  show(msg,"Your payment has been verified and your editing request has been submitted successfully.\n\nApplication / Order ID: "+orderCode+"\nPrivate access code: "+accessToken+"\n\nKeep these details safe to track your project.");
   $("trackForm").elements.orderCode.value=orderCode;$("trackForm").elements.accessToken.value=accessToken;
   $("track-project").scrollIntoView({behavior:"smooth",block:"start"});
   const current=await api("/api/orders/"+encodeURIComponent(orderCode),{headers:auth(accessToken)});render(current);
- }catch(err){show(msg,"Request submit nahi ho paya: "+err.message+"\nPlease dobara try karein ya CSA se contact karein.");}
- finally{btn.disabled=false;}
+  $("preSubmitUpload").classList.add("cd-hide");$("paymentSection").classList.add("cd-hide");btn.textContent="Request Submitted";btn.disabled=true;
+ }catch(err){show(msg,"Application not submitted: "+err.message);}
+ finally{if(!orderCode)btn.disabled=false;}
 });
 async function uploadFile(file,code,token,progress){
  const init=await api("/api/orders/"+encodeURIComponent(code)+"/files/initiate",{method:"POST",headers:{...auth(token),"Content-Type":"application/json"},body:JSON.stringify({filename:file.name,contentType:file.type||"application/octet-stream",size:file.size})});
@@ -113,11 +155,11 @@ function render(d){
  const amount=Number(o.quoted_amount_paise||0)/100;
  const payment=norm(o.payment_status);
  const pay=document.createElement("div");pay.className="cd-payment";
- const payTitle=document.createElement("strong");payTitle.textContent="Payment plan · 50% advance";pay.append(payTitle);
+ const payTitle=document.createElement("strong");payTitle.textContent="Payment plan · "+(o.payment_type==="full"?"100% full payment":"50% advance");pay.append(payTitle);
  const payText=document.createElement("p");payText.className="cd-help";
  if(amount>0){
   const advance=amount/2,balance=amount-advance;
-  payText.textContent="Quotation: "+(o.currency||"INR")+" "+amount.toLocaleString("en-IN",{maximumFractionDigits:2})+". 50% advance: "+advance.toLocaleString("en-IN",{maximumFractionDigits:2})+". Remaining 50%: "+balance.toLocaleString("en-IN",{maximumFractionDigits:2})+".";
+  payText.textContent="Project budget: "+(o.currency||"INR")+" "+amount.toLocaleString("en-IN",{maximumFractionDigits:2})+". "+(o.payment_type==="full"?"100% full payment received.":"50% advance received: "+advance.toLocaleString("en-IN",{maximumFractionDigits:2})+". Remaining 50% before final delivery: "+balance.toLocaleString("en-IN",{maximumFractionDigits:2})+".");
   const grid=document.createElement("div");grid.className="cd-payment-grid";
   [[ "50% Advance",advance ],[ "50% Before final delivery",balance ]].forEach(([label,value])=>{const cell=document.createElement("div"),small=document.createElement("small"),b=document.createElement("b");small.textContent=label;b.textContent=(o.currency||"INR")+" "+value.toLocaleString("en-IN",{maximumFractionDigits:2});cell.append(small,b);grid.append(cell);});pay.append(grid);
   const info=document.createElement("p");info.className="cd-help";info.textContent=payment.includes("paid")?"Advance payment status: payment recorded.":"CSA team will share the secure payment option after quotation approval. Please do not pay to a personal account.";pay.append(info);
