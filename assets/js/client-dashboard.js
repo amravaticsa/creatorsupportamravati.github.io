@@ -59,7 +59,7 @@ $("uploadBeforePayment").addEventListener("click",async()=>{
  try{
   await createDraftIfNeeded();const total=files.reduce((n,f)=>n+f.size,0);let done=0;
   for(const file of files){note.textContent="Uploading "+file.name+"…";await uploadDraftFile(file,x=>$("uploadProgress").style.width=((done+file.size*x)/total*100)+"%");done+=file.size;}
-  note.textContent="All selected raw clips uploaded securely. You can now choose your payment option.";input.value="";
+  note.textContent="All selected raw clips uploaded securely. You can now choose your payment option.";input.value="";input.required=false;
   $("paymentSection").classList.remove("cd-hide");updatePaymentBreakdown();$("paymentSection").scrollIntoView({behavior:"smooth",block:"center"});
  }catch(err){note.textContent="Upload could not be completed: "+err.message+". Retry to continue.";}
  finally{button.disabled=false;}
@@ -119,7 +119,7 @@ async function uploadSelected(input,code,token,note,bar,button){
  }catch(err){note.textContent="Upload paused: "+err.message+". Internet check karke dobara try karein.";}
  finally{button.disabled=false;}
 }
-$("uploadButton").addEventListener("click",()=>uploadSelected($("rawFiles"),$("uploadArea").dataset.order,$("uploadArea").dataset.token,$("uploadStatus"),$("uploadProgress"),$("uploadButton")));
+
 $("trackForm").addEventListener("submit",async e=>{
  e.preventDefault();const f=new FormData(e.currentTarget);orderCode=String(f.get("orderCode")).trim().toUpperCase();accessToken=String(f.get("accessToken")).trim();const msg=$("trackMessage"),root=$("trackResult");hide(msg);hide(root);
  try{const d=await api("/api/orders/"+encodeURIComponent(orderCode),{headers:auth(accessToken)});save(orderCode,accessToken);render(d);}
