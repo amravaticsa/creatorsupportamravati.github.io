@@ -1,0 +1,25 @@
+name: iOS app validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [csa-employee-mobile-app]
+    paths:
+      - 'package.json'
+      - 'capacitor.config.ts'
+      - 'www/**'
+      - 'scripts/**'
+      - '.github/workflows/ios-build.yml'
+jobs:
+  validate:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+      - run: npx cap add ios
+      - run: npx cap sync ios
+      - name: Verify iOS project
+        run: test -d ios/App/App.xcodeproj
