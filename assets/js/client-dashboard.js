@@ -12,7 +12,18 @@ function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order")
 $("clientOrderForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");btn.disabled=true;hide(msg);
  const d=Object.fromEntries(new FormData(e.currentTarget).entries());
- if(d.reference)d.instructions=(d.instructions?d.instructions+"\n\n":"")+"Reference link: "+d.reference;
+ const tenderDetails=[
+  "CLIENT TENDER / WORK REQUIREMENTS",
+  "Estimated budget: "+(d.clientBudget||"Not specified"),
+  "Budget flexibility: "+(d.budgetFlexibility||"Not specified"),
+  "Number of final videos: "+(d.videoQuantity||"Not specified"),
+  "Approx. final video length: "+(d.finalDuration||"Not specified"),
+  "Work frequency: "+(d.workFrequency||"Not specified"),
+  "Editing level: "+(d.editingLevel||"Not specified"),
+  "Required work / deliverables: "+(d.workScope||"Not specified")
+ ].join("\\n");
+ d.instructions=(d.instructions?d.instructions+"\\n\\n":"")+tenderDetails;
+ if(d.reference)d.instructions+="\\nReference link: "+d.reference;
  try{
   const result=await api("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
   orderCode=result.orderCode;accessToken=result.accessToken;save(orderCode,accessToken);
