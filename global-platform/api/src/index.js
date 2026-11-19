@@ -82,7 +82,7 @@ async function handle(req,env){
   const seenIds=new Set(),seenEmails=new Set(),records=[];
   for(const item of snapshot){
    const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20);
-   if(!sourceId||!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
+   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
    if(seenIds.has(sourceId)||seenEmails.has(email))return bad("Snapshot contains duplicate admin identities.");
    seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status});
   }
