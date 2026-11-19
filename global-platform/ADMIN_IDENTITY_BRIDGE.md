@@ -52,3 +52,11 @@ Status: design specification only. No bridge endpoint or credentials are deploye
 - The deployed Cloudflare Worker `csa-global-api-staging` was separately inspected and still checks `ADMIN_EMAILS` and can insert a Global admin identity from that allowlist.
 - Therefore the source change is not live. The staging API must be updated only after the authenticated sync receiver is implemented and tested, then deployed as a complete Worker version. Until then, the old runtime remains a known staging-only security gap; do not use it for admin onboarding.
 - Super Admin Worker currently has no Service binding in its deployed settings. No binding was added and no Worker was redeployed during this investigation.
+
+
+## Receiver implementation prepared (not deployed)
+- `global-platform/api/src/index.js` now contains a staging-only `POST /internal/admin-authorizations/sync` receiver in GitHub source.
+- The receiver requires `ADMIN_SYNC_HMAC_SECRET`, a 60-second timestamp window, a unique nonce, and an HMAC-SHA256 signature over method, exact path, timestamp, nonce and SHA-256 request-body digest. It rejects oversized/invalid/duplicate snapshots and unknown roles.
+- Snapshot application revokes all previously synchronized authorizations, then upserts the supplied authoritative snapshot in a single D1 batch. Admin API authorization also checks the active registry on each request, so a suspended/revoked admin is blocked even if their Google token remains valid.
+- Migration `0012_admin_sync_nonces.sql` creates the replay-protection nonce store. It has been applied and verified on CSA Global Staging D1 only.
+- The receiver is not deployed. `ADMIN_SYNC_HMAC_SECRET` has not been created or installed. The Super Admin sender/lifecycle hooks are not implemented. No sync records have been inserted. Production remains untouched.
