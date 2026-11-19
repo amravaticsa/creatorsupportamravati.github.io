@@ -27,6 +27,11 @@ async function user(req,env,roles){
  const u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();
  if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");
  if(!roles.includes(u.role))throw Error("Role is not permitted.");
+ // Admin access is checked against the live Super Admin authorization registry on every request.
+ if(u.role==="admin"){
+  const a=await env.DB.prepare("SELECT 1 AS ok FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();
+  if(!a)throw Error("CSA Super Admin authorization is inactive.");
+ }
  return u;
 }
 async function hmacHex(secret,message){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(message)));return [...sig].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -57,6 +62,38 @@ async function handle(req,env){
  if(policy){
   const rl=await rateLimit(env,req,policy.scope,policy.limit,policy.window);
   if(!rl.allowed)return new Response(JSON.stringify({ok:false,error:{code:"rate_limited",message:"Too many requests. Please wait before trying again."}}),{status:429,headers:{...H,"retry-after":String(rl.retryAfter)}});
+ }
+ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
+  // Private server-to-server snapshot from the CSA Super Admin Worker only.
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Admin authorization sync is not configured.",503,"sync_unavailable");
+  const raw=await req.text();
+  if(raw.length>65536)return bad("Authorization snapshot is too large.",413,"sync_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
+  const seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/i.test(sig))return bad("Invalid sync authentication headers.",401,"sync_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
+  const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const canonical="POST\\n/internal/admin-authorizations/sync\\n"+ts+"\\n"+nonce+"\\n"+bodyHash;
+  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  if(!constantTime(expected,sig))return bad("Sync signature is invalid.",401,"sync_signature_invalid");
+  let snapshot;
+  try{snapshot=JSON.parse(raw);}catch{return bad("Invalid JSON snapshot.");}
+  if(!Array.isArray(snapshot)||snapshot.length>100)return bad("Snapshot must be an array of at most 100 admin records.");
+  const seenIds=new Set(),seenEmails=new Set(),records=[];
+  for(const item of snapshot){
+   const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20);
+   if(!sourceId||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
+   if(seenIds.has(sourceId)||seenEmails.has(email))return bad("Snapshot contains duplicate admin identities.");
+   seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status});
+  }
+  try{
+   await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();
+  }catch{return bad("Sync nonce was already used.",409,"sync_replay");}
+  const statements=[env.DB.prepare("UPDATE global_admin_authorizations SET status='revoked',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')")];
+  for(const a of records)statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status) VALUES(?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status));
+  statements.push(env.DB.prepare("DELETE FROM admin_sync_nonces WHERE expires_at<?").bind(nowSeconds));
+  await env.DB.batch(statements);
+  return out({ok:true,synced:records.length,revoked_if_absent:true},200);
  }
  if(m==="GET"&&p==="/health")return out({ok:true,service:"CSA Global API",status:"healthy",google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
  if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
