@@ -65,8 +65,10 @@ async function handle(req,env){
   if(!credential||!nonce||!["client","editor","admin"].includes(role))return bad("Google credential, login nonce and account type are required.");
   const c=await claims(new Request(req.url,{headers:{Authorization:"Bearer "+credential}}),env);
   if(c.nonce!==nonce)return bad("Google login nonce validation failed. Please retry sign-in.",401,"nonce_invalid");
-  const adminAllowlist=(env.ADMIN_EMAILS||"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
-  if(role==="admin"&&!adminAllowlist.includes(String(c.email).toLowerCase()))return bad("This Google account is not authorized for CSA administration.",403,"admin_not_allowed");
+  // A Google email allowlist alone must never create an administrator account.
+  // Only a server-synchronized, active Super Admin invitation grants Global admin access.
+  const adminAuthorization=role==="admin"?await env.DB.prepare("SELECT email,status FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(c.email).first():null;
+  if(role==="admin"&&!adminAuthorization)return bad("This Google account has not been invited by the CSA Super Admin.",403,"admin_invitation_required");
   const old=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=?").bind(c.sub).first();
   if(old){
    if(old.role!==role)return bad("This Google account is already registered under a different account type. Please use the existing account type.",409,"role_conflict");
@@ -76,6 +78,9 @@ async function handle(req,env){
   if(byEmail)return bad("This email already has an account. Contact CSA support to securely link Google sign-in.",409,"email_exists");
   const profile=b.profile||{},name=txt(profile.display_name,120)||txt(c.name,120)||txt(c.email,254).split("@")[0],newId=uid("usr");
   if(role==="admin"){
+   // Re-check immediately before creating the Global admin identity.
+   const stillAuthorized=await env.DB.prepare("SELECT 1 AS ok FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(c.email).first();
+   if(!stillAuthorized)return bad("CSA Super Admin authorization is no longer active.",403,"admin_authorization_revoked");
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status) VALUES(?,?, 'admin',?,?, 'active')").bind(newId,c.sub,c.email,new Date().toISOString()).run();
   }else if(role==="client"){
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
