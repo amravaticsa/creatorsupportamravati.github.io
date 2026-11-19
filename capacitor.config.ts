@@ -5,10 +5,10 @@ const config: CapacitorConfig = {
   appName: 'CSA Employee',
   webDir: 'www',
   server: {
-    url: 'https://admin.creatorsupportamravati.in/employee',
+    url: 'https://employee.creatorsupportamravati.in/employee',
     cleartext: false,
     allowNavigation: [
-      'admin.creatorsupportamravati.in',
+      'employee.creatorsupportamravati.in',
       'creatorsupportamravati.in'
     ]
   },
