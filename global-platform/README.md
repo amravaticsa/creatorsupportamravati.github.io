@@ -64,6 +64,7 @@ Migrations `0001` through `0010` are present in `global-platform/migrations/`. S
 - Run payment/refund tests only with explicit approval and Razorpay Test Mode; no real-money payment or refund has been initiated.
 - Complete legal review and approval of client/editor agreements before activating them.
 - Complete end-to-end tests for resumable/multipart upload, including resume, checksum verification, completion reconciliation and expired-session cleanup.
+- Staging hourly cleanup cron is active: the latest 10 recorded executions completed successfully with zero failures. No multipart upload sessions are currently recorded; this validates the scheduled cleanup runner, not a real expired-upload abort.
 - Complete backup/restore, rate limiting/abuse controls, operational policies and independent security review.
 - Do not deploy to production or enable live payments until all release gates are signed off.
 
