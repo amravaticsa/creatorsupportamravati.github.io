@@ -60,7 +60,7 @@ Migrations `0001` through `0010` are present in `global-platform/migrations/`. S
 
 ## Remaining release gates
 - Confirm the full deployed frontend (not only the homepage) and API are reachable, then complete browser-level tests for Google sign-in, client project submission, file upload/download, editor workflow, QC and refund status.
-- Complete browser-level tests for Google sign-in, client project submission, file upload/download, editor workflow, QC and refund status.
+- Align CSA Global admin provisioning with the approved single-Super-Admin model. Current staging code auto-creates an `admin` account for an allowlisted Google email during `/v1/auth/google`; there is no dedicated Super Admin-controlled admin creation/management API in this Worker. Do not add further admin emails or treat this as the final admin architecture until this gap is resolved and tested.
 - Run payment/refund tests only with explicit approval and Razorpay Test Mode; no real-money payment or refund has been initiated.
 - Complete legal review and approval of client/editor agreements before activating them.
 - Complete end-to-end tests for resumable/multipart upload, including resume, checksum verification, completion reconciliation and expired-session cleanup.
