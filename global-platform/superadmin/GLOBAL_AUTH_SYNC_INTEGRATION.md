@@ -92,3 +92,25 @@ The Super Admin Worker checks these permissions for its own admin-management end
 - Shared support visibility: project/file and operational views.
 
 Before implementation, each route must be assigned a permission and every write route must check it server-side. In particular, the current `support_admin` permission name does not establish whether support staff may view financial or editor-sensitive data. No role has been granted new Global permissions as part of this review.
+
+## Global API role-based access control — staging deployment
+
+Implemented in `global-platform/api/src/index.js` and deployed to `csa-global-api-staging` on 2026-11-19. The Global API now loads `source_role` from the active authorization row on every admin request and applies server-side permissions. Unknown or unmapped admin routes fail closed.
+
+Current route permission mapping:
+- `project_admin` — `projects.manage`: project listing, pending submission review, QC decisions, offer creation/assignment, ready-offer listing, and project source-file access.
+- `editor_admin` — `content.manage`: editor verification queues/actions, agreement management, and submission-file access.
+- `finance_admin` — `finance.read` and `finance.refunds`: eligible refund review and refund initiation. Refund initiation is a distinct write permission; read permission alone cannot trigger a refund.
+- `support_admin` — `support.manage`: multipart upload operations, inspection, and incident history/resolution notes.
+- Overview metrics are available to any one of the four authorized module roles.
+- File downloads are checked after the file record is resolved: project source files require `projects.manage`; editor submission files require `content.manage`.
+
+Deployment verification:
+- Worker deployment succeeded; startup time reported by Cloudflare was 2 ms.
+- Deployed source contains the role permission guard and explicit finance refund permission.
+- Worker environment remains `staging`; the HMAC secret binding remains present.
+- Global authorization rows: 0; sync nonce rows: 0. No admin access was created during this change.
+
+Limitations:
+- This is static/deployment verification only. No authenticated role-by-role HTTP tests have been performed because there are no accepted test invitations/accounts yet.
+- The current four-role map should be reviewed against actual business duties before real admin invitations. Do not enable production access until role-by-role tests pass.
