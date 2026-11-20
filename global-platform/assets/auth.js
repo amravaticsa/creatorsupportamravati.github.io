@@ -4,6 +4,21 @@ const $=id=>document.getElementById(id);
 const role=$("role"),status=$("status"),editor=$("editor-fields"),client=$("client-fields");
 role.addEventListener("change",()=>{const isEditor=role.value==="editor";editor.hidden=!isEditor;client.hidden=isEditor;});
 let nonce="",clientId="";
+// Country-specific government identity document options.
+(function setupCountryKycTypes(){
+ const country=$("editor-country"),type=$("kyc-document-type"),help=$("kyc-id-help");
+ if(!country||!type)return;
+ const india=[["passport","Passport"],["national_id","National ID (if applicable)"],["pan","PAN Card"],["voter_id","Voter ID / EPIC"],["driving_licence","Driving Licence"],["aadhaar","Aadhaar Card (optional)"],["other_government_id","Other Government-issued Photo ID"]];
+ const global=[["passport","Passport"],["national_id","National Identity Card"],["driving_licence","Government Driving Licence"],["residence_permit","Residence Permit / Government Resident Card"],["tax_id","Government Tax Identity Card (if it includes a photo)"],["other_government_id","Other Government-issued Photo ID"]];
+ function update(){
+  const code=country.value,items=code==="IN"?india:global;
+  type.replaceChildren(new Option("Select ID type",""));
+  for(const [value,label] of items)type.add(new Option(label,value));
+  help.textContent=code==="IN"?"India: Passport, National ID (where issued), PAN, Voter ID, Driving Licence, optional Aadhaar or another government photo ID. Aadhaar is not mandatory.":"Your country: Passport, National Identity Card, government Driving Licence, Residence Permit, qualifying government Tax ID or another government-issued photo ID. Availability and naming vary by country.";
+ }
+ country.addEventListener("change",update);update();
+})();
+
 // Populate a complete ISO-style country list using the browser's localized country names.
 (function populateEditorCountries(){
  const select=$("editor-country");if(!select)return;
