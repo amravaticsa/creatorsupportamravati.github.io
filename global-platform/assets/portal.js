@@ -258,6 +258,7 @@ async function loadClientProjects(){
    const info=statusInfo[p.status]||statusInfo.submitted;
    const badge=document.createElement("span");badge.className="tag blue";badge.textContent=info.label;
    const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(p.budget_amount_minor!=null?(Number(p.budget_amount_minor)/100)+" "+p.budget_currency:"Quotation pending")+" · Deadline: "+(p.preferred_deadline||"To be confirmed");
+   const payment=document.createElement("p");payment.className="muted";const payLabels={quotation_pending:"Payment: Awaiting CSA quotation",created:"Payment: Payment link not generated",pending:"Payment: Pending",succeeded:"Payment: Paid",failed:"Payment: Failed",refunded:"Payment: Refunded",partially_refunded:"Payment: Partially refunded",reversed:"Payment: Reversed"};payment.textContent=payLabels[p.payment_status]||("Payment: "+p.payment_status);
    const detail=document.createElement("p");detail.textContent=info.detail;
    const progress=document.createElement("div");progress.className="client-progress";progress.setAttribute("aria-label","Application progress");
    ["Application received","CSA review","Team & planning","Production","Quality & delivery"].forEach((name,index)=>{const item=document.createElement("span");item.className="client-progress-step"+(index+1<=info.step?" is-done":"");item.textContent=name;progress.append(item);});
@@ -281,7 +282,24 @@ async function loadClientProjects(){
    const locked=Boolean(p.application_locked);
    const lockNote=document.createElement("p");lockNote.className="muted";
    lockNote.textContent=locked?"This application has been accepted by CSA and is now locked. You cannot edit or change the submitted application. For any clarification, contact CSA support.":"Your application is awaiting CSA acceptance. The submitted details are shown here for your reference.";
-   c.append(h,badge,meta,detail,progress,section,lockNote);
+   c.append(h,badge,meta,payment,detail,progress,section,lockNote);
+   try{
+    const sourceFiles=await api("/v1/projects/"+p.id+"/files");
+    if(sourceFiles.files?.length){
+     const filesHeading=document.createElement("h4");filesHeading.textContent="Uploaded project files";c.append(filesHeading);
+     for(const file of sourceFiles.files){
+      const row=document.createElement("p");row.className="muted";row.textContent=file.original_filename+" · "+(Number(file.size_bytes||0)/1024/1024).toFixed(1)+" MB ";
+      const dl=document.createElement("button");dl.className="btn outline";dl.textContent="Download";dl.onclick=async()=>{try{const r=await fetch(API+"/v1/files/"+encodeURIComponent(file.id),{headers:{authorization:"Bearer "+token}});if(!r.ok)throw Error("File download failed");const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);}catch(e){alert(e.message);}};row.append(dl);c.append(row);
+     }
+    }
+   }catch{}
+   const uploadWrap=document.createElement("div");uploadWrap.className="panel";
+   const uploadTitle=document.createElement("h4");uploadTitle.textContent="Upload more footage / references";
+   const uploadInput=document.createElement("input");uploadInput.type="file";uploadInput.multiple=true;uploadInput.accept="video/*,audio/*,image/jpeg,image/png,application/pdf,application/zip";
+   const uploadStatus=document.createElement("p");uploadStatus.className="muted";
+   const uploadBtn=document.createElement("button");uploadBtn.className="btn outline";uploadBtn.textContent="Upload selected files";
+   uploadBtn.onclick=async()=>{const chosen=Array.from(uploadInput.files||[]);if(!chosen.length){uploadStatus.textContent="Select files first.";return;}uploadBtn.disabled=true;try{for(const file of chosen){if(file.size>5*1024*1024*1024)throw Error(file.name+" exceeds the 5 GB upload limit.");if(file.size>90*1024*1024){await multipartUpload(file,{purpose:"project_file",project_id:p.id},(sent,total,part,count)=>{uploadStatus.textContent="Uploading "+file.name+" · Part "+part+"/"+count+" · "+Math.round(sent/total*100)+"%";});}else{const r=await fetch(API+"/v1/projects/"+encodeURIComponent(p.id)+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});let d={};try{d=await r.json();}catch{}if(!r.ok)throw Error(d.error?.message||"Upload failed: "+file.name);}uploadStatus.textContent=file.name+" uploaded successfully.";}uploadInput.value="";await loadClientProjects();}catch(e){uploadStatus.textContent=e.message;}finally{uploadBtn.disabled=false;}};
+   uploadWrap.append(uploadTitle,uploadInput,uploadBtn,uploadStatus);c.append(uploadWrap);
    try{
     const dls=await api("/v1/client/projects/"+p.id+"/deliverables");
     for(const file of dls.deliverables){
