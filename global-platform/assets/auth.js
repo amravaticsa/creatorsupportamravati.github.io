@@ -112,9 +112,9 @@ async function onGoogleCredential(response){
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
   const data=await r.json();
   if(!r.ok||!data.ok){status.textContent=data.error?.message||"Sign-in failed. Please retry.";return;}
-  sessionStorage.setItem("csa_global_token",response.credential);
-  sessionStorage.setItem("csa_global_user",JSON.stringify({id:data.user_id,role:data.role,status:data.status,email:data.email}));
   if(isEditor){
+   // Google is registration/KYC identity only for editors; it never creates an Editor Panel session.
+   sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");
    if(data.existing_editor){
     if(["pending","in_review"].includes(data.kyc_status)){status.textContent="Your KYC document is already under CSA review. Please wait for the verification result.";return;}
     if(data.kyc_status==="verified"){status.textContent="Your KYC is already verified. CSA will continue the editor profile and portfolio review."+(data.kyc_review_note?" Previous review note: "+data.kyc_review_note:"");return;}
@@ -124,7 +124,7 @@ async function onGoogleCredential(response){
     const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();
     if(portfolioError||kycError){status.textContent=portfolioError||kycError;return;}
     await uploadKycDocument(response.credential);await uploadPortfolioVideos(response.credential);
-    status.textContent="Registration, KYC document and portfolio samples submitted securely. KYC and editor/video approvals are pending CSA review.";
+    status.textContent="Registration, KYC document and portfolio samples submitted securely. CSA team KYC, profile aur video review karegi. Approval ke baad CSA aapko Editor User ID aur temporary Password degi. Google se Dashboard login nahi hoga.";
    }
   }else{location.href="portal.html";}
  }catch(e){status.textContent="Network error. Please retry.";}
