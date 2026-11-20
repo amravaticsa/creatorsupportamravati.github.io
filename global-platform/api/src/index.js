@@ -124,7 +124,7 @@ async function handle(req,env){
    statements.push(env.DB.prepare("DELETE FROM global_admin_department_access WHERE source_admin_id=?").bind(a.sourceId));
    const departmentIds=a.role==="super_admin"
     ? ["dept-content-video","dept-design-creative","dept-digital-marketing","dept-finance-accounts","dept-hr-admin","dept-operations-events","dept-sales-client","dept-web-tech"]
-    : [({editor_admin:"dept-content-video",project_admin:"dept-operations-events",finance_admin:"dept-finance-accounts",support_admin:"dept-sales-client"})[a.role]].filter(Boolean);
+    : ({editor_admin:["dept-content-video","dept-hr-admin"],project_admin:["dept-operations-events"],finance_admin:["dept-finance-accounts"],support_admin:["dept-sales-client"]})[a.role]||[];
    if(a.status==="active")for(const departmentId of departmentIds)statements.push(env.DB.prepare("INSERT INTO global_admin_department_access(id,source_admin_id,department_id,access_level,granted_by) VALUES(?,?,?,'manage','superadmin_role_sync')").bind(uid("deptaccess"),a.sourceId,departmentId));
   }
   statements.push(env.DB.prepare("DELETE FROM admin_sync_nonces WHERE expires_at<?").bind(nowSeconds));
@@ -863,7 +863,7 @@ async function handle(req,env){
  if(m==="GET"&&p==="/v1/admin/projects"){
   const a=await user(req,env,["admin"]);
   if(!a.source_admin_id)return bad("Department access is not configured for this admin.",403,"department_access_missing");
-  const r=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.category,p.brief,p.requirements_json,p.budget_amount_minor,p.budget_currency,p.budget_type,p.preferred_deadline,p.priority,p.status,p.department_id,d.name AS department_name,p.created_at FROM projects p LEFT JOIN global_departments d ON d.id=p.department_id WHERE p.department_id IN (SELECT department_id FROM global_admin_department_access WHERE source_admin_id=?) AND p.status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY p.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
+  const r=await env.DB.prepare("SELECT DISTINCT p.id,p.public_project_code,p.title,p.category,p.brief,p.requirements_json,p.budget_amount_minor,p.budget_currency,p.budget_type,p.preferred_deadline,p.priority,p.status,p.department_id,d.name AS department_name,dr.route_key AS department_route,dr.status AS department_route_status,p.created_at FROM projects p JOIN project_department_routes dr ON dr.project_id=p.id JOIN global_departments d ON d.id=dr.department_id WHERE dr.department_id IN (SELECT department_id FROM global_admin_department_access WHERE source_admin_id=?) AND p.status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY p.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
   return out({ok:true,projects:r.results||[]});
  }
  const kycPreview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-preview$/);
