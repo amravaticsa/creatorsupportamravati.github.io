@@ -20,7 +20,7 @@ function validatePortfolioVideos(){
 async function uploadPortfolioVideos(credential){
  const entries=[...document.querySelectorAll(".portfolio-video-entry")];
  for(let i=0;i<entries.length;i++){const e=entries[i],f=e.querySelector(".portfolio-video-file").files[0];status.textContent="Uploading portfolio video "+(i+1)+" of "+entries.length+"…";
-  const r=await fetch(API+"/v1/editor/portfolio-videos",{method:"POST",headers:{"authorization":"Bearer "+credential,"content-type":f.type,"x-csa-video-title":e.querySelector(".portfolio-video-title").value.trim(),"x-csa-video-description":e.querySelector(".portfolio-video-description").value.trim(),"x-csa-video-category":e.querySelector(".portfolio-video-category").value,"x-csa-video-rights-confirmed":"true","x-csa-terms-version":PORTFOLIO_TERMS_VERSION},body:f});
+  const r=await fetch(API+"/v1/editor/portfolio-videos",{method:"POST",headers:{"authorization":"Bearer "+credential,"content-type":f.type,"x-csa-video-title":e.querySelector(".portfolio-video-title").value.trim(),"x-csa-video-description":e.querySelector(".portfolio-video-description").value.trim(),"x-csa-video-category":e.querySelector(".portfolio-video-category").value,"x-csa-video-rights-confirmed":"true","x-csa-terms-accepted":"true","x-csa-terms-version":PORTFOLIO_TERMS_VERSION},body:f});
   const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error?.message||"Portfolio video upload failed.");
  }
 }
