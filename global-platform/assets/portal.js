@@ -260,8 +260,34 @@ async function loadClientProjects(){
   }
  }catch(e){root.textContent=e.message;}
 }
+async function loadPortfolioVideoReviews(){
+ const root=$("admin-portfolio-videos");if(!root)return;root.textContent="Loading submitted portfolio videos…";
+ try{
+  const data=await api("/v1/admin/editor-portfolio-videos?status=pending");root.replaceChildren();
+  if(!data.videos.length){root.textContent="No portfolio videos are waiting for review.";return;}
+  for(const item of data.videos){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h3");h.textContent=item.title+" · "+item.category;
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=item.display_name+" · "+item.country+" · "+(item.size_bytes/1024/1024).toFixed(1)+" MB · Terms v"+item.terms_version;
+   const desc=document.createElement("p");desc.textContent=item.description;
+   const consent=document.createElement("p");consent.className="muted";consent.textContent="Rights confirmed · Terms accepted "+new Date(item.terms_accepted_at).toLocaleString();
+   const preview=document.createElement("button");preview.className="btn outline";preview.textContent="Load private preview";
+   const player=document.createElement("video");player.controls=true;player.playsInline=true;player.preload="none";player.style.cssText="width:100%;max-height:360px;border-radius:10px";player.hidden=true;
+   preview.onclick=async()=>{preview.disabled=true;try{const response=await fetch(API+"/v1/admin/editor-portfolio-videos/"+encodeURIComponent(item.id)+"/preview",{headers:{authorization:"Bearer "+token}});if(!response.ok)throw Error("Private preview could not be loaded.");const blob=await response.blob();player.src=URL.createObjectURL(blob);player.hidden=false;preview.textContent="Preview loaded";}catch(err){alert(err.message);preview.disabled=false;}};
+   const note=document.createElement("textarea");note.maxLength=1000;note.placeholder="Optional review note";
+   const actions=document.createElement("div");actions.className="actions";
+   for(const [status,label] of [["approved","Approve for Showcase"],["rejected","Reject Video"]]){
+    const b=document.createElement("button");b.className=status==="approved"?"btn dark":"btn outline";b.textContent=label;
+    b.onclick=async()=>{if(!confirm(label+"?"))return;b.disabled=true;try{await api("/v1/admin/editor-portfolio-videos/"+encodeURIComponent(item.id)+"/review",{method:"POST",body:JSON.stringify({status,note:note.value.trim()})});if(player.src)URL.revokeObjectURL(player.src);await loadPortfolioVideoReviews();}catch(err){alert(err.message);b.disabled=false;}};
+    actions.append(b);
+   }
+   card.append(h,meta,desc,consent,preview,player,note,actions);root.append(card);
+  }
+ }catch(e){root.textContent="Portfolio review queue unavailable: "+e.message;}
+}
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
+ loadPortfolioVideoReviews();
  try{
   const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
    api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready"),api("/v1/admin/submissions/pending"),api("/v1/admin/deposits/refunds/eligible")
