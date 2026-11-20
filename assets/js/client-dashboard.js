@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 const hide=el=>el.classList.add("cd-hide");
 const show=(el,msg)=>{el.textContent=msg;el.classList.remove("cd-hide");};
 const auth=token=>({Authorization:"Bearer "+token});
-let orderCode="",accessToken="",draftCode="",draftToken="",verifiedPayment=null,projectTotal=0,draftFormData=null;
+let orderCode="",accessToken="",draftCode="",draftToken="",verifiedPayment=null,projectTotal=0,draftFormData=null,termsAccepted=false;
 async function api(path,options={}){const r=await fetch(API+path,options);let d={};try{d=await r.json();}catch{}if(!r.ok)throw Error(d.error||"Request failed ("+r.status+")");return d;}
 function save(code,token){try{localStorage.setItem("csa_video_last_order",code);localStorage.setItem("csa_video_order_"+code,token);}catch{}}
 function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}}catch{}}
@@ -44,7 +44,7 @@ async function createDraftIfNeeded(){
  draftFormData=buildProjectData();
  const result=await api("/api/orders/draft",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(draftFormData)});
  draftCode=result.draftCode;draftToken=result.accessToken;
- Array.from($("clientOrderForm").elements).forEach(el=>{if(el.name!=="paymentType"&&!["rawFiles","uploadBeforePayment","payNowButton","submitRequest"].includes(el.id)&&el.type!=="button"&&el.type!=="submit")el.disabled=true;});
+ Array.from($("clientOrderForm").elements).forEach(el=>{if(el.name!=="paymentType"&&!["rawFiles","uploadBeforePayment","payNowButton","submitRequest","acceptVideoTerms"].includes(el.id)&&el.type!=="button"&&el.type!=="submit")el.disabled=true;});
 }
 async function uploadDraftFile(file,progress){
  const init=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/files",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({filename:file.name,contentType:file.type||"application/octet-stream",size:file.size})});
@@ -59,8 +59,8 @@ $("uploadBeforePayment").addEventListener("click",async()=>{
  try{
   await createDraftIfNeeded();const total=files.reduce((n,f)=>n+f.size,0);let done=0;
   for(const file of files){note.textContent="Uploading "+file.name+"…";await uploadDraftFile(file,x=>$("uploadProgress").style.width=((done+file.size*x)/total*100)+"%");done+=file.size;}
-  note.textContent="All selected raw clips uploaded securely. You can now choose your payment option.";input.value="";input.required=false;
-  $("paymentSection").classList.remove("cd-hide");updatePaymentBreakdown();$("paymentSection").scrollIntoView({behavior:"smooth",block:"center"});
+  note.textContent="All selected raw clips uploaded securely. Please review and accept the Terms & Conditions below.";input.value="";input.required=false;
+  $("videoTermsSection").classList.remove("cd-hide");$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});
  }catch(err){note.textContent="Upload could not be completed: "+err.message+". Retry to continue.";}
  finally{button.disabled=false;}
 });
@@ -68,6 +68,7 @@ $("payNowButton").addEventListener("click",async()=>{
  const button=$("payNowButton"),note=$("paymentMessage");button.disabled=true;note.textContent="";
  try{
   if(!draftCode||!draftToken)throw Error("Upload your raw clips first.");
+  if(!termsAccepted)throw Error("Please accept the Terms & Conditions before payment.");
   const amount=Number(budgetAmountInput.value),type=currentPaymentType();
   if(!Number.isSafeInteger(amount)||amount<100||amount>500000)throw Error("Enter a valid project budget between ₹100 and ₹5,00,000.");
   if(typeof window.Razorpay!=="function")throw Error("Razorpay checkout could not load. Refresh and try again.");
@@ -81,7 +82,7 @@ $("payNowButton").addEventListener("click",async()=>{
      const vr=await fetch(PAYMENT_API+"/api/verify-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(response)}),verified=await vr.json();
      if(!vr.ok||!verified.verified||verified.paymentStatus!=="captured")throw Error(verified.error||verified.message||"Payment is not yet captured.");
      verifiedPayment={orderId:response.razorpay_order_id,paymentId:response.razorpay_payment_id,type};
-     note.textContent="Payment successfully verified. Please review and accept the Terms & Conditions before submitting.";$("videoTermsSection").classList.remove("cd-hide");$("submitRequest").disabled=!$("acceptVideoTerms").checked;$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});
+     note.textContent="Payment successfully verified. Your accepted Terms & Conditions will be included with the application.";$("submitRequest").disabled=!termsAccepted;
      $("submitRequest").scrollIntoView({behavior:"smooth",block:"center"});
     }catch(err){verifiedPayment=null;note.textContent="Payment verification pending: "+err.message+" Your application remains unsubmitted. Contact CSA with your payment ID if money was deducted.";}
    },
@@ -93,8 +94,8 @@ $("payNowButton").addEventListener("click",async()=>{
 });
 $("clientOrderForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");hide(msg);
- if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips and complete verified payment before submitting the application.");return;}
- if(!$("acceptVideoTerms").checked){show(msg,"Please read and accept the Terms & Conditions before submitting your application.");$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});return;}
+ if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips, accept the Terms & Conditions and complete verified payment before submitting the application.");return;}
+ if(!termsAccepted){show(msg,"Please accept the Terms & Conditions before submitting your application.");$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});return;}
  btn.disabled=true;
  try{
   const result=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/finalize",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({paymentOrderId:verifiedPayment.orderId,paymentId:verifiedPayment.paymentId,termsAccepted:true,termsVersion:"CSA-VIDEO-EDITING-2026-11-20-v1"})});
@@ -211,6 +212,11 @@ function humanStatus(status){
  if(s.includes("cancel"))return "Cancelled";
  return status||"Status update pending";
 }
-$("acceptVideoTerms").addEventListener("change",()=>{if(verifiedPayment)$("submitRequest").disabled=!$("acceptVideoTerms").checked;});
+$("acceptVideoTerms").addEventListener("change",()=>{$("acceptTermsContinue").disabled=!$("acceptVideoTerms").checked;});
+$("acceptTermsContinue").addEventListener("click",()=>{
+ if(!$("acceptVideoTerms").checked)return;
+ termsAccepted=true;$("acceptVideoTerms").disabled=true;$("acceptTermsContinue").disabled=true;$("acceptTermsContinue").textContent="Terms Accepted ✓";
+ $("paymentSection").classList.remove("cd-hide");updatePaymentBreakdown();$("paymentMessage").textContent="Terms accepted. You can now choose your payment option.";$("paymentSection").scrollIntoView({behavior:"smooth",block:"center"});
+});
 loadSaved();
 })();
