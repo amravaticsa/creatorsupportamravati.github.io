@@ -56,3 +56,18 @@ SELECT 'deptaccess_' || lower(hex(randomblob(12))), source_admin_id,
 FROM global_admin_authorizations
 WHERE status='active'
  AND source_role IN ('editor_admin','project_admin','finance_admin','support_admin');
+
+-- New client applications and editor profiles receive a department automatically.
+CREATE TRIGGER IF NOT EXISTS trg_projects_default_department
+AFTER INSERT ON projects
+WHEN NEW.department_id IS NULL
+BEGIN
+  UPDATE projects SET department_id='dept-content-video' WHERE id=NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_editor_profiles_default_department
+AFTER INSERT ON editor_profiles
+WHEN NEW.department_id IS NULL
+BEGIN
+  UPDATE editor_profiles SET department_id='dept-hr-admin' WHERE user_id=NEW.user_id;
+END;
