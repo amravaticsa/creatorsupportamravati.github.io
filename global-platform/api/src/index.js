@@ -36,7 +36,7 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
- if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials)$/.test(p)))return "content.manage";
+ if((m==="GET"&&(/^\/v1\/admin\/editors\/(verified|pending|kyc\/pending)$/.test(p)||/^\/v1\/admin\/editors\/[\w-]+\/kyc-preview$/.test(p)))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials|kyc-review)$/.test(p)))return "content.manage";
  if(m==="GET"&&(p==="/v1/admin/editor-portfolio-videos"||/^\/v1\/admin\/editor-portfolio-videos\/[\w-]+\/preview$/.test(p)))return "content.manage";
  if(m==="GET"&&p==="/v1/client/editor-portfolio-videos")return null;
  if(m==="GET"&&/^\/v1\/client\/editor-portfolio-videos\/[\w-]+\/stream$/.test(p))return null;
@@ -181,6 +181,26 @@ async function handle(req,env){
   return out({ok:true,status:"pending_verification",message:"Registration is free. No deposit is charged until an editor chooses to accept a project offer."},201);
  }
 
+ if(m==="POST"&&p==="/v1/editor/kyc-document"){
+  if(!env.MEDIA)return bad("Private KYC storage is not configured.",503);
+  const identity=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(identity.sub,identity.email).first();
+  if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status))return bad("An eligible editor registration is required.",403);
+  const docType=txt(req.headers.get("x-csa-kyc-document-type"),40).toLowerCase(),consent=req.headers.get("x-csa-kyc-consent")==="true",mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),declared=Number(req.headers.get("content-length")||0);
+  if(!["passport","national_id","pan","voter_id","driving_licence"].includes(docType)||!consent)return bad("Select an accepted government ID type and confirm the KYC privacy notice.");
+  if(!["application/pdf","image/jpeg","image/png"].includes(mime))return bad("KYC document must be a PDF, JPG or PNG.",415);
+  if(!Number.isSafeInteger(declared)||declared<1||declared>10*1024*1024)return bad("KYC document must be between 1 byte and 10 MB.",413);
+  const pending=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status IN ('pending','in_review')").bind(editor.id).first();
+  if(pending)return bad("A KYC document is already awaiting review. Contact CSA if you need to replace it.",409);
+  const bytes=await req.arrayBuffer();if(bytes.byteLength!==declared)return bad("Uploaded file size does not match Content-Length.");
+  const head=new Uint8Array(bytes.slice(0,12));
+  const valid=mime==="application/pdf"?String.fromCharCode(...head.slice(0,5))==="%PDF-":mime==="image/jpeg"?head[0]===0xff&&head[1]===0xd8&&head[2]===0xff:head.length>=8&&head[0]===0x89&&String.fromCharCode(...head.slice(1,4))==="PNG";
+  if(!valid)return bad("The document file signature does not match its selected type.",415);
+  const id=uid("kyc"),key="private-kyc/"+editor.id+"/"+id+(mime==="application/pdf"?".pdf":mime==="image/png"?".png":".jpg");
+  await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store"}});
+  try{await env.DB.prepare("INSERT INTO editor_kyc_documents(id,editor_id,document_type,r2_object_key,mime_type,size_bytes,status) VALUES(?,?,?,?,?,?,'pending')").bind(id,editor.id,docType,key,mime,bytes.byteLength).run();await log(env,editor.id,"editor_kyc_document_submitted","editor_kyc",id,{document_type:docType,mime_type:mime,size_bytes:bytes.byteLength});}
+  catch(e){await env.MEDIA.delete(key);throw e;}
+  return out({ok:true,status:"pending_review",message:"KYC document submitted securely for CSA review."},201);
+ }
  if(m==="POST"&&p==="/v1/editor/portfolio-videos"){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const c=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(c.sub,c.email).first();
@@ -233,12 +253,12 @@ async function handle(req,env){
 
  if(m==="GET"&&p==="/v1/client/editor-portfolio-videos"){
   const a=await user(req,env,["client"]);
-  const rows=await env.DB.prepare("SELECT id,title,description,category,mime_type FROM editor_portfolio_videos WHERE review_status='approved' AND client_visible=1 ORDER BY reviewed_at DESC,created_at DESC LIMIT 100").all();
+  const rows=await env.DB.prepare("SELECT v.id,v.title,v.description,v.category,v.mime_type FROM editor_portfolio_videos v JOIN editor_profiles e ON e.user_id=v.editor_id JOIN users u ON u.id=v.editor_id WHERE v.review_status='approved' AND v.client_visible=1 AND e.verification_status='verified' AND u.account_status='active' AND EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=v.editor_id AND k.status='verified') ORDER BY v.reviewed_at DESC,v.created_at DESC LIMIT 100").all();
   return out({ok:true,videos:rows.results||[]});
  }
  const clientPortfolioStream=p.match(/^\/v1\/client\/editor-portfolio-videos\/([\w-]+)\/stream$/);
  if(m==="GET"&&clientPortfolioStream){
-  const a=await user(req,env,["client"]),video=await env.DB.prepare("SELECT r2_object_key,mime_type FROM editor_portfolio_videos WHERE id=? AND review_status='approved' AND client_visible=1").bind(clientPortfolioStream[1]).first();
+  const a=await user(req,env,["client"]),video=await env.DB.prepare("SELECT v.r2_object_key,v.mime_type FROM editor_portfolio_videos v JOIN editor_profiles e ON e.user_id=v.editor_id JOIN users u ON u.id=v.editor_id WHERE v.id=? AND v.review_status='approved' AND v.client_visible=1 AND e.verification_status='verified' AND u.account_status='active' AND EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=v.editor_id AND k.status='verified')").bind(clientPortfolioStream[1]).first();
   if(!video)return bad("Showcase video not found.",404);
   const object=await env.MEDIA.get(video.r2_object_key);if(!object)return bad("Showcase video is temporarily unavailable.",404);
   return new Response(object.body,{headers:{"content-type":video.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
@@ -781,14 +801,33 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,status,created_at FROM projects WHERE status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY created_at DESC LIMIT 100").all();
   return out({ok:true,projects:r.results||[]});
  }
+ const kycPreview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-preview$/);
+ if(m==="GET"&&kycPreview){
+  await user(req,env,["admin"]);const doc=await env.DB.prepare("SELECT r2_object_key,mime_type FROM editor_kyc_documents WHERE editor_id=? ORDER BY created_at DESC LIMIT 1").bind(kycPreview[1]).first();
+  if(!doc)return bad("KYC document not found.",404);const object=await env.MEDIA.get(doc.r2_object_key);if(!object)return bad("KYC document is missing from private storage.",404);
+  return new Response(object.body,{headers:{"content-type":doc.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'; sandbox"}});
+ }
+ if(m==="GET"&&p==="/v1/admin/editors/kyc/pending"){
+  await user(req,env,["admin"]);const r=await env.DB.prepare("SELECT d.id,d.editor_id,d.document_type,d.mime_type,d.size_bytes,d.status,d.created_at,u.email,e.display_name,e.public_editor_code,e.country,e.city FROM editor_kyc_documents d JOIN users u ON u.id=d.editor_id JOIN editor_profiles e ON e.user_id=d.editor_id WHERE d.status IN ('pending','in_review') ORDER BY d.created_at ASC LIMIT 100").all();
+  return out({ok:true,documents:r.results||[]});
+ }
+ const kycReview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-review$/);
+ if(m==="POST"&&kycReview){
+  const a=await user(req,env,["admin"]),b=await req.json(),status=txt(b.status,20),note=txt(b.note,1000);
+  if(!["verified","rejected"].includes(status))return bad("KYC status must be verified or rejected.");if(status==="rejected"&&!note)return bad("A rejection reason is required.");
+  const doc=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status IN ('pending','in_review') ORDER BY created_at DESC LIMIT 1").bind(kycReview[1]).first();
+  if(!doc)return bad("No pending KYC document was found.",404);
+  await env.DB.prepare("UPDATE editor_kyc_documents SET status=?,reviewed_by=?,reviewed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),review_note=? WHERE id=?").bind(status,a.id,note||null,doc.id).run();
+  await log(env,a.id,"editor_kyc_reviewed","editor_kyc",doc.id,{editor_id:kycReview[1],status,note});return out({ok:true,status});
+ }
  if(m==="GET"&&p==="/v1/admin/editors/verified"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT u.id,u.account_status,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
+  const r=await env.DB.prepare("SELECT u.id,u.account_status,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND u.account_status='active' AND e.verification_status='verified' AND EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=u.id AND k.status='verified') ORDER BY e.display_name LIMIT 300").all();
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/editors/pending"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.country,e.city,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
+  const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.country,e.city,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at,COALESCE((SELECT k.status FROM editor_kyc_documents k WHERE k.editor_id=u.id ORDER BY k.created_at DESC LIMIT 1),'not_submitted') AS kyc_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/offers/ready"){
@@ -803,7 +842,7 @@ async function handle(req,env){
  }
  const ev=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/verify$/);
  if(m==="POST"&&ev){
-  const a=await user(req,env,["admin"]),b=await req.json();if(!["verified","rejected","in_review"].includes(b.status))return bad("Invalid verification status.");
+  const a=await user(req,env,["admin"]),b=await req.json();if(!["verified","rejected","in_review"].includes(b.status))return bad("Invalid verification status.");if(b.status==="verified"){const k=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status='verified' ORDER BY reviewed_at DESC LIMIT 1").bind(ev[1]).first();if(!k)return bad("Editor KYC must be verified before profile approval.",409,"kyc_required");}
   await env.DB.prepare("UPDATE editor_profiles SET verification_status=? WHERE user_id=?").bind(b.status,ev[1]).run();
   if(b.status==="verified")await env.DB.prepare("UPDATE users SET account_status='pending' WHERE id=? AND role='editor'").bind(ev[1]).run();
   if(b.status==="rejected")await env.DB.prepare("UPDATE users SET account_status='suspended' WHERE id=? AND role='editor'").bind(ev[1]).run();
