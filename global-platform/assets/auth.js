@@ -27,7 +27,7 @@ function validateKycDocument(){
 }
 async function uploadKycDocument(credential){
  const file=$("kyc-document-file").files[0];status.textContent="Uploading your identity document securely for KYC review…";
- const r=await fetch(API+"/v1/editor/kyc-document",{method:"POST",headers:{"authorization":"Bearer "+credential,"content-type":file.type,"x-csa-kyc-document-type":$("kyc-document-type").value,"x-csa-kyc-consent":"true"},body:file});
+ const r=await fetch(API+"/v1/editor/kyc-document",{method:"POST",headers:{"authorization":"Bearer "+credential,"content-type":file.type,"x-csa-kyc-document-type":$("kyc-document-type").value,"x-csa-kyc-consent":"true","x-csa-kyc-consent-version":"1.0"},body:file});
  const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error?.message||"KYC document upload failed.");
  return d;
 }
