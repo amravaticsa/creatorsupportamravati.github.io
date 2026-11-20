@@ -17,6 +17,20 @@ function validatePortfolioVideos(){
  for(const e of entries){const f=e.querySelector(".portfolio-video-file").files[0];if(!f)return "Please select every portfolio video.";if(!["video/mp4","video/quicktime"].includes(f.type))return "Only MP4 and MOV videos are accepted.";if(f.size>80*1024*1024)return "Each portfolio video must be 80 MB or smaller.";if(!e.querySelector(".portfolio-video-title").value.trim()||!e.querySelector(".portfolio-video-description").value.trim()||!e.querySelector(".portfolio-video-category").value)return "Complete the title, description and category for every video.";if(!e.querySelector(".portfolio-video-rights").checked)return "Confirm the ownership or permissions for every video.";}
  if(!$("portfolio-terms-accepted").checked)return "Please accept the Portfolio Video Terms & Conditions.";return "";
 }
+function validateKycDocument(){
+ const file=$("kyc-document-file")?.files?.[0],type=$("kyc-document-type")?.value;
+ if(!type||!file)return "Select your government ID type and upload one KYC document.";
+ if(!["application/pdf","image/jpeg","image/png"].includes(file.type))return "KYC document must be PDF, JPG or PNG.";
+ if(file.size<1||file.size>10*1024*1024)return "KYC document must be 10 MB or smaller.";
+ if(!$("kyc-privacy-consent")?.checked)return "Please accept the KYC privacy notice.";
+ return "";
+}
+async function uploadKycDocument(credential){
+ const file=$("kyc-document-file").files[0];status.textContent="Uploading your identity document securely for KYC review…";
+ const r=await fetch(API+"/v1/editor/kyc-document",{method:"POST",headers:{"authorization":"Bearer "+credential,"content-type":file.type,"x-csa-kyc-document-type":$("kyc-document-type").value,"x-csa-kyc-consent":"true"},body:file});
+ const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error?.message||"KYC document upload failed.");
+ return d;
+}
 async function uploadPortfolioVideos(credential){
  const entries=[...document.querySelectorAll(".portfolio-video-entry")];
  for(let i=0;i<entries.length;i++){const e=entries[i],f=e.querySelector(".portfolio-video-file").files[0];status.textContent="Uploading portfolio video "+(i+1)+" of "+entries.length+"…";
@@ -67,14 +81,14 @@ async function onGoogleCredential(response){
   specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),
   bio:$("bio").value.trim(),availability:"project-based"
  }:role.value==="admin"?{}:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
- if(isEditor){const portfolioError=validatePortfolioVideos();if(!profile.country||!profile.specializations.length||portfolioError){status.textContent=portfolioError||"Country and Specializations are required.";return;}}
+ if(isEditor){const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();if(!profile.country||!profile.specializations.length||portfolioError||kycError){status.textContent=portfolioError||kycError||"Country and Specializations are required.";return;}}
  try{
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
   const data=await r.json();
   if(!r.ok||!data.ok){status.textContent=data.error?.message||"Sign-in failed. Please retry.";return;}
   sessionStorage.setItem("csa_global_token",response.credential);
   sessionStorage.setItem("csa_global_user",JSON.stringify({id:data.user_id,role:data.role,status:data.status,email:data.email}));
-  if(isEditor){await uploadPortfolioVideos(response.credential);status.textContent="Registration and portfolio uploads submitted successfully. Your videos are pending CSA review.";}else{location.href="portal.html";}
+  if(isEditor){await uploadKycDocument(response.credential);await uploadPortfolioVideos(response.credential);status.textContent="Registration, KYC document and portfolio samples submitted securely. KYC and editor/video approvals are pending CSA review.";}else{location.href="portal.html";}
  }catch(e){status.textContent="Network error. Please retry.";}
 }
 $("editor-login-form")?.addEventListener("submit",e=>{e.preventDefault();editorPasswordLogin();});
