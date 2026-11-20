@@ -66,7 +66,7 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
 
 if(user.role==="client"){
  $("client-panel").hidden=false;
- loadClientProjects();loadUploadHistory("client-upload-history");
+ loadClientProjects();loadUploadHistory("client-upload-history");loadClientPortfolioShowcase();
   $("project-form").onsubmit=async e=>{
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
    const submit=form.querySelector('button[type="submit"]');if(!form.reportValidity())return;
@@ -216,6 +216,23 @@ async function loadUploadHistory(targetId){
    root.append(card);
   }
  }catch(e){root.textContent=e.message;}
+}
+async function loadClientPortfolioShowcase(){
+ const root=$("client-portfolio-showcase");if(!root)return;root.textContent="Loading approved editing samples…";
+ try{
+  const data=await api("/v1/client/editor-portfolio-videos");root.replaceChildren();
+  if(!data.videos.length){root.textContent="No approved portfolio videos are available yet.";return;}
+  for(const item of data.videos){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h3");title.textContent=item.title;
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=item.category;
+   const desc=document.createElement("p");desc.textContent=item.description;
+   const video=document.createElement("video");video.controls=true;video.playsInline=true;video.preload="none";video.style.cssText="width:100%;max-height:340px;border-radius:10px;background:#111";
+   const load=document.createElement("button");load.className="btn outline";load.textContent="Load sample video";
+   load.onclick=async()=>{load.disabled=true;try{const response=await fetch(API+"/v1/client/editor-portfolio-videos/"+encodeURIComponent(item.id)+"/stream",{headers:{authorization:"Bearer "+token}});if(!response.ok)throw Error("Video preview is unavailable.");video.src=URL.createObjectURL(await response.blob());load.hidden=true;}catch(e){alert(e.message);load.disabled=false;}};
+   card.append(title,meta,desc,load,video);root.append(card);
+  }
+ }catch(e){root.textContent="Showcase could not be loaded: "+e.message;}
 }
 async function loadClientProjects(){
  const root=$("client-projects");if(!root)return;root.textContent="Loading your projects with CSA…";
