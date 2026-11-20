@@ -31,3 +31,11 @@ The staging Payment Worker has no Razorpay secrets copied from Production. Its h
 
 ## Current boundary
 The two Workers are deployed separately in Cloudflare Staging with only isolated D1 bindings. They are not connected to the live order form, live video API, live payment API, or production admin page. Front-end selection/popup/receipt and Super Admin screen still need staging integration and end-to-end testing before a production release.
+
+
+## Super Admin approval portal
+- A separate staging-only Worker, `csa-rush-admin-staging`, serves the approval page at `https://superadmin.creatorsupportamravati.in/rush-approvals`.
+- The Worker is routed only for `/rush-approvals*` and `/rush-api/*`; the existing Super Admin Worker and its secrets were not modified.
+- Approval API requests are same-origin and validate the existing `csa_admin_session` against the staging Super Admin D1 database. The session cookie is not sent to a workers.dev cross-origin host.
+- Customer staging preview: `https://csa-global-staging.pages.dev/video-editing-rush-staging.html`.
+- Payment is intentionally disabled until separate Razorpay Test Mode credentials are configured. This preview currently tests quote creation and same-day approval only; it does not upload media or submit a production order.
