@@ -76,6 +76,7 @@ async function handle(req,env){
  // IP-based abuse controls for unauthenticated entry points and expensive upload routes.
  let policy=null;
  if(m==="POST"&&p==="/v1/auth/editor-password")policy={scope:"editor-password-login",limit:8,window:300};
+ else if(m==="POST"&&p==="/v1/client/legacy-video-orders/claim")policy={scope:"legacy-order-claim",limit:5,window:300};
  if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
  else if(m==="POST"&&p==="/v1/editor/portfolio-videos")policy={scope:"editor-portfolio-upload",limit:6,window:300};
  else if(m==="POST"&&p==="/v1/editor/kyc-document")policy={scope:"editor-kyc-upload",limit:4,window:300};
@@ -264,9 +265,46 @@ async function handle(req,env){
   const object=await env.MEDIA.get(video.r2_object_key);if(!object)return bad("Showcase video is temporarily unavailable.",404);
   return new Response(object.body,{headers:{"content-type":video.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
  }
+ if(m==="POST"&&p==="/v1/client/legacy-video-orders/claim"){
+  const a=await user(req,env,["client"]);
+  if(!env.LEGACY_VIDEO_DB)return bad("Legacy order claim is not configured in this environment.",503);
+  const b=await req.json(),code=txt(b.order_code,40).toUpperCase(),accessToken=txt(b.access_token,160);
+  if(!/^CSA-VE-[A-F0-9]{8}$/.test(code)||accessToken.length<32||accessToken.length>128)return bad("Enter the original Video Editing Order ID and its access token.");
+  const legacy=await env.LEGACY_VIDEO_DB.prepare("SELECT id,order_code,customer_name,customer_email,customer_phone,country,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,project_budget_paise,currency,payment_status,order_status,customer_access_hash,created_at,updated_at,is_draft FROM video_editing_orders WHERE order_code=?").bind(code).first();
+  const digestBytes=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(accessToken)));
+  const suppliedHash=[...digestBytes].map(x=>x.toString(16).padStart(2,"0")).join("");
+  if(!legacy||!legacy.customer_access_hash||!constantTime(suppliedHash,legacy.customer_access_hash))return bad("Order ID or access token is invalid. Check the original details and try again.",401,"legacy_claim_invalid");
+  const existing=await env.DB.prepare("SELECT project_id,client_id FROM legacy_video_order_claims WHERE legacy_order_id=? OR legacy_order_code=?").bind(legacy.id,code).first();
+  if(existing){
+   if(existing.client_id!==a.id)return bad("This legacy order has already been linked to another CSA Global account. Contact CSA Support for ownership review.",409,"legacy_order_already_claimed");
+   const project=await env.DB.prepare("SELECT public_project_code FROM projects WHERE id=?").bind(existing.project_id).first();
+   return out({ok:true,already_claimed:true,project_id:existing.project_id,project_code:project?.public_project_code||code});
+  }
+  const amount=Number(legacy.quoted_amount_paise||legacy.project_budget_paise||0),currency=txt(legacy.currency,3).toUpperCase()||"INR";
+  const rawStatus=txt(legacy.order_status,100),payStatus=txt(legacy.payment_status,60)||"quote_pending";
+  const status=/draft|awaiting.payment/i.test(rawStatus)?"quotation_pending":/completed|delivered/i.test(rawStatus)?"completed":/progress|editing/i.test(rawStatus)?"in_progress":/cancel/i.test(rawStatus)?"cancelled":"submitted";
+  const title=(txt(legacy.service_package,100)||"Video Editing")+" — "+(txt(legacy.project_type,100)||"Legacy order");
+  const requirements={communication_language:"Not provided",source_language:"Not provided",output_language:"Not provided",subtitle_languages:"",client_country:txt(legacy.country,100)||"Not provided",client_region:"",client_city:"Not provided",project_mode:"remote",project_location:"",client_timezone:"Asia/Kolkata",contact_name:txt(legacy.customer_name,100),contact_phone:txt(legacy.customer_phone,30),content_style:txt(legacy.project_type,100)||"Not provided",dialect:"",service_package:txt(legacy.service_package,100),project_type:txt(legacy.project_type,120),raw_footage_duration:txt(legacy.video_duration,80),legacy_order_code:code};
+  const projectId=uid("prj"),files=await env.LEGACY_VIDEO_DB.prepare("SELECT id,object_key,original_filename,content_type,file_size_bytes,file_role,created_at FROM video_editing_files WHERE order_id=? AND upload_state='complete' ORDER BY created_at").bind(legacy.id).all();
+  const history=await env.LEGACY_VIDEO_DB.prepare("SELECT id,old_status,new_status,note,changed_by,created_at FROM video_editing_status_history WHERE order_id=? ORDER BY created_at").bind(legacy.id).all();
+  const statements=[
+   env.DB.prepare("INSERT INTO projects(id,public_project_code,client_id,title,category,brief,raw_footage_minutes,aspect_ratio,requirements_json,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,revisions_included,status,client_visible_status,legacy_payment_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?, 'normal',2,?,?,?,?,?)").bind(projectId,code,a.id,title,"Video Editing",txt(legacy.instructions,12000)||"Imported legacy Video Editing request.",null,txt(legacy.aspect_ratio,20)||null,JSON.stringify(requirements),amount>0?amount:null,currency,amount>0?"fixed":"recommend",txt(legacy.deadline,40)||null,status,status,payStatus,legacy.created_at||new Date().toISOString(),legacy.updated_at||new Date().toISOString()),
+   env.DB.prepare("INSERT INTO legacy_video_order_claims(legacy_order_id,legacy_order_code,project_id,client_id) VALUES(?,?,?,?)").bind(legacy.id,code,projectId,a.id),
+   env.DB.prepare("INSERT INTO project_status_history(id,project_id,old_status,new_status,note,changed_by,source_system,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(uid("hist"),projectId,null,status,"Legacy order claimed into CSA Global. Original status: "+rawStatus,"client","legacy_video",legacy.created_at||new Date().toISOString())
+  ];
+  for(const f of files.results||[])statements.push(env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope,created_at) VALUES(?,?,?,?,?,?,?,'client_and_admin',?)").bind(f.id,projectId,a.id,"legacyvideo/"+f.object_key,f.original_filename,f.content_type||"application/octet-stream",Number(f.file_size_bytes||0),f.created_at||legacy.created_at||new Date().toISOString()));
+  for(const h of history.results||[])statements.push(env.DB.prepare("INSERT INTO project_status_history(id,project_id,old_status,new_status,note,changed_by,source_system,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(uid("hist"),projectId,h.old_status,h.new_status,h.note||"",txt(h.changed_by,40)||"legacy_system","legacy_video",h.created_at||legacy.created_at||new Date().toISOString()));
+  try{await env.DB.batch(statements);}catch(e){
+   const race=await env.DB.prepare("SELECT project_id,client_id FROM legacy_video_order_claims WHERE legacy_order_id=? OR legacy_order_code=?").bind(legacy.id,code).first();
+   if(race?.client_id===a.id){const project=await env.DB.prepare("SELECT public_project_code FROM projects WHERE id=?").bind(race.project_id).first();return out({ok:true,already_claimed:true,project_id:race.project_id,project_code:project?.public_project_code||code});}
+   throw e;
+  }
+  await log(env,a.id,"legacy_video_order_claimed","project",projectId,{legacy_order_code:code,legacy_files_imported:(files.results||[]).length});
+  return out({ok:true,project_id:projectId,project_code:code,files_imported:(files.results||[]).length,status},201);
+ }
  if(m==="GET"&&p==="/v1/client/projects"){
   const a=await user(req,env,["client"]);
-  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,json(requirements_json) AS requirements,video_count,raw_footage_minutes,final_duration_minutes,resolution,aspect_ratio,budget_type,budget_amount_minor,budget_currency,COALESCE((SELECT pay.status FROM payments pay WHERE pay.project_id=projects.id AND pay.payment_type IN ('client_advance','client_balance') ORDER BY pay.created_at DESC LIMIT 1),'quotation_pending') AS payment_status,priority,revisions_included,CASE WHEN client_visible_status='reviewing' THEN 'client_review' WHEN client_visible_status='in_progress' THEN 'in_progress' WHEN status IN ('submitted','under_review') THEN status WHEN status IN ('approved','matching','assigned','in_progress','revision') THEN CASE WHEN status IN ('approved','matching') THEN status ELSE 'in_progress' END WHEN status='quality_check' THEN 'quality_review' WHEN status IN ('client_review','completed') THEN status WHEN status IN ('cancelled','rejected') THEN 'closed' ELSE 'submitted' END AS status,CASE WHEN status IN ('approved','matching','assigned','in_progress','quality_check','client_review','revision','completed') THEN 1 ELSE 0 END AS application_locked,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,json(requirements_json) AS requirements,video_count,raw_footage_minutes,final_duration_minutes,resolution,aspect_ratio,budget_type,budget_amount_minor,budget_currency,COALESCE((SELECT pay.status FROM payments pay WHERE pay.project_id=projects.id AND pay.payment_type IN ('client_advance','client_balance') ORDER BY pay.created_at DESC LIMIT 1),projects.legacy_payment_status,'quotation_pending') AS payment_status,priority,revisions_included,CASE WHEN client_visible_status='reviewing' THEN 'client_review' WHEN client_visible_status='in_progress' THEN 'in_progress' WHEN status IN ('submitted','under_review') THEN status WHEN status IN ('approved','matching','assigned','in_progress','revision') THEN CASE WHEN status IN ('approved','matching') THEN status ELSE 'in_progress' END WHEN status='quality_check' THEN 'quality_review' WHEN status IN ('client_review','completed') THEN status WHEN status IN ('cancelled','rejected') THEN 'closed' ELSE 'submitted' END AS status,CASE WHEN status IN ('approved','matching','assigned','in_progress','quality_check','client_review','revision','completed') THEN 1 ELSE 0 END AS application_locked,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
   const projects=(r.results||[]).map(p=>{let requirements={};try{requirements=JSON.parse(p.requirements_json||"{}");}catch{}return {...p,requirements};});
   return out({ok:true,projects});
  }
@@ -608,7 +646,7 @@ async function handle(req,env){
  }
  const fileMatch=p.match(/^\/v1\/files\/([\w-]+)$/);
  if(m==="GET"&&fileMatch){
-  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  if(!env.MEDIA&&!env.LEGACY_VIDEO_BUCKET)return bad("Private media storage is not configured.",503);
   const a=await user(req,env,["client","editor","admin","staff"]);
   let file=await env.DB.prepare("SELECT f.id,f.project_id,f.uploaded_by,f.r2_object_key,f.original_filename,f.mime_type,f.size_bytes,f.access_scope,p.client_id,'source' AS kind FROM project_files f JOIN projects p ON p.id=f.project_id WHERE f.id=?").bind(fileMatch[1]).first();
   if(!file)file=await env.DB.prepare("SELECT s.id,a.project_id,s.submitted_by AS uploaded_by,s.r2_object_key,s.original_filename,s.mime_type,s.size_bytes,'admin_only' AS access_scope,p.client_id,'submission' AS kind,s.qc_status,a.editor_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id WHERE s.id=?").bind(fileMatch[1]).first();
@@ -618,7 +656,8 @@ async function handle(req,env){
   if(a.role==="editor"&&!allowed){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(file.project_id,a.id).first();allowed=!!assignment&&file.access_scope==="assigned_editor";}
   if(a.role==="client"&&file.kind==="submission")allowed=allowed&&file.qc_status==="approved";
   if(!allowed)return bad("You do not have permission to access this file.",403);
-  const object=await env.MEDIA.get(file.r2_object_key);if(!object)return bad("Stored object is missing.",404);
+  const legacyObject=file.r2_object_key.startsWith("legacyvideo/");
+  const object=legacyObject?await env.LEGACY_VIDEO_BUCKET?.get(file.r2_object_key.slice("legacyvideo/".length)):await env.MEDIA?.get(file.r2_object_key);if(!object)return bad("Stored object is missing.",404);
   return new Response(object.body,{status:200,headers:{"content-type":file.mime_type||"application/octet-stream","content-length":String(file.size_bytes||object.size||0),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(file.original_filename||"download"),"x-content-type-options":"nosniff","cache-control":"private, no-store"}});
  }
  if(m==="POST"&&p==="/v1/projects"){
