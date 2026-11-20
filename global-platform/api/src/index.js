@@ -724,7 +724,7 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/v1/admin/editors/verified"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND u.account_status='active' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
+  const r=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/editors/pending"){
