@@ -65,6 +65,8 @@ jobs:
           grep -q "trg_projects_default_department" global-platform/migrations/0021_department_routing_bridge.sql
           grep -q "dept-content-video" global-platform/migrations/0021_department_routing_bridge.sql
           grep -q "global_admin_department_access" global-platform/api/src/index.js
+          grep -Fq 'super_admin:["projects.manage"' global-platform/api/src/index.js
+          grep -Fq "FROM admin_accounts ORDER BY id" global-platform/superadmin/global-admin-sync.js
           grep -q "department_access_missing" global-platform/api/src/index.js
           grep -q "/v1/client/legacy-video-orders/claim" global-platform/api/src/index.js
           grep -q "/internal/admin-authorizations/sync" global-platform/api/src/index.js
