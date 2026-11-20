@@ -48,7 +48,7 @@ function globalAdminCan(u,permission){
 async function user(req,env,roles){
  const bearer=(req.headers.get("Authorization")||"").replace(/^Bearer\\s+/i,"");let u=null;
  try{const c=await claims(req,env);u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();}
- catch(identityError){if(!bearer)throw identityError;const th=await hmacHex("csa-editor-session-v1",bearer),x=await env.DB.prepare("SELECT u.id,u.role,u.account_status,u.email,e.verification_status FROM editor_sessions s JOIN users u ON u.id=s.user_id JOIN editor_profiles e ON e.user_id=u.id WHERE s.token_hash=? AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(th).first();if(!x)throw identityError;if(x.role!=="editor"||x.account_status!=="active"||x.verification_status!=="verified")throw Error("Editor account is inactive.");u=x;}
+ catch(identityError){if(!bearer)throw identityError;const th=await hmacHex("csa-editor-session-v1",bearer),x=await env.DB.prepare("SELECT u.id,u.role,u.account_status,u.email,e.verification_status,c.must_change_password FROM editor_sessions s JOIN users u ON u.id=s.user_id JOIN editor_profiles e ON e.user_id=u.id JOIN editor_credentials c ON c.user_id=u.id WHERE s.token_hash=? AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(th).first();if(!x)throw identityError;if(x.role!=="editor"||x.account_status!=="active"||x.verification_status!=="verified")throw Error("Editor account is inactive.");if(x.must_change_password&&new URL(req.url).pathname!=="/v1/editor/password/change")throw Error("Change your temporary password before accessing the Editor Panel.");u=x;}
  if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");if(!roles.includes(u.role))throw Error("Role is not permitted.");
  if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role};}return u;
 }
@@ -143,6 +143,7 @@ async function handle(req,env){
   const old=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=?").bind(c.sub).first();
   if(old){
    if(old.role!==role)return bad("This Google account is already registered under a different account type. Please use the existing account type.",409,"role_conflict");
+   if(role==="editor")return bad("CSA Editors must sign in with their CSA-issued User ID and password. Use Google only for a new editor application.",403,"editor_password_login_required");
    return out({ok:true,user_id:old.id,role:old.role,status:old.account_status,email:old.email});
   }
   const byEmail=await env.DB.prepare("SELECT id,role,auth_subject FROM users WHERE email=? COLLATE NOCASE").bind(c.email).first();
