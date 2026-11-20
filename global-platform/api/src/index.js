@@ -809,7 +809,7 @@ async function handle(req,env){
   return new Response(object.body,{headers:{"content-type":doc.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'; sandbox"}});
  }
  if(m==="GET"&&p==="/v1/admin/editors/kyc/pending"){
-  await user(req,env,["admin"]);const r=await env.DB.prepare("SELECT d.id,d.editor_id,d.document_type,d.mime_type,d.size_bytes,d.status,d.created_at,u.email,e.display_name,e.legal_name,e.public_editor_code,e.country,e.city FROM editor_kyc_documents d JOIN users u ON u.id=d.editor_id JOIN editor_profiles e ON e.user_id=d.editor_id WHERE d.status IN ('pending','in_review') ORDER BY d.created_at ASC LIMIT 100").all();
+  await user(req,env,["admin"]);const r=await env.DB.prepare("SELECT d.id,d.editor_id,d.document_type,d.mime_type,d.size_bytes,d.status,d.consent_version,d.consented_at,d.created_at,u.email,e.display_name,e.legal_name,e.public_editor_code,e.country,e.city FROM editor_kyc_documents d JOIN users u ON u.id=d.editor_id JOIN editor_profiles e ON e.user_id=d.editor_id WHERE d.status IN ('pending','in_review') ORDER BY d.created_at ASC LIMIT 100").all();
   return out({ok:true,documents:r.results||[]});
  }
  const kycReview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-review$/);
