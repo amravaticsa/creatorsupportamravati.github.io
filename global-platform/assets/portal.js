@@ -328,6 +328,9 @@ async function loadAdminKycReviews(){
    const card=document.createElement("article");card.className="card";
    const title=document.createElement("h3");title.textContent=doc.display_name+" · "+doc.public_editor_code;
    const meta=document.createElement("p");meta.className="muted";meta.textContent="Legal name: "+(doc.legal_name||"Not provided")+" · "+doc.email+" · "+doc.document_type.replaceAll("_"," ")+" · "+doc.country+" · "+(doc.size_bytes/1024/1024).toFixed(2)+" MB";
+   const address=document.createElement("p");address.className="muted";
+   const addressParts=[doc.address_line,doc.village,doc.city,doc.district,doc.state,doc.postal_code,doc.country].filter(Boolean);
+   address.textContent="Address: "+(addressParts.join(", ")||"Not provided");
    const date=document.createElement("small");date.textContent="Submitted "+new Date(doc.created_at).toLocaleString()+" · Consent v"+doc.consent_version+" at "+new Date(doc.consented_at).toLocaleString()+" · Private KYC document";
    const actions=document.createElement("div");actions.className="actions";
    const preview=document.createElement("button");preview.className="btn outline";preview.textContent="Preview ID Document";
@@ -336,7 +339,7 @@ async function loadAdminKycReviews(){
    approve.onclick=async()=>{if(!confirm("Confirm that the ID document matches the editor's submitted identity details?"))return;approve.disabled=true;try{await api("/v1/admin/editors/"+encodeURIComponent(doc.editor_id)+"/kyc-review",{method:"POST",body:JSON.stringify({status:"verified"})});loadAdmin();}catch(err){alert(err.message);approve.disabled=false;}};
    const reject=document.createElement("button");reject.className="btn outline";reject.textContent="Reject KYC";
    reject.onclick=async()=>{const note=prompt("Enter the reason. This will be shown to the editor for correction:");if(!note||!note.trim())return;reject.disabled=true;try{await api("/v1/admin/editors/"+encodeURIComponent(doc.editor_id)+"/kyc-review",{method:"POST",body:JSON.stringify({status:"rejected",note:note.trim()})});loadAdmin();}catch(err){alert(err.message);reject.disabled=false;}};
-   actions.append(preview,approve,reject);card.append(title,meta,date,actions);root.append(card);
+   actions.append(preview,approve,reject);card.append(title,meta,address,date,actions);root.append(card);
   }
  }catch(err){root.textContent="KYC queue unavailable: "+err.message;}
 }
