@@ -270,7 +270,7 @@ async function handle(req,env){
   if(!env.LEGACY_VIDEO_DB)return bad("Legacy order claim is not configured in this environment.",503);
   const b=await req.json(),code=txt(b.order_code,40).toUpperCase(),accessToken=txt(b.access_token,160);
   if(!/^CSA-VE-[A-F0-9]{8}$/.test(code)||accessToken.length<32||accessToken.length>128)return bad("Enter the original Video Editing Order ID and its access token.");
-  const legacy=await env.LEGACY_VIDEO_DB.prepare("SELECT id,order_code,customer_name,customer_email,customer_phone,country,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,project_budget_paise,currency,payment_status,order_status,customer_access_hash,created_at,updated_at,is_draft FROM video_editing_orders WHERE order_code=?").bind(code).first();
+  const legacy=await env.LEGACY_VIDEO_DB.prepare("SELECT id,order_code,customer_name,customer_email,customer_phone,country,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,project_budget_paise,currency,payment_status,order_status,customer_access_hash,created_at,updated_at,is_draft FROM video_editing_orders WHERE order_code=? AND is_draft=0").bind(code).first();
   const digestBytes=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(accessToken)));
   const suppliedHash=[...digestBytes].map(x=>x.toString(16).padStart(2,"0")).join("");
   if(!legacy||!legacy.customer_access_hash||!constantTime(suppliedHash,legacy.customer_access_hash))return bad("Order ID or access token is invalid. Check the original details and try again.",401,"legacy_claim_invalid");
