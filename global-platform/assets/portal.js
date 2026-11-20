@@ -311,7 +311,7 @@ async function loadAdminKycReviews(){
    const card=document.createElement("article");card.className="card";
    const title=document.createElement("h3");title.textContent=doc.display_name+" · "+doc.public_editor_code;
    const meta=document.createElement("p");meta.className="muted";meta.textContent="Legal name: "+(doc.legal_name||"Not provided")+" · "+doc.email+" · "+doc.document_type.replaceAll("_"," ")+" · "+doc.country+" · "+(doc.size_bytes/1024/1024).toFixed(2)+" MB";
-   const date=document.createElement("small");date.textContent="Submitted "+new Date(doc.created_at).toLocaleString()+" · Private KYC document";
+   const date=document.createElement("small");date.textContent="Submitted "+new Date(doc.created_at).toLocaleString()+" · Consent v"+doc.consent_version+" at "+new Date(doc.consented_at).toLocaleString()+" · Private KYC document";
    const actions=document.createElement("div");actions.className="actions";
    const preview=document.createElement("button");preview.className="btn outline";preview.textContent="Preview ID Document";
    preview.onclick=async()=>{const tab=window.open("about:blank","_blank");if(!tab){alert("Please allow pop-ups to preview the private KYC document.");return;}preview.disabled=true;try{const r=await fetch(API+"/v1/admin/editors/"+encodeURIComponent(doc.editor_id)+"/kyc-preview",{headers:{authorization:"Bearer "+token}});if(!r.ok)throw Error("Private KYC preview is unavailable.");const blob=await r.blob(),url=URL.createObjectURL(blob);tab.location.href=url;setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(err){tab.close();alert(err.message);}finally{preview.disabled=false;}};
