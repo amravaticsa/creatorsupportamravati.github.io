@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - "feature/csa-global-platform-foundation"
+      - "staging"
     paths:
       - "global-platform/**"
 
@@ -23,6 +24,7 @@ jobs:
           node --check global-platform/api/src/index.js
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
+          node --check global-platform/superadmin/global-admin-sync.js
       - name: Check required platform files
         run: |
           test -s global-platform/index.html
@@ -42,10 +44,25 @@ jobs:
           test -s global-platform/migrations/0008_multipart_part_sha256.sql
           test -s global-platform/migrations/0009_multipart_cleanup_runs.sql
           test -s global-platform/migrations/0010_multipart_upload_incidents.sql
+          test -s global-platform/migrations/0011_global_admin_authorizations.sql
+          test -s global-platform/migrations/0012_admin_sync_nonces.sql
+          test -s global-platform/migrations/0013_editor_credentials.sql
+          test -s global-platform/migrations/0014_editor_portfolio_videos.sql
+          test -s global-platform/migrations/0015_editor_kyc.sql
+          test -s global-platform/migrations/0016_editor_legal_name.sql
+          test -s global-platform/migrations/0017_editor_kyc_consent_audit.sql
+          test -s global-platform/migrations/0018_editor_global_address.sql
+          test -s global-platform/migrations/0019_global_kyc_document_types.sql
+          test -s global-platform/migrations/0020_legacy_video_order_claims.sql
           grep -q "multipart_upload_incidents" global-platform/api/src/index.js
           grep -q "renderMultipartIncidentPanel" global-platform/assets/portal.js
           grep -q "incident_type" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "resolution_status" global-platform/migrations/0010_multipart_upload_incidents.sql
+          grep -q "legacy_video_order_claims" global-platform/migrations/0020_legacy_video_order_claims.sql
+          grep -q "project_status_history" global-platform/migrations/0020_legacy_video_order_claims.sql
+          grep -q "/v1/client/legacy-video-orders/claim" global-platform/api/src/index.js
+          grep -q "/internal/admin-authorizations/sync" global-platform/api/src/index.js
+          grep -q "syncGlobalAdminAuthorizations" global-platform/superadmin/global-admin-sync.js
           grep -qi "append-only" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "multipart_cleanup_runs" global-platform/api/src/index.js
           grep -q "loadAdminCleanupRuns" global-platform/assets/portal.js
