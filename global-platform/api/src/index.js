@@ -267,7 +267,7 @@ async function handle(req,env){
  if(m==="GET"&&p==="/v1/client/projects"){
   const a=await user(req,env,["client"]);
   const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,json(requirements_json) AS requirements,video_count,raw_footage_minutes,final_duration_minutes,resolution,aspect_ratio,budget_type,budget_amount_minor,budget_currency,priority,revisions_included,CASE WHEN client_visible_status='reviewing' THEN 'client_review' WHEN client_visible_status='in_progress' THEN 'in_progress' WHEN status IN ('submitted','under_review') THEN status WHEN status IN ('approved','matching','assigned','in_progress','revision') THEN CASE WHEN status IN ('approved','matching') THEN status ELSE 'in_progress' END WHEN status='quality_check' THEN 'quality_review' WHEN status IN ('client_review','completed') THEN status WHEN status IN ('cancelled','rejected') THEN 'closed' ELSE 'submitted' END AS status,CASE WHEN status IN ('approved','matching','assigned','in_progress','quality_check','client_review','revision','completed') THEN 1 ELSE 0 END AS application_locked,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
-  return out({ok:true,projects:r.results||[]});
+  const projects=(r.results||[]).map(p=>{let requirements={};try{requirements=JSON.parse(p.requirements_json||\"{}\");}catch{}return {...p,requirements};});\n  return out({ok:true,projects});
  }
  // Resumable R2 multipart uploads: 50 MiB parts, up to 5 GiB per file.
  const multipartPart=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/parts\/(\d+)$/);
