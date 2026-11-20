@@ -1,29 +1,33 @@
 # CSA Video Editing — Rush Delivery Staging
 
-## Pricing policy
+## Pricing
+- Standard: no surcharge.
+- Priority delivery (one-day target): +25% of the server-stored base project amount.
+- Same-day urgent request: +50%, with approval by a currently authenticated Super Admin.
+- Same-day is a request, not a promise. Pending/rejected approval blocks payment.
+- Amounts are calculated server-side in paise. The client cannot set the surcharge or total.
 
-- Standard delivery: no surcharge.
-- Priority delivery (one-day target): +25% of the base project amount.
-- Same-day urgent request: +50% of the base project amount, only after an authorized CSA Super Admin approves capacity and timing.
-- A same-day request is a request, not a confirmed promise. If approval is rejected or pending, same-day payment must not be collected.
-- All amounts are calculated in integer paise on the server. The browser's displayed amount is informational only.
+## Isolated resources created
+- D1: `csa-video-rush-staging` (APAC), UUID `198a0604-af4d-4671-8053-5df245ea754c`.
+- Video/Rush API Worker: `csa-video-rush-api-staging`.
+- Payment Worker: `csa-rush-payment-api-staging`.
+- Super Admin identity database: `csa-superadmin-staging` (UUID `99bc81fc-e97e-488b-a380-eb0237ff8ffc`).
+- Staging DB holds rush quotes/audit and a minimal staging-only draft table. No live customer rows or payments were copied.
 
-## Staging isolation
+## Staging API routes
+Video/Rush API:
+- `GET /health`
+- `POST /api/rush/quotes` — customer bearer token must match the staging draft's stored SHA-256 access hash.
+- `GET /api/admin/rush/quotes` — requires a valid unexpired `csa_admin_session` belonging to an active `super_admin` account in the staging Super Admin DB.
+- `POST /api/admin/rush/quotes/:id/decision` — Super Admin only; accepts `approve` or `reject`, records actor/time/note in audit log.
 
-An isolated Cloudflare D1 database named `csa-video-rush-staging` was created on 2026-11-20 (UUID: `198a0604-af4d-4671-8053-5df245ea754c`, APAC region). The migration is `database/migrations/20261120_rush_delivery_staging.sql`.
+Payment API:
+- `GET /health`
+- `POST /api/create-order` — accepts only an active unexpired quote and approved/not-required status; calculates advance/full from stored total.
+- `POST /api/verify-payment` — validates Razorpay signature, retrieves payment from Razorpay, checks order ID, INR currency, payment state and exact stored amount.
 
-This database is separate from the live `csa-orders` database and the live video editing API. It contains only rush quote and audit tables; it does not copy customer records or payment data.
+## Payment test gate
+The staging Payment Worker has no Razorpay secrets copied from Production. Its health response reports whether test credentials are configured. Until separate Razorpay **Test Mode** key ID and secret are set as staging-only Worker secrets, payment creation and verification return HTTP 503. Do not add Production Razorpay keys.
 
-## Required implementation sequence
-
-1. Add a staging Video Editing API that creates a quote from the trusted server-side draft amount, never from a browser-supplied surcharge or total.
-2. Enforce the surcharge rates server-side (0 / 2500 / 5000 basis points) and store the calculation in `rush_delivery_quotes`.
-3. Require authenticated Super Admin approval for `same_day`; record actor, timestamp, decision and note in `rush_delivery_audit`.
-4. Add a staging Payment API flow that accepts only an active, unexpired, approved quote ID and calculates advance/full payment from the stored total.
-5. Verify Razorpay's captured amount against the stored payable amount before allowing draft finalization.
-6. Show the base amount, rush surcharge, total, payment amount and approval state on the customer receipt and Super Admin order view.
-7. Run end-to-end tests with Razorpay test credentials and staging-only D1/R2 resources. Do not deploy to production until all checks pass.
-
-## Current limitation
-
-The account currently has staging Super Admin and Global API Workers, but no separate staging Video Editing API or staging Payment API. The existing Video Editing and Razorpay Workers are production Workers. Therefore this change deliberately does not alter either live Worker, live payment flow, or existing orders. A staging Worker pair and test credentials must be configured before the workflow can be safely exercised end-to-end.
+## Current boundary
+The two Workers are deployed separately in Cloudflare Staging with only isolated D1 bindings. They are not connected to the live order form, live video API, live payment API, or production admin page. Front-end selection/popup/receipt and Super Admin screen still need staging integration and end-to-end testing before a production release.
