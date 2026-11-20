@@ -106,10 +106,10 @@ function norm(v){return String(v||"").toLowerCase().replace(/[_–—-]+/g," ").
 function stageFor(status){
  const s=norm(status);
  if(s==="final delivery")return 5;
- if(s==="preview revisions")return 4;
+ if(s==="preview & revisions")return 4;
  if(s==="editing in progress")return 3;
  if(s==="work assigned")return 2;
- if(s==="files received")return 1;
+ if(s==="files received")return 2;
  return 0;
 }
 const stageNames=["Application received","Files received","Work assigned","Editing in progress","Preview & revisions","Final delivery"];
@@ -178,7 +178,7 @@ function humanStatus(status){
  if(s==="files received")return "Files received";
  if(s==="work assigned")return "Work assigned";
  if(s==="editing in progress")return "Editing in progress";
- if(s==="preview revisions"||s.includes("preview ready"))return "Preview & revisions";
+ if(s==="preview & revisions"||s.includes("preview ready"))return "Preview & revisions";
  if(s==="final delivery"||s.includes("completed"))return "Final delivery";
  if(s.includes("on hold"))return "On hold";
  if(s.includes("cancel"))return "Cancelled";
