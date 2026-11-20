@@ -148,7 +148,7 @@ async function handle(req,env){
   const old=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=?").bind(c.sub).first();
   if(old){
    if(old.role!==role)return bad("This Google account is already registered under a different account type. Please use the existing account type.",409,"role_conflict");
-   if(role==="editor")return bad("CSA Editors must sign in with their CSA-issued User ID and password. Use Google only for a new editor application.",403,"editor_password_login_required");
+   if(role==="editor"){const k=await env.DB.prepare("SELECT status,review_note FROM editor_kyc_documents WHERE editor_id=? ORDER BY created_at DESC LIMIT 1").bind(old.id).first();return out({ok:true,user_id:old.id,role:old.role,status:old.account_status,email:old.email,existing_editor:true,kyc_status:k?.status||"not_submitted",kyc_review_note:k?.review_note||null});}
    return out({ok:true,user_id:old.id,role:old.role,status:old.account_status,email:old.email});
   }
   const byEmail=await env.DB.prepare("SELECT id,role,auth_subject FROM users WHERE email=? COLLATE NOCASE").bind(c.email).first();
