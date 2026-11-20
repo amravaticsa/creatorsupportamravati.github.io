@@ -37,7 +37,7 @@ function adminPermissionFor(req){
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
  if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials)$/.test(p)))return "content.manage";
- if(m==="GET"&&p==="/v1/admin/editor-portfolio-videos")return "content.manage";
+ if(m==="GET"&&(p==="/v1/admin/editor-portfolio-videos"||/^\/v1\/admin\/editor-portfolio-videos\/[\w-]+\/preview$/.test(p)))return "content.manage";
  if(m==="GET"&&p==="/v1/client/editor-portfolio-videos")return null;
  if(m==="GET"&&/^\/v1\/client\/editor-portfolio-videos\/[\w-]+\/stream$/.test(p))return null;
  if(m==="POST"&&/^\/v1\/admin\/editor-portfolio-videos\/[\w-]+\/review$/.test(p))return "content.manage";
@@ -859,7 +859,7 @@ export default {async scheduled(controller,env){
  }
 },async fetch(req,env){
  // File uploads use PUT; include it in CORS so browser preflight succeeds for client and editor uploads.
- const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes","access-control-max-age":"86400"};
+ const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes,X-CSA-Video-Title,X-CSA-Video-Description,X-CSA-Video-Category,X-CSA-Video-Rights-Confirmed,X-CSA-Terms-Version","access-control-max-age":"86400"};
  if(allowed.includes(origin))ch["access-control-allow-origin"]=origin;
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:ch});
  try{const r=await handle(req,env),h=new Headers(r.headers);Object.entries(ch).forEach(([k,v])=>h.set(k,v));return new Response(r.body,{status:r.status,headers:h});}
