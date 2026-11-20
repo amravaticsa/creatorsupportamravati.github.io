@@ -20,11 +20,12 @@
 <label for="software">Editing software</label><input id="software" placeholder="Premiere Pro, DaVinci Resolve, Final Cut, Filmora">
 <label for="specializations">Specializations *</label><textarea id="specializations" placeholder="YouTube, Reels, podcasts, wedding films, ads..."></textarea>
 <h3>Identity & KYC Verification</h3>
-<p class="muted">CSA must verify your identity before your editor profile or portfolio can be approved. Upload one clear government-issued ID document. Accepted: Passport or National ID worldwide; PAN, Voter ID or Driving Licence in India. Aadhaar is not required.</p>
+<p class="muted">CSA must verify your identity before your editor profile or portfolio can be approved. Choose an official government-issued identity document available in your selected country. Only authorized CSA verification staff can review it; it is never shown to clients.</p>
 <label for="kyc-document-type">Government ID type *</label>
 <select id="kyc-document-type" required>
-<option value="">Select ID type</option><option value="passport">Passport</option><option value="national_id">National ID (where issued)</option><option value="pan">PAN Card (India)</option><option value="voter_id">Voter ID (India)</option><option value="driving_licence">Driving Licence (India)</option>
+<option value="">Select your country first</option>
 </select>
+<p class="muted" id="kyc-id-help">The accepted document list changes according to your selected country. Aadhaar is optional in India; it is never required.</p>
 <label for="kyc-document-file">Upload ID document * (PDF, JPG or PNG · max 10 MB)</label>
 <input id="kyc-document-file" type="file" accept="application/pdf,image/jpeg,image/png" required>
 <label style="display:flex;gap:10px;align-items:flex-start"><input id="kyc-privacy-consent" type="checkbox" required><span>I authorize CSA to securely review this identity document only for editor KYC verification. I understand it will not be shown to clients or in my public profile.</span></label>
