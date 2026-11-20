@@ -40,3 +40,20 @@ CREATE TABLE IF NOT EXISTS rush_delivery_audit (
 
 CREATE INDEX IF NOT EXISTS idx_rush_audit_quote
   ON rush_delivery_audit(quote_id, created_at DESC);
+
+-- Staging-only draft metadata; no production customer data is copied.
+CREATE TABLE IF NOT EXISTS video_editing_orders (
+  id TEXT PRIMARY KEY,
+  order_code TEXT NOT NULL UNIQUE,
+  customer_email TEXT NOT NULL,
+  customer_access_hash TEXT NOT NULL,
+  project_budget_paise INTEGER NOT NULL CHECK (project_budget_paise >= 10000),
+  is_draft INTEGER NOT NULL DEFAULT 1 CHECK (is_draft IN (0,1)),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_staging_video_draft_code
+  ON video_editing_orders(order_code, is_draft);
+
+-- Records whether the Razorpay order was for an advance or full payment.
+ALTER TABLE rush_delivery_quotes ADD COLUMN payment_type TEXT
+  CHECK (payment_type IN ('advance','full') OR payment_type IS NULL);
