@@ -4,10 +4,11 @@ const $=id=>document.getElementById(id);
 const token=sessionStorage.getItem("csa_global_token");
 let account=null;try{account=JSON.parse(sessionStorage.getItem("csa_global_user")||"null");}catch{}
 const form=$("orderForm"),message=$("orderMessage"),button=$("createOrderBtn");
+if(account&&form.elements.email){form.elements.email.value=account.email||"";form.elements.email.readOnly=true;}
 if(!token||!account||account.role!=="client"){
  const note=document.createElement("p");note.className="ve-msg";note.textContent="Video Editing application submit karne ke liye CSA Global Client Login zaroori hai.";
  const link=document.createElement("a");link.className="ve-btn";link.href="global-platform/login.html";link.textContent="Login with CSA Global";
- form.insertBefore(note,form.firstChild);form.insertBefore(link,form.firstChild);
+ form.insertBefore(note,form.firstChild);form.insertBefore(link,form.firstChild);link.addEventListener("click",()=>sessionStorage.setItem("csa_global_return_to","/video-editing.html#new-order"));
  form.addEventListener("submit",e=>{e.preventDefault();sessionStorage.setItem("csa_global_return_to","/video-editing.html#new-order");location.href="global-platform/login.html";});
 }
 const headers={"authorization":"Bearer "+token};
