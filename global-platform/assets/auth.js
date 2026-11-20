@@ -78,7 +78,7 @@ async function editorPasswordLogin(){
    if(!cr.ok||!cd.ok){status.textContent=cd.error?.message||"Password update nahi hua.";sessionStorage.clear();return;}
    d.user.must_change_password=false;sessionStorage.setItem("csa_global_user",JSON.stringify(d.user));
   }
-  location.href="portal.html";
+  const returnTo=sessionStorage.getItem("csa_global_return_to");sessionStorage.removeItem("csa_global_return_to");location.href=returnTo&&returnTo.startsWith("/")&&!returnTo.startsWith("//")?returnTo:"portal.html";
  }catch(e){status.textContent="Network error. Please retry.";}
 }
 
