@@ -185,8 +185,8 @@ async function handle(req,env){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const c=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(c.sub,c.email).first();
   if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status)||!["pending","in_review","verified"].includes(editor.verification_status))return bad("An eligible editor registration is required.",403);
-  const title=txt(req.headers.get("x-csa-video-title"),120),description=txt(req.headers.get("x-csa-video-description"),1200),category=txt(req.headers.get("x-csa-video-category"),80),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),rights=req.headers.get("x-csa-video-rights-confirmed")==="true",terms=txt(req.headers.get("x-csa-terms-version"),20),declared=Number(req.headers.get("content-length")||0);
-  if(!title||!description||!category||!rights||terms!=="1.0")return bad("Video details, rights confirmation and current terms acceptance are required.");
+  const title=txt(req.headers.get("x-csa-video-title"),120),description=txt(req.headers.get("x-csa-video-description"),1200),category=txt(req.headers.get("x-csa-video-category"),80),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),rights=req.headers.get("x-csa-video-rights-confirmed")==="true",termsAccepted=req.headers.get("x-csa-terms-accepted")==="true",terms=txt(req.headers.get("x-csa-terms-version"),20),declared=Number(req.headers.get("content-length")||0);
+  if(!title||!description||!category||!rights||!termsAccepted||terms!=="1.0")return bad("Video details, rights confirmation and current terms acceptance are required.");
   if(!["video/mp4","video/quicktime"].includes(mime))return bad("Only MP4 and MOV videos are accepted.",415);
   if(!Number.isSafeInteger(declared)||declared<1||declared>80*1024*1024)return bad("Each portfolio video must be between 1 byte and 80 MB.",413);
   const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM editor_portfolio_videos WHERE editor_id=?").bind(editor.id).first();
@@ -859,7 +859,7 @@ export default {async scheduled(controller,env){
  }
 },async fetch(req,env){
  // File uploads use PUT; include it in CORS so browser preflight succeeds for client and editor uploads.
- const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes,X-CSA-Video-Title,X-CSA-Video-Description,X-CSA-Video-Category,X-CSA-Video-Rights-Confirmed,X-CSA-Terms-Version","access-control-max-age":"86400"};
+ const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes,X-CSA-Video-Title,X-CSA-Video-Description,X-CSA-Video-Category,X-CSA-Video-Rights-Confirmed,X-CSA-Terms-Accepted,X-CSA-Terms-Version","access-control-max-age":"86400"};
  if(allowed.includes(origin))ch["access-control-allow-origin"]=origin;
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:ch});
  try{const r=await handle(req,env),h=new Headers(r.headers);Object.entries(ch).forEach(([k,v])=>h.set(k,v));return new Response(r.body,{status:r.status,headers:h});}
