@@ -87,3 +87,19 @@ Never commit secrets or ask users to enter passwords, OTPs, card data or secret 
 - Staging branch code changes do not auto-deploy the Direct Upload Pages site or Worker. No production resource, database, DNS, payment setting, or Super Admin account was changed by this preparation.
 
 - Identity bridge design and required staging security tests: `global-platform/ADMIN_IDENTITY_BRIDGE.md`.
+
+## Department routing bridge (Staging)
+
+The Global database mirrors the existing CSA Super Admin department IDs in
+`global_departments`; it does not create or rename departments in the source
+Super Admin database. Migration `0021_department_routing_bridge.sql` adds
+department references to project and editor records and a scoped admin access
+table. New client applications default to Content & Video Production; new
+editor profiles default to HR & Administration. Existing project records are
+preserved and assigned to Content & Video Production.
+
+Admin department access is synchronized from the Super Admin role snapshot:
+Super Admin receives all existing departments, Editor Admin receives Content &
+Video Production, Project Admin receives Operations & Events, Finance Admin
+receives Finance & Accounts, and Support Admin receives Sales & Client Success.
+The Global project queue filters by the synchronized department access.
