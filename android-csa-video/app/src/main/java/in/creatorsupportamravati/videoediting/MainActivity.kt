@@ -71,7 +71,6 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             safeBrowsingEnabled = true
             cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = userAgentString.replace(" CSAAndroidApp/1.0", "") + " CSAAndroidApp/1.1"
         }
         webView.setBackgroundColor(Color.WHITE)
         webView.isFocusable = true
@@ -211,26 +210,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleNavigation(view: WebView, uri: Uri, userGesture: Boolean): Boolean {
         val scheme = uri.scheme?.lowercase() ?: return true
-        val host = uri.host?.lowercase() ?: ""
 
-        // Keep every CSA page inside the app, including www and HTTP-to-HTTPS redirects.
-        if (isCsaHost(host)) {
-            if (scheme != "https") {
-                val secure = uri.buildUpon().scheme("https").build()
-                view.loadUrl(secure.toString())
+        // Keep all normal web navigation inside the app. This is important for
+        // Cloudflare, payment, authentication and other legitimate redirect chains.
+        // Sending HTTPS links to an external browser was causing the app to appear
+        // to close or show a blank screen during redirects.
+        if (scheme == "https" || scheme == "http") {
+            if (scheme == "http" && isCsaHost(uri.host ?: "")) {
+                view.loadUrl(uri.buildUpon().scheme("https").build().toString())
                 return true
             }
             return false
         }
 
-        // Razorpay checkout and CSA API endpoints must remain available to the WebView.
-        if (scheme == "https" && isPaymentHost(host)) return false
-
-        // Only a deliberate tap may leave the app. Silent redirects to unrelated
-        // hosts are blocked so the app cannot unexpectedly jump to an external browser.
-        if (userGesture && (scheme == "https" || scheme == "http" ||
-                scheme == "mailto" || scheme == "tel" || scheme == "intent" ||
-                scheme == "whatsapp")) {
+        // Only non-web actions (phone, email, WhatsApp and Android intents) may
+        // open another app, and only when initiated by a real user tap.
+        if (userGesture && (scheme == "mailto" || scheme == "tel" ||
+                scheme == "intent" || scheme == "whatsapp")) {
             return openExternal(uri)
         }
         return true
