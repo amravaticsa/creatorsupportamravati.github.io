@@ -284,7 +284,7 @@ async function loadAdmin(){
     const form=document.createElement("div");form.className="form";
     const editorSelect=document.createElement("select");editorSelect.setAttribute("aria-label","Verified editor");
     const first=document.createElement("option");first.value="";first.textContent="Select verified editor";editorSelect.append(first);
-    for(const e of ve.editors){const opt=document.createElement("option");opt.value=e.id;opt.textContent=e.public_editor_code+" · "+e.display_name+" · "+[e.city,e.country].filter(Boolean).join(", ")+" · "+(JSON.parse(e.languages_json||"[]").join("/")||"Languages not listed");editorSelect.append(opt);}
+    for(const e of ve.editors.filter(x=>x.account_status==="active")){const opt=document.createElement("option");opt.value=e.id;opt.textContent=e.public_editor_code+" · "+e.display_name+" · "+[e.city,e.country].filter(Boolean).join(", ")+" · "+(JSON.parse(e.languages_json||"[]").join("/")||"Languages not listed");editorSelect.append(opt);}
     const fee=document.createElement("input");fee.type="number";fee.min="0.01";fee.step="0.01";fee.placeholder="Editor fee in "+p.budget_currency;
     const deposit=document.createElement("input");deposit.type="number";deposit.min="0.01";deposit.step="0.01";deposit.placeholder="Security deposit in "+p.budget_currency;
     const days=document.createElement("input");days.type="number";days.min="1";days.value="5";days.placeholder="Delivery days";
