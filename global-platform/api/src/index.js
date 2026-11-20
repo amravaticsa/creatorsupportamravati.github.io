@@ -725,7 +725,7 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/v1/admin/editors/verified"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
+  const r=await env.DB.prepare("SELECT u.id,u.account_status,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/editors/pending"){
@@ -760,7 +760,7 @@ async function handle(req,env){
  }
  const of=p.match(/^\/v1\/admin\/projects\/([\w-]+)\/offers$/);
  if(m==="POST"&&of){
-  const a=await user(req,env,["admin"]),b=await req.json(),ed=await env.DB.prepare("SELECT user_id FROM editor_profiles WHERE user_id=? AND verification_status='verified'").bind(b.editor_id).first();
+  const a=await user(req,env,["admin"]),b=await req.json(),ed=await env.DB.prepare("SELECT e.user_id FROM editor_profiles e JOIN users u ON u.id=e.user_id WHERE e.user_id=? AND e.verification_status='verified' AND u.account_status='active'").bind(b.editor_id).first();
   if(!ed)return bad("Only verified editors can receive offers.",409);
   const fee=amt(b.proposed_fee_minor),dep=amt(b.deposit_amount_minor),cur=txt(b.fee_currency,3).toUpperCase(),dc=txt(b.deposit_currency,3).toUpperCase();
   if(!fee||!dep||!/^[A-Z]{3}$/.test(cur)||!/^[A-Z]{3}$/.test(dc)||!Number.isInteger(b.delivery_days)||b.delivery_days<1)return bad("Valid fee, deposit, currency and delivery days are required.");
