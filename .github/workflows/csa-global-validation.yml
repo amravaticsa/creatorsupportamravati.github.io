@@ -54,12 +54,18 @@ jobs:
           test -s global-platform/migrations/0018_editor_global_address.sql
           test -s global-platform/migrations/0019_global_kyc_document_types.sql
           test -s global-platform/migrations/0020_legacy_video_order_claims.sql
+          test -s global-platform/migrations/0021_department_routing_bridge.sql
           grep -q "multipart_upload_incidents" global-platform/api/src/index.js
           grep -q "renderMultipartIncidentPanel" global-platform/assets/portal.js
           grep -q "incident_type" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "resolution_status" global-platform/migrations/0010_multipart_upload_incidents.sql
           grep -q "legacy_video_order_claims" global-platform/migrations/0020_legacy_video_order_claims.sql
           grep -q "project_status_history" global-platform/migrations/0020_legacy_video_order_claims.sql
+          grep -q "global_admin_department_access" global-platform/migrations/0021_department_routing_bridge.sql
+          grep -q "trg_projects_default_department" global-platform/migrations/0021_department_routing_bridge.sql
+          grep -q "dept-content-video" global-platform/migrations/0021_department_routing_bridge.sql
+          grep -q "global_admin_department_access" global-platform/api/src/index.js
+          grep -q "department_access_missing" global-platform/api/src/index.js
           grep -q "/v1/client/legacy-video-orders/claim" global-platform/api/src/index.js
           grep -q "/internal/admin-authorizations/sync" global-platform/api/src/index.js
           grep -q "syncGlobalAdminAuthorizations" global-platform/superadmin/global-admin-sync.js
