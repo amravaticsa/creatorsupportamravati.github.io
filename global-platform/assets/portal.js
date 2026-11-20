@@ -71,7 +71,18 @@ if(user.role==="client"){
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
    const submit=form.querySelector('button[type="submit"]');if(!form.reportValidity())return;
    form.dataset.submitting="1";if(submit){submit.disabled=true;submit.textContent="Submitting to CSA…";}
-   const f=new FormData(form),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:String(f.get("title")||"").trim(),category:f.get("category"),brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{}};
+   const f=new FormData(form),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:String(f.get("title")||"").trim(),category:f.get("category"),brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{
+      communication_language:String(f.get("communication_language")||"").trim(),
+      source_language:String(f.get("source_language")||"").trim(),
+      output_language:String(f.get("output_language")||"").trim(),
+      subtitle_languages:String(f.get("subtitle_languages")||"").trim(),
+      client_country:String(f.get("client_country")||"").trim(),
+      client_region:String(f.get("client_region")||"").trim(),
+      client_city:String(f.get("client_city")||"").trim(),
+      project_mode:String(f.get("project_mode")||"").trim(),
+      project_location:String(f.get("project_location")||"").trim(),
+      client_timezone:String(f.get("client_timezone")||"").trim()
+    }};
    const startedAt=Date.now();let project=null;
    $("project-message").textContent="Submitting your project to CSA. Please do not close this page…";
    try{
@@ -266,12 +277,14 @@ async function loadAdmin(){
    const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;
    const desc=document.createElement("p");desc.textContent=p.brief;
    const meta=document.createElement("p");meta.className="muted";meta.textContent="Client budget: "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.category+" · "+p.status+" · Deadline: "+(p.preferred_deadline||"Not set");
-   card.append(h,desc,meta);
+   let req={};try{req=JSON.parse(p.requirements_json||"{}");}catch{}
+   const langLoc=document.createElement("p");langLoc.className="muted";langLoc.textContent="Languages: "+[req.communication_language&&("Communication: "+req.communication_language),req.source_language&&("Source: "+req.source_language),req.output_language&&("Output: "+req.output_language),req.subtitle_languages&&("Captions: "+req.subtitle_languages)].filter(Boolean).join(" · ")+" | Location: "+[req.client_city,req.client_region,req.client_country].filter(Boolean).join(", ")+(req.project_mode?" · "+req.project_mode:"")+(req.project_location?" · Project site: "+req.project_location:"");
+   card.append(h,desc,meta,langLoc);
    if(["submitted","under_review","approved","matching"].includes(p.status)){
     const form=document.createElement("div");form.className="form";
     const editorSelect=document.createElement("select");editorSelect.setAttribute("aria-label","Verified editor");
     const first=document.createElement("option");first.value="";first.textContent="Select verified editor";editorSelect.append(first);
-    for(const e of ve.editors){const opt=document.createElement("option");opt.value=e.id;opt.textContent=e.public_editor_code+" · "+e.display_name+" · "+e.country;editorSelect.append(opt);}
+    for(const e of ve.editors){const opt=document.createElement("option");opt.value=e.id;opt.textContent=e.public_editor_code+" · "+e.display_name+" · "+[e.city,e.country].filter(Boolean).join(", ")+" · "+(JSON.parse(e.languages_json||"[]").join("/")||"Languages not listed");editorSelect.append(opt);}
     const fee=document.createElement("input");fee.type="number";fee.min="0.01";fee.step="0.01";fee.placeholder="Editor fee in "+p.budget_currency;
     const deposit=document.createElement("input");deposit.type="number";deposit.min="0.01";deposit.step="0.01";deposit.placeholder="Security deposit in "+p.budget_currency;
     const days=document.createElement("input");days.type="number";days.min="1";days.value="5";days.placeholder="Delivery days";
@@ -308,6 +321,9 @@ async function loadOffers(){
   for(const o of d.offers){
    const card=document.createElement("article");card.className="card";
    const h=document.createElement("h3");h.textContent=o.title+" · "+o.public_project_code;card.append(h);
+   let req={};try{req=JSON.parse(o.requirements_json||"{}");}catch{}
+   const langLoc=document.createElement("p");langLoc.className="muted";langLoc.textContent="Languages — Source: "+(req.source_language||"Not specified")+" · Output: "+(req.output_language||"Not specified")+" · Captions: "+(req.subtitle_languages||"Not specified")+" | Location: "+[req.client_city,req.client_region,req.client_country].filter(Boolean).join(", ")+(req.project_mode?" · "+req.project_mode:"")+(req.project_location?" · Site: "+req.project_location:"");
+   card.append(langLoc);
    if(o.status==="offered"){
     const b=document.createElement("button");b.className="btn dark";b.textContent="Accept Project";
     b.onclick=async()=>{b.disabled=true;try{await api("/v1/offers/"+o.id+"/accept",{method:"POST",body:"{}"});await loadOffers();}catch(e){alert(e.message);b.disabled=false;}};
