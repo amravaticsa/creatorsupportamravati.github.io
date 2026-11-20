@@ -27,7 +27,7 @@ export async function syncGlobalAdminAuthorizations(env) {
   if (!env.DB) throw new Error("superadmin_database_binding_missing");
 
   const result = await env.DB.prepare(
-    "SELECT id,email,role,status FROM admin_accounts WHERE role <> 'super_admin' ORDER BY id",
+    "SELECT id,email,role,status FROM admin_accounts ORDER BY id",
   ).all();
 
   // Pending invitations are intentionally omitted: they receive no Global access.
