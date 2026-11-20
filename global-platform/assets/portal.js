@@ -66,7 +66,7 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
 
 if(user.role==="client"){
  $("client-panel").hidden=false;
- loadClientProjects();loadUploadHistory("client-upload-history");loadClientPortfolioShowcase();
+ loadClientProjects();
   $("project-form").onsubmit=async e=>{
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
    const submit=form.querySelector('button[type="submit"]');if(!form.reportValidity())return;
@@ -235,43 +235,60 @@ async function loadClientPortfolioShowcase(){
  }catch(e){root.textContent="Showcase could not be loaded: "+e.message;}
 }
 async function loadClientProjects(){
- const root=$("client-projects");if(!root)return;root.textContent="Loading your projects with CSA…";
+ const root=$("client-projects");if(!root)return;root.textContent="Loading your applications…";
  const statusInfo={
-  submitted:{label:"Received by CSA",step:1,detail:"Your project brief has been received. Our team will review your requirements and confirm the scope."},
-  under_review:{label:"CSA reviewing your brief",step:1,detail:"Our team is reviewing your requirements and preparing the next steps."},
-  approved:{label:"CSA planning production",step:2,detail:"The project scope is being prepared by CSA before production begins."},
-  matching:{label:"CSA planning production",step:2,detail:"The CSA team is organizing the production workflow for your project."},
-  assigned:{label:"Production in progress",step:3,detail:"The CSA production team is working on your project. We will keep you updated as it progresses."},
-  client_review:{label:"Ready for your review",step:5,detail:"CSA has completed its quality review. Your approved files are ready below."},
-  in_progress:{label:"Production in progress",step:3,detail:"The CSA production team is working on your project. We will keep you updated as it progresses."},
-  quality_check:{label:"CSA quality review",step:4,detail:"Your video is going through CSA's quality and brief-compliance checks before delivery."},
-  quality_review:{label:"CSA quality review",step:4,detail:"Your video is going through CSA's quality and brief-compliance checks before delivery."},
-  revision:{label:"CSA finalizing your video",step:3,detail:"CSA is coordinating final refinements to make sure the video meets your approved brief."},
-  completed:{label:"Completed and delivered",step:5,detail:"Your project has been completed by CSA. You can access the approved deliverables below."},
-  closed:{label:"Project closed",step:5,detail:"This project is closed. Please contact CSA if you need any clarification."}
+  submitted:{label:"Application received",step:1,detail:"Your application has been received by CSA and is awaiting review."},
+  under_review:{label:"Under review",step:1,detail:"CSA is reviewing your application and requirements."},
+  approved:{label:"Accepted by CSA",step:2,detail:"CSA has accepted your application. The submitted application is now locked."},
+  matching:{label:"Accepted · Team matching",step:2,detail:"CSA has accepted your application and is arranging the project team."},
+  assigned:{label:"Team assigned",step:3,detail:"Your project team has been assigned and work is moving forward."},
+  in_progress:{label:"Work in progress",step:3,detail:"Your project is currently in progress."},
+  quality_review:{label:"Quality review",step:4,detail:"CSA is checking the work before delivery."},
+  client_review:{label:"Ready for your review",step:5,detail:"Your approved deliverables are ready for review."},
+  revision:{label:"Final refinements",step:4,detail:"CSA is coordinating the requested refinements."},
+  completed:{label:"Completed",step:5,detail:"Your project has been completed and delivered."},
+  closed:{label:"Closed",step:5,detail:"This application is closed. Contact CSA if you need help."}
  };
  try{
   const d=await api("/v1/client/projects");root.replaceChildren();
-  if(!d.projects.length){root.textContent="You have not submitted any projects yet.";return;}
+  if(!d.projects.length){root.textContent="You have not submitted any applications yet.";return;}
   for(const p of d.projects){
    const c=document.createElement("article");c.className="card";
    const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;
    const info=statusInfo[p.status]||statusInfo.submitted;
    const badge=document.createElement("span");badge.className="tag blue";badge.textContent=info.label;
-   const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · Preferred delivery: "+(p.preferred_deadline||"To be confirmed");
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(Number(p.budget_amount_minor||0)/100)+" "+p.budget_currency+" · Deadline: "+(p.preferred_deadline||"To be confirmed");
    const detail=document.createElement("p");detail.textContent=info.detail;
-   const progress=document.createElement("div");progress.className="client-progress";progress.setAttribute("aria-label","Project progress");
-   const stages=["Brief received","CSA planning","Production","Quality review","Final delivery"];
-   stages.forEach((name,index)=>{const item=document.createElement("span");item.className="client-progress-step"+(index+1<=info.step?" is-done":"");item.textContent=name;progress.append(item);});
-   c.append(h,badge,meta,detail,progress);
+   const progress=document.createElement("div");progress.className="client-progress";progress.setAttribute("aria-label","Application progress");
+   ["Application received","CSA review","Team & planning","Production","Quality & delivery"].forEach((name,index)=>{const item=document.createElement("span");item.className="client-progress-step"+(index+1<=info.step?" is-done":"");item.textContent=name;progress.append(item);});
+   const section=document.createElement("section");section.className="panel";
+   const heading=document.createElement("h4");heading.textContent="Your submitted application";
+   const brief=document.createElement("p");brief.textContent=p.brief||"No additional brief supplied.";
+   const req=p.requirements||{};
+   const rows=[
+    ["Number of videos",p.video_count],["Raw footage",p.raw_footage_minutes!=null?p.raw_footage_minutes+" minutes":""],
+    ["Final duration",p.final_duration_minutes!=null?p.final_duration_minutes+" minutes":""],["Resolution",p.resolution],
+    ["Aspect ratio",p.aspect_ratio],["Budget type",p.budget_type],["Priority",p.priority],
+    ["Included revisions",p.revisions_included],["Communication language",req.communication_language],
+    ["Footage language",req.source_language],["Final video language",req.output_language],
+    ["Subtitle / caption language",req.subtitle_languages],["Country",req.client_country],
+    ["State / Province",req.client_region],["City",req.client_city],["Project mode",req.project_mode],
+    ["Project / shoot location",req.project_location],["Time zone",req.client_timezone]
+   ];
+   const list=document.createElement("dl");list.className="application-details";
+   for(const [label,value] of rows){if(value===null||value===undefined||String(value).trim()==="")continue;const wrap=document.createElement("div");const dt=document.createElement("dt");dt.textContent=label;const dd=document.createElement("dd");dd.textContent=String(value);wrap.append(dt,dd);list.append(wrap);}
+   section.append(heading,brief,list);
+   const locked=Boolean(p.application_locked);
+   const lockNote=document.createElement("p");lockNote.className="muted";
+   lockNote.textContent=locked?"This application has been accepted by CSA and is now locked. You cannot edit or change the submitted application. For any clarification, contact CSA support.":"Your application is awaiting CSA acceptance. The submitted details are shown here for your reference.";
+   c.append(h,badge,meta,detail,progress,section,lockNote);
    try{
     const dls=await api("/v1/client/projects/"+p.id+"/deliverables");
     for(const file of dls.deliverables){
-     const b=document.createElement("button");b.className="btn outline";b.textContent="Download your approved file · "+file.original_filename;
+     const b=document.createElement("button");b.className="btn outline";b.textContent="Download approved file · "+file.original_filename;
      b.onclick=async()=>{const r=await fetch(API+"/v1/files/"+file.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Download failed");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);};
      c.append(b);
     }
-    if(dls.deliverables.length===0&&p.status==="client_review"){const wait=document.createElement("p");wait.className="muted";wait.textContent="Approved files are being prepared for secure delivery.";c.append(wait);}
    }catch{}
    root.append(c);
   }
