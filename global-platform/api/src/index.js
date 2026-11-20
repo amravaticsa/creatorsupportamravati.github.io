@@ -197,6 +197,13 @@ async function handle(req,env){
   catch(e){await env.MEDIA.delete(key);throw e;}
   return out({ok:true,video_id:id,review_status:"pending"},201);
  }
+ const portfolioPreview=p.match(/^\/v1\/admin\/editor-portfolio-videos\/([\w-]+)\/preview$/);
+ if(m==="GET"&&portfolioPreview){
+  const a=await user(req,env,["admin"]),video=await env.DB.prepare("SELECT r2_object_key,mime_type,title FROM editor_portfolio_videos WHERE id=?").bind(portfolioPreview[1]).first();
+  if(!video)return bad("Portfolio video not found.",404);
+  const object=await env.MEDIA.get(video.r2_object_key);if(!object)return bad("Portfolio video file is missing from private storage.",404);
+  return new Response(object.body,{headers:{"content-type":video.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+ }
  if(m==="GET"&&p==="/v1/admin/editor-portfolio-videos"){
   const a=await user(req,env,["admin"]),status=txt(u.searchParams.get("status"),20)||"pending";
   if(!["pending","approved","rejected","all"].includes(status))return bad("Invalid review status.");
