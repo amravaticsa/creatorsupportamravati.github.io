@@ -634,11 +634,19 @@ async function handle(req,env){
    client_city:txt(rawReq.client_city,100),
    project_mode:txt(rawReq.project_mode,20),
    project_location:txt(rawReq.project_location,300),
-   client_timezone:txt(rawReq.client_timezone,80)
+   client_timezone:txt(rawReq.client_timezone,80),
+   contact_name:txt(rawReq.contact_name,100),
+   contact_phone:txt(rawReq.contact_phone,30),
+   content_style:txt(rawReq.content_style,100),
+   dialect:txt(rawReq.dialect,100),
+   service_package:txt(rawReq.service_package,100),
+   project_type:txt(rawReq.project_type,120),
+   raw_footage_duration:txt(rawReq.raw_footage_duration,80)
   };
   if(!requirements.communication_language||!requirements.source_language||!requirements.output_language||!requirements.client_country||!requirements.client_city||!["remote","onsite","hybrid"].includes(requirements.project_mode))return bad("Communication language, source language, output language, country, city and project mode are required.");
 
-  if(!title||!cat||!brief||!budget||!/^[A-Z]{3}$/.test(cur))return bad("Project title, category, brief, budget and ISO currency are required.");
+  const recommendBudget=b.budget_type==="recommend";
+  if(!title||!cat||!brief||(!budget&&!recommendBudget)||!/^[A-Z]{3}$/.test(cur))return bad("Project title, category, brief, and a valid ISO currency are required. A budget is optional when you select Recommend a budget.");
   const pid=uid("prj"),code="CSA-"+new Date().getUTCFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
   await env.DB.prepare("INSERT INTO projects(id,public_project_code,client_id,title,category,brief,raw_footage_minutes,final_duration_minutes,video_count,resolution,aspect_ratio,requirements_json,reference_url,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,revisions_included,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')").bind(pid,code,a.id,title,cat,brief,Number.isInteger(b.raw_footage_minutes)?b.raw_footage_minutes:null,Number.isInteger(b.final_duration_minutes)?b.final_duration_minutes:null,Number.isInteger(b.video_count)?b.video_count:null,txt(b.resolution,20)||null,txt(b.aspect_ratio,20)||null,JSON.stringify(requirements),txt(b.reference_url,1000)||null,budget,cur,["fixed","flexible","recommend"].includes(b.budget_type)?b.budget_type:"fixed",txt(b.preferred_deadline,40)||null,["normal","urgent","flexible"].includes(b.priority)?b.priority:"normal",Number.isInteger(b.revisions_included)?Math.max(0,Math.min(10,b.revisions_included)):2).run();
   await env.DB.prepare("UPDATE client_profiles SET country=?,preferred_language=? WHERE user_id=?").bind(requirements.client_country,requirements.communication_language,a.id).run();
