@@ -1,8 +1,12 @@
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+    <!-- MainActivity extends AppCompatActivity, so the app theme must inherit
+         from an AppCompat theme rather than the platform Material theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
+        <item name="colorAccent">#13A89E</item>
         <item name="android:colorAccent">#13A89E</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="windowActionModeOverlay">true</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">#FFFFFF</item>
     </style>
