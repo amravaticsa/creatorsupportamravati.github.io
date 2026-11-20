@@ -81,7 +81,7 @@ $("payNowButton").addEventListener("click",async()=>{
      const vr=await fetch(PAYMENT_API+"/api/verify-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(response)}),verified=await vr.json();
      if(!vr.ok||!verified.verified||verified.paymentStatus!=="captured")throw Error(verified.error||verified.message||"Payment is not yet captured.");
      verifiedPayment={orderId:response.razorpay_order_id,paymentId:response.razorpay_payment_id,type};
-     note.textContent="Payment successfully verified. Your Send Editing Request button is now enabled.";$("submitRequest").disabled=false;
+     note.textContent="Payment successfully verified. Please review and accept the Terms & Conditions before submitting.";$("videoTermsSection").classList.remove("cd-hide");$("submitRequest").disabled=!$("acceptVideoTerms").checked;$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});
      $("submitRequest").scrollIntoView({behavior:"smooth",block:"center"});
     }catch(err){verifiedPayment=null;note.textContent="Payment verification pending: "+err.message+" Your application remains unsubmitted. Contact CSA with your payment ID if money was deducted.";}
    },
@@ -93,16 +93,16 @@ $("payNowButton").addEventListener("click",async()=>{
 });
 $("clientOrderForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");hide(msg);
- if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips and complete verified payment before submitting the application.");return;}
+ if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips and complete verified payment before submitting the application.");return;}\n if(!$("acceptVideoTerms").checked){show(msg,"Please read and accept the Terms & Conditions before submitting your application.");$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});return;}
  btn.disabled=true;
  try{
-  const result=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/finalize",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({paymentOrderId:verifiedPayment.orderId,paymentId:verifiedPayment.paymentId})});
+  const result=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/finalize",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({paymentOrderId:verifiedPayment.orderId,paymentId:verifiedPayment.paymentId,termsAccepted:true,termsVersion:"CSA-VIDEO-EDITING-2026-11-20-v1"})});
   orderCode=result.orderCode;accessToken=draftToken;save(orderCode,accessToken);
   show(msg,"Your payment has been verified and your editing request has been submitted successfully.\n\nApplication / Order ID: "+orderCode+"\nPrivate access code: "+accessToken+"\n\nKeep these details safe to track your project.");
   $("trackForm").elements.orderCode.value=orderCode;$("trackForm").elements.accessToken.value=accessToken;
   $("track-project").scrollIntoView({behavior:"smooth",block:"start"});
   const current=await api("/api/orders/"+encodeURIComponent(orderCode),{headers:auth(accessToken)});render(current);
-  $("preSubmitUpload").classList.add("cd-hide");$("paymentSection").classList.add("cd-hide");btn.textContent="Request Submitted";btn.disabled=true;
+  $("preSubmitUpload").classList.add("cd-hide");$("paymentSection").classList.add("cd-hide");$("videoTermsSection").classList.add("cd-hide");btn.textContent="Request Submitted";btn.disabled=true;
  }catch(err){show(msg,"Application not submitted: "+err.message);}
  finally{if(!orderCode)btn.disabled=false;}
 });
@@ -210,5 +210,5 @@ function humanStatus(status){
  if(s.includes("cancel"))return "Cancelled";
  return status||"Status update pending";
 }
-loadSaved();
+$("acceptVideoTerms").addEventListener("change",()=>{if(verifiedPayment)$("submitRequest").disabled=!$("acceptVideoTerms").checked;});\nloadSaved();
 })();
