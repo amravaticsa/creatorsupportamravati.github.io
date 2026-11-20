@@ -76,6 +76,11 @@ $("payNowButton").addEventListener("click",async()=>{
   const created=await fetch(PAYMENT_API+"/api/create-order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({totalAmount:amount,paymentType:type,name:data.name,email:data.email,contact:data.phone,whatsappOptIn:true,draftCode})});
   const order=await created.json();if(!created.ok)throw Error(order.error||"Unable to create payment order.");
   const options={key:order.keyId,amount:order.amount,currency:order.currency,name:order.businessName||"Creator Support Amravati",description:order.description,order_id:order.orderId,prefill:{name:data.name,email:data.email,contact:data.phone},theme:{color:"#123d58"},
+   config:{display:{
+    blocks:{preferred:{name:"UPI Payment",instruments:[{method:"upi"}]}},
+    sequence:["block.preferred"],
+    preferences:{show_default_blocks:true}
+   }},
    handler:async response=>{
     note.textContent="Payment received by checkout. Verifying securely with Razorpay…";
     try{
