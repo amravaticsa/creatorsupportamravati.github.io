@@ -257,7 +257,7 @@ async function loadClientProjects(){
    const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;
    const info=statusInfo[p.status]||statusInfo.submitted;
    const badge=document.createElement("span");badge.className="tag blue";badge.textContent=info.label;
-   const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(Number(p.budget_amount_minor||0)/100)+" "+p.budget_currency+" · Deadline: "+(p.preferred_deadline||"To be confirmed");
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(p.budget_amount_minor!=null?(Number(p.budget_amount_minor)/100)+" "+p.budget_currency:"Quotation pending")+" · Deadline: "+(p.preferred_deadline||"To be confirmed");
    const detail=document.createElement("p");detail.textContent=info.detail;
    const progress=document.createElement("div");progress.className="client-progress";progress.setAttribute("aria-label","Application progress");
    ["Application received","CSA review","Team & planning","Production","Quality & delivery"].forEach((name,index)=>{const item=document.createElement("span");item.className="client-progress-step"+(index+1<=info.step?" is-done":"");item.textContent=name;progress.append(item);});
