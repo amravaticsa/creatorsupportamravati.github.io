@@ -75,13 +75,13 @@ async function onGoogleCredential(response){
  status.textContent="Google account verify ho raha hai…";
  const isEditor=role.value==="editor";
  const profile=isEditor?{
-  country:$("editor-country").value.trim(),city:$("editor-city").value.trim(),
+  legal_name:$("legal-name").value.trim(),country:$("editor-country").value.trim(),city:$("editor-city").value.trim(),
   languages:$("langs").value.split(",").map(x=>x.trim()).filter(Boolean),
   experience_level:$("exp").value,software:$("software").value.split(",").map(x=>x.trim()).filter(Boolean),
   specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),
   bio:$("bio").value.trim(),availability:"project-based"
  }:role.value==="admin"?{}:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
- if(isEditor&&(!profile.country||!profile.specializations.length)){status.textContent="Country and Specializations are required.";return;}
+ if(isEditor&&(!profile.legal_name||!profile.country||!profile.specializations.length)){status.textContent="Full legal name, country and specializations are required.";return;}
  try{
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
   const data=await r.json();
