@@ -37,6 +37,12 @@ The static website remains hosted on GitHub Pages. Firebase is used only for Goo
 ## Data model
 - Firestore: `csaArticles/{articleId}/likes/{uid}`
 - Firestore: `csaArticles/{articleId}/comments/{commentId}`
-- Realtime Database: `presence/{randomSessionId}`
+- Realtime Database: `presence/{randomSessionId}`, `stats/*`, and `stats/sharesByPath/{articleId}`
 
-The presence counter represents connected browser sessions and is approximate; it is not a verified count of unique human visitors. Public comments and display names are visible to other visitors. Review the privacy policy before enabling these features.
+Article page views are recorded under `stats/pageViewsByPath/{articleId}` and share clicks under `stats/sharesByPath/{articleId}`. Share clicks are approximate (one count per browser session per article), not verified unique shares. The presence counter represents connected browser sessions and is approximate; it is not a verified count of unique human visitors. Public comments and display names are visible to other visitors. Review the privacy policy before enabling these features.
+
+
+## Engagement deployment checklist
+- Publish `firebase/firestore.rules` in Firebase Console > Firestore Database > Rules for Google sign-in Likes and verified-account Comments.
+- Publish `firebase/database.rules.json` in Firebase Console > Realtime Database > Rules for live visitor totals, page views and article share counters.
+- The repository commit alone does not publish Firebase rules. The public website can deploy from GitHub Pages, but Firestore/Realtime Database rules must be published in Firebase Console.
