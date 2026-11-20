@@ -537,9 +537,25 @@ async function handle(req,env){
  }
  if(m==="POST"&&p==="/v1/projects"){
   const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
+  const rawReq=b.requirements&&typeof b.requirements==="object"&&!Array.isArray(b.requirements)?b.requirements:{};
+  const requirements={
+   communication_language:txt(rawReq.communication_language,40),
+   source_language:txt(rawReq.source_language,40),
+   output_language:txt(rawReq.output_language,40),
+   subtitle_languages:txt(rawReq.subtitle_languages,200),
+   client_country:txt(rawReq.client_country,100),
+   client_region:txt(rawReq.client_region,100),
+   client_city:txt(rawReq.client_city,100),
+   project_mode:txt(rawReq.project_mode,20),
+   project_location:txt(rawReq.project_location,300),
+   client_timezone:txt(rawReq.client_timezone,80)
+  };
+  if(!requirements.communication_language||!requirements.source_language||!requirements.output_language||!requirements.client_country||!requirements.client_city||!["remote","onsite","hybrid"].includes(requirements.project_mode))return bad("Communication language, source language, output language, country, city and project mode are required.");
+
   if(!title||!cat||!brief||!budget||!/^[A-Z]{3}$/.test(cur))return bad("Project title, category, brief, budget and ISO currency are required.");
   const pid=uid("prj"),code="CSA-"+new Date().getUTCFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
-  await env.DB.prepare("INSERT INTO projects(id,public_project_code,client_id,title,category,brief,raw_footage_minutes,final_duration_minutes,video_count,resolution,aspect_ratio,requirements_json,reference_url,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,revisions_included,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')").bind(pid,code,a.id,title,cat,brief,Number.isInteger(b.raw_footage_minutes)?b.raw_footage_minutes:null,Number.isInteger(b.final_duration_minutes)?b.final_duration_minutes:null,Number.isInteger(b.video_count)?b.video_count:null,txt(b.resolution,20)||null,txt(b.aspect_ratio,20)||null,JSON.stringify(b.requirements||{}),txt(b.reference_url,1000)||null,budget,cur,["fixed","flexible","recommend"].includes(b.budget_type)?b.budget_type:"fixed",txt(b.preferred_deadline,40)||null,["normal","urgent","flexible"].includes(b.priority)?b.priority:"normal",Number.isInteger(b.revisions_included)?Math.max(0,Math.min(10,b.revisions_included)):2).run();
+  await env.DB.prepare("INSERT INTO projects(id,public_project_code,client_id,title,category,brief,raw_footage_minutes,final_duration_minutes,video_count,resolution,aspect_ratio,requirements_json,reference_url,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,revisions_included,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')").bind(pid,code,a.id,title,cat,brief,Number.isInteger(b.raw_footage_minutes)?b.raw_footage_minutes:null,Number.isInteger(b.final_duration_minutes)?b.final_duration_minutes:null,Number.isInteger(b.video_count)?b.video_count:null,txt(b.resolution,20)||null,txt(b.aspect_ratio,20)||null,JSON.stringify(requirements),txt(b.reference_url,1000)||null,budget,cur,["fixed","flexible","recommend"].includes(b.budget_type)?b.budget_type:"fixed",txt(b.preferred_deadline,40)||null,["normal","urgent","flexible"].includes(b.priority)?b.priority:"normal",Number.isInteger(b.revisions_included)?Math.max(0,Math.min(10,b.revisions_included)):2).run();
+  await env.DB.prepare("UPDATE client_profiles SET country=?,preferred_language=? WHERE user_id=?").bind(requirements.client_country,requirements.communication_language,a.id).run();
   await log(env,a.id,"project_submitted","project",pid);
   return out({ok:true,project_id:pid,project_code:code,status:"submitted"},201);
  }
