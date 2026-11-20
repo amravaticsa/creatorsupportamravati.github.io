@@ -91,7 +91,8 @@ async function onGoogleCredential(response){
   specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),
   bio:$("bio").value.trim(),availability:"project-based"
  }:role.value==="admin"?{}:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
- if(isEditor&&(!profile.legal_name||!profile.country_code||!profile.state||!profile.city||!profile.specializations.length)){status.textContent="Full legal name, country, state/province, city and specializations are required.";return;}\n if(isEditor&&profile.country_code==="IN"&&profile.postal_code&&!/^\\d{6}$/.test(profile.postal_code)){status.textContent="India ke liye PIN Code 6 digits ka hona chahiye.";return;}
+ if(isEditor&&(!profile.legal_name||!profile.country_code||!profile.state||!profile.city||!profile.specializations.length)){status.textContent="Full legal name, country, state/province, city and specializations are required.";return;}
+ if(isEditor&&profile.country_code==="IN"&&profile.postal_code&&!/^\d{6}$/.test(profile.postal_code)){status.textContent="India ke liye PIN Code 6 digits ka hona chahiye.";return;}
  try{
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
   const data=await r.json();
