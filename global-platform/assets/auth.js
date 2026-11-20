@@ -81,14 +81,26 @@ async function onGoogleCredential(response){
   specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),
   bio:$("bio").value.trim(),availability:"project-based"
  }:role.value==="admin"?{}:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
- if(isEditor){const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();if(!profile.country||!profile.specializations.length||portfolioError||kycError){status.textContent=portfolioError||kycError||"Country and Specializations are required.";return;}}
+ if(isEditor&&(!profile.country||!profile.specializations.length)){status.textContent="Country and Specializations are required.";return;}
  try{
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
   const data=await r.json();
   if(!r.ok||!data.ok){status.textContent=data.error?.message||"Sign-in failed. Please retry.";return;}
   sessionStorage.setItem("csa_global_token",response.credential);
   sessionStorage.setItem("csa_global_user",JSON.stringify({id:data.user_id,role:data.role,status:data.status,email:data.email}));
-  if(isEditor){await uploadKycDocument(response.credential);await uploadPortfolioVideos(response.credential);status.textContent="Registration, KYC document and portfolio samples submitted securely. KYC and editor/video approvals are pending CSA review.";}else{location.href="portal.html";}
+  if(isEditor){
+   if(data.existing_editor){
+    if(["pending","in_review"].includes(data.kyc_status)){status.textContent="Your KYC document is already under CSA review. Please wait for the verification result.";return;}
+    if(data.kyc_status==="verified"){status.textContent="Your KYC is already verified. CSA will continue the editor profile and portfolio review."+(data.kyc_review_note?" Previous review note: "+data.kyc_review_note:"");return;}
+    const kycError=validateKycDocument();if(kycError){status.textContent=kycError+(data.kyc_review_note?" Previous rejection reason: "+data.kyc_review_note:"");return;}
+    await uploadKycDocument(response.credential);status.textContent="Your replacement KYC document has been securely resubmitted. CSA review is pending.";
+   }else{
+    const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();
+    if(portfolioError||kycError){status.textContent=portfolioError||kycError;return;}
+    await uploadKycDocument(response.credential);await uploadPortfolioVideos(response.credential);
+    status.textContent="Registration, KYC document and portfolio samples submitted securely. KYC and editor/video approvals are pending CSA review.";
+   }
+  }else{location.href="portal.html";}
  }catch(e){status.textContent="Network error. Please retry.";}
 }
 $("editor-login-form")?.addEventListener("submit",e=>{e.preventDefault();editorPasswordLogin();});
