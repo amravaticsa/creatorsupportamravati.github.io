@@ -264,7 +264,7 @@ async function loadClientProjects(){
    const section=document.createElement("section");section.className="panel";
    const heading=document.createElement("h4");heading.textContent="Your submitted application";
    const brief=document.createElement("p");brief.textContent=p.brief||"No additional brief supplied.";
-   const req=p.requirements||{};
+   let req={};try{req=JSON.parse(p.requirements_json||"{}");}catch{}
    const rows=[
     ["Number of videos",p.video_count],["Raw footage",p.raw_footage_minutes!=null?p.raw_footage_minutes+" minutes":""],
     ["Final duration",p.final_duration_minutes!=null?p.final_duration_minutes+" minutes":""],["Resolution",p.resolution],
