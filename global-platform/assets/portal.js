@@ -105,6 +105,31 @@ if(user.role==="client"){
    }catch(err){$("project-message").textContent=(project?"Project "+project.project_code+" is safely saved with CSA, but file upload needs attention: ":"")+err.message;loadClientProjects();}
    finally{delete form.dataset.submitting;if(submit){submit.disabled=false;submit.textContent="Submit Project to CSA";}}
   };
+  $("video-editing-form").onsubmit=async e=>{
+   e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
+   if(!form.reportValidity())return;const submit=form.querySelector('button[type="submit"]');form.dataset.submitting="1";submit.disabled=true;submit.textContent="Submitting application…";
+   const f=new FormData(form),budget=String(f.get("budget")||"").trim(),minor=budget?Math.round(Number(budget)*100):null;
+   const packageName=String(f.get("service_package")||"Video Editing"),style=String(f.get("content_style")||"");
+   const title=(packageName+" — "+(f.get("project_type")||style)).slice(0,180);
+   const payload={title,category:"Video Editing",brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:"INR",budget_type:budget?"fixed":"recommend",preferred_deadline:String(f.get("preferred_deadline")||"").trim()||null,priority:"normal",revisions_included:2,requirements:{
+    communication_language:String(f.get("communication_language")||"").trim(),source_language:String(f.get("source_language")||"").trim(),output_language:String(f.get("output_language")||"").trim(),subtitle_languages:String(f.get("subtitle_languages")||"").trim(),client_country:String(f.get("client_country")||"").trim(),client_region:String(f.get("client_region")||"").trim(),client_city:String(f.get("client_city")||"").trim(),project_mode:String(f.get("project_mode")||"remote"),project_location:"",client_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"Asia/Kolkata",contact_name:String(f.get("contact_name")||"").trim(),contact_phone:String(f.get("contact_phone")||"").trim(),content_style:style,dialect:String(f.get("dialect")||"").trim(),service_package:packageName,project_type:String(f.get("project_type")||"").trim(),raw_footage_duration:String(f.get("raw_footage_duration")||"").trim()
+   }};
+   const message=$("video-editing-message");message.textContent="Submitting your application securely…";let project=null;
+   try{
+    project=await api("/v1/projects",{method:"POST",body:JSON.stringify(payload)});
+    message.textContent="Application "+project.project_code+" received. Uploading selected footage…";
+    const files=Array.from(form.elements.project_files?.files||[]);let uploaded=0;
+    for(const file of files){
+     if(file.size>5*1024*1024*1024)throw Error(file.name+" exceeds the 5 GB staging limit.");
+     if(file.size>90*1024*1024){await multipartUpload(file,{purpose:"project_file",project_id:project.project_id},(sent,total,part,count)=>{message.textContent="Application "+project.project_code+" · Uploading "+file.name+" · Part "+part+"/"+count+" · "+Math.round(sent/total*100)+"%";},null,state=>{if(state.type==="retry")message.textContent="Retrying upload "+state.attempt+"/3 · "+file.name;if(state.type==="completing")message.textContent="Verifying "+file.name;if(state.type==="error")message.textContent="Upload paused: "+state.message;});}
+     else{const up=await fetch(API+"/v1/projects/"+encodeURIComponent(project.project_id)+"/files",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","x-file-name":file.name},body:file});let result={};try{result=await up.json();}catch{}if(!up.ok)throw Error(result.error?.message||"Upload failed for "+file.name);}
+     uploaded++;
+    }
+    message.textContent="Success! Video Editing application "+project.project_code+" is saved in CSA Central Database. "+uploaded+" file(s) uploaded. Track payment, progress and final delivery below.";
+    form.reset();loadClientProjects();loadUploadHistory("client-upload-history");
+   }catch(err){message.textContent=(project?"Application "+project.project_code+" is saved, but upload needs attention: ":"")+err.message;loadClientProjects();}
+   finally{delete form.dataset.submitting;submit.disabled=false;submit.textContent="Submit Video Editing Application";}
+  };
 }else if(user.role==="editor"){
  $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
