@@ -10,6 +10,16 @@
 <label for="exp">Experience</label><select id="exp"><option>Beginner (under 1 year)</option><option>1–3 years</option><option>3–5 years</option><option>5+ years</option></select>
 <label for="software">Editing software</label><input id="software" placeholder="Premiere Pro, DaVinci Resolve, Final Cut, Filmora">
 <label for="specializations">Specializations *</label><textarea id="specializations" placeholder="YouTube, Reels, podcasts, wedding films, ads..."></textarea>
+<h3>Identity & KYC Verification</h3>
+<p class="muted">CSA must verify your identity before your editor profile or portfolio can be approved. Upload one clear government-issued ID document. Accepted: Passport or National ID worldwide; PAN, Voter ID or Driving Licence in India. Aadhaar is not required.</p>
+<label for="kyc-document-type">Government ID type *</label>
+<select id="kyc-document-type" required>
+<option value="">Select ID type</option><option value="passport">Passport</option><option value="national_id">National ID (where issued)</option><option value="pan">PAN Card (India)</option><option value="voter_id">Voter ID (India)</option><option value="driving_licence">Driving Licence (India)</option>
+</select>
+<label for="kyc-document-file">Upload ID document * (PDF, JPG or PNG · max 10 MB)</label>
+<input id="kyc-document-file" type="file" accept="application/pdf,image/jpeg,image/png" required>
+<label style="display:flex;gap:10px;align-items:flex-start"><input id="kyc-privacy-consent" type="checkbox" required><span>I authorize CSA to securely review this identity document only for editor KYC verification. I understand it will not be shown to clients or in my public profile.</span></label>
+<hr>
 <h3>Editing Portfolio Videos</h3>
 <p class="muted">Upload 1–3 original editing samples. MP4 or MOV only; maximum 80 MB per video.</p>
 <div id="portfolio-video-list"><div class="portfolio-video-entry">
