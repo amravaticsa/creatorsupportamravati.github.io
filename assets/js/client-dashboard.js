@@ -12,16 +12,26 @@ function receiptEscape(value){return String(value??"").replace(/[&<>"']/g,ch=>({
 function renderReceipt(receipt){
  if(!receipt||receipt.status!=="PAID")return;
  latestReceipt=receipt;
- const root=$("paymentReceiptPanel");if(!root)return;
+ let list=[];try{list=JSON.parse(localStorage.getItem("csa_video_receipts")||"[]");if(!Array.isArray(list))list=[];if(!list.some(x=>x.paymentId===receipt.paymentId))list.push(receipt);localStorage.setItem("csa_video_receipts",JSON.stringify(list));}catch{list=[receipt];}
+ renderReceiptHistory(list);
+}
+function renderReceiptHistory(list){
+ const root=$("paymentReceiptPanel");if(!root||!Array.isArray(list)||!list.length)return;
  root.replaceChildren();root.classList.remove("cd-hide");
- const title=document.createElement("h2");title.textContent="Payment receipt";root.append(title);
- const intro=document.createElement("p");intro.className="cd-help";intro.textContent="Payment successfully verified by Razorpay. Your receipt is ready.";root.append(intro);
- const grid=document.createElement("div");grid.className="cd-payment-grid";
- const date=receipt.paymentDate?new Date(receipt.paymentDate).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"—";
- [["Receipt No.",receipt.receiptNumber],["Payment status",receipt.status],["Amount received",receiptMoney(receipt.paymentAmountPaise)],["Payment date",date],["Payment ID",receipt.paymentId],["Payment method",String(receipt.paymentMethod||"—").toUpperCase()],["Project amount",receiptMoney(receipt.projectTotalPaise)],["Balance after payment",receiptMoney(receipt.balancePaise)]].forEach(([label,value])=>{const cell=document.createElement("div"),small=document.createElement("small"),b=document.createElement("b");small.textContent=label;b.textContent=value||"—";cell.append(small,b);grid.append(cell);});
- root.append(grid);
- const button=document.createElement("button");button.type="button";button.className="cd-btn";button.textContent="Download PDF Receipt / Print";button.addEventListener("click",()=>printReceipt(receipt));root.append(button);
- const note=document.createElement("p");note.className="cd-help";note.textContent="This is a payment receipt, not a GST tax invoice. Keep it for your records.";root.append(note);
+ const title=document.createElement("h2");title.textContent="Payment receipts";root.append(title);
+ const intro=document.createElement("p");intro.className="cd-help";intro.textContent="Every verified payment has its own receipt. Save each receipt for your records.";root.append(intro);
+ list.slice().reverse().forEach(receipt=>{
+  if(!receipt||receipt.status!=="PAID")return;
+  const card=document.createElement("div");card.className="cd-upload-zone";card.style.marginTop="12px";
+  const heading=document.createElement("strong");heading.textContent=(receipt.receiptNumber||"Payment receipt")+" · "+receiptMoney(receipt.paymentAmountPaise);card.append(heading);
+  const grid=document.createElement("div");grid.className="cd-payment-grid";
+  const date=receipt.paymentDate?new Date(receipt.paymentDate).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"—";
+  [["Status",receipt.status],["Payment date",date],["Payment ID",receipt.paymentId],["Method",String(receipt.paymentMethod||"—").toUpperCase()],["Project amount",receiptMoney(receipt.projectTotalPaise)],["Balance after payment",receiptMoney(receipt.balancePaise)]].forEach(([label,value])=>{const cell=document.createElement("div"),small=document.createElement("small"),b=document.createElement("b");small.textContent=label;b.textContent=value||"—";cell.append(small,b);grid.append(cell);});
+  card.append(grid);
+  const button=document.createElement("button");button.type="button";button.className="cd-btn";button.textContent="Download PDF Receipt / Print";button.addEventListener("click",()=>printReceipt(receipt));card.append(button);
+  root.append(card);
+ });
+ const note=document.createElement("p");note.className="cd-help";note.textContent="These are payment receipts, not GST tax invoices.";root.append(note);
 }
 function printReceipt(r){
  const win=window.open("","_blank");if(!win){alert("Please allow pop-ups to download your receipt.");return;}
@@ -33,7 +43,7 @@ function printReceipt(r){
 }
 async function api(path,options={}){const r=await fetch(API+path,options);let d={};try{d=await r.json();}catch{}if(!r.ok)throw Error(d.error||"Request failed ("+r.status+")");return d;}
 function save(code,token){try{localStorage.setItem("csa_video_last_order",code);localStorage.setItem("csa_video_order_"+code,token);}catch{}}
-function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}const receipt=JSON.parse(localStorage.getItem("csa_video_last_receipt")||"null");if(receipt)renderReceipt(receipt);}catch{}}
+function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}const receipts=JSON.parse(localStorage.getItem("csa_video_receipts")||"[]");if(Array.isArray(receipts)&&receipts.length)renderReceiptHistory(receipts);}catch{}}
 const publicShareUrl="https://creatorsupportamravati.in/video-editing.html";
 const budgetSelect=$("clientBudget"),budgetAmountInput=$("projectBudgetAmount");
 function currentPaymentType(){return document.querySelector('input[name="paymentType"]:checked')?.value||"advance";}
@@ -112,7 +122,7 @@ $("payNowButton").addEventListener("click",async()=>{
      if(!vr.ok||!verified.verified||verified.paymentStatus!=="captured")throw Error(verified.error||verified.message||"Payment is not yet captured.");
      verifiedPayment={orderId:response.razorpay_order_id,paymentId:response.razorpay_payment_id,type};
      if(!verified.receipt||verified.receipt.status!=="PAID")throw Error("Payment is captured, but receipt generation is pending. Contact CSA with your payment ID.");
-     renderReceipt(verified.receipt);try{localStorage.setItem("csa_video_last_receipt",JSON.stringify(verified.receipt));}catch{}
+     renderReceipt(verified.receipt);
      note.textContent="Payment successfully verified. Your accepted Terms & Conditions will be included with the application.";$("submitRequest").disabled=!termsAccepted;
      $("submitRequest").scrollIntoView({behavior:"smooth",block:"center"});
     }catch(err){verifiedPayment=null;note.textContent="Payment verification pending: "+err.message+" Your application remains unsubmitted. Contact CSA with your payment ID if money was deducted.";}
