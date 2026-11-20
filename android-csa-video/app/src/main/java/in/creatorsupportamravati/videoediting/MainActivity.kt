@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                return handleNavigation(view, request.url, request.hasGesture)
+                return handleNavigation(view, request.url, request.hasGesture())
             }
 
             @Suppress("DEPRECATION")
