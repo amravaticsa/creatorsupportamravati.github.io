@@ -163,20 +163,20 @@ async function handle(req,env){
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
    await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
   }else{
-   const country=txt(profile.country,100),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
-   if(!country||!skills.length)return bad("Editor country and at least one specialization are required.");
+   const country=txt(profile.country,100),legalName=txt(profile.legal_name,160),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
+   if(!legalName||!country||!skills.length)return bad("Legal name, country and at least one specialization are required.");
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
-   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),null,null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
+   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,legal_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,legalName,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),null,null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
   }
   await log(env,newId,"google_account_registered",role,newId,{email_domain:c.email.split("@")[1]});
   return out({ok:true,user_id:newId,role,status:role==="editor"?"pending":"active",email:c.email},201);
  }
  if(m==="POST"&&p==="/v1/onboarding/editor"){
-  const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),country=txt(b.country,100);
-  if(!name||!country||!Array.isArray(b.specializations)||!b.specializations.length)return bad("Name, country and specializations are required.");
+  const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),legalName=txt(b.legal_name,160),country=txt(b.country,100);
+  if(!name||!legalName||!country||!Array.isArray(b.specializations)||!b.specializations.length)return bad("Display name, legal name, country and specializations are required.");
   const idu=uid("usr");
   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
-  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(b.city,100)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),null,null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
+  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,legal_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,legalName,country,txt(b.city,100)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),null,null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
   await log(env,idu,"editor_registration_submitted","editor",idu);
   return out({ok:true,status:"pending_verification",message:"Registration is free. No deposit is charged until an editor chooses to accept a project offer."},201);
  }
@@ -808,7 +808,7 @@ async function handle(req,env){
   return new Response(object.body,{headers:{"content-type":doc.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'; sandbox"}});
  }
  if(m==="GET"&&p==="/v1/admin/editors/kyc/pending"){
-  await user(req,env,["admin"]);const r=await env.DB.prepare("SELECT d.id,d.editor_id,d.document_type,d.mime_type,d.size_bytes,d.status,d.created_at,u.email,e.display_name,e.public_editor_code,e.country,e.city FROM editor_kyc_documents d JOIN users u ON u.id=d.editor_id JOIN editor_profiles e ON e.user_id=d.editor_id WHERE d.status IN ('pending','in_review') ORDER BY d.created_at ASC LIMIT 100").all();
+  await user(req,env,["admin"]);const r=await env.DB.prepare("SELECT d.id,d.editor_id,d.document_type,d.mime_type,d.size_bytes,d.status,d.created_at,u.email,e.display_name,e.legal_name,e.public_editor_code,e.country,e.city FROM editor_kyc_documents d JOIN users u ON u.id=d.editor_id JOIN editor_profiles e ON e.user_id=d.editor_id WHERE d.status IN ('pending','in_review') ORDER BY d.created_at ASC LIMIT 100").all();
   return out({ok:true,documents:r.results||[]});
  }
  const kycReview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-review$/);
@@ -827,7 +827,7 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/v1/admin/editors/pending"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.country,e.city,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at,COALESCE((SELECT k.status FROM editor_kyc_documents k WHERE k.editor_id=u.id ORDER BY k.created_at DESC LIMIT 1),'not_submitted') AS kyc_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
+  const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.legal_name,e.country,e.city,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at,COALESCE((SELECT k.status FROM editor_kyc_documents k WHERE k.editor_id=u.id ORDER BY k.created_at DESC LIMIT 1),'not_submitted') AS kyc_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/offers/ready"){
