@@ -78,6 +78,7 @@ async function handle(req,env){
  if(m==="POST"&&p==="/v1/auth/editor-password")policy={scope:"editor-password-login",limit:8,window:300};
  if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
  else if(m==="POST"&&p==="/v1/editor/portfolio-videos")policy={scope:"editor-portfolio-upload",limit:6,window:300};
+ else if(m==="POST"&&p==="/v1/editor/kyc-document")policy={scope:"editor-kyc-upload",limit:4,window:300};
  else if(m==="POST"&&["/v1/onboarding/editor","/v1/onboarding/client"].includes(p))policy={scope:"onboarding",limit:5,window:60};
  else if(m==="POST"&&p==="/v1/uploads/multipart")policy={scope:"multipart-create",limit:5,window:60};
  else if(m==="PUT"&&/^\/v1\/uploads\/multipart\/[\w-]+\/parts\/\d+$/.test(p))policy={scope:"multipart-part",limit:120,window:300};
@@ -185,8 +186,8 @@ async function handle(req,env){
   if(!env.MEDIA)return bad("Private KYC storage is not configured.",503);
   const identity=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(identity.sub,identity.email).first();
   if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status))return bad("An eligible editor registration is required.",403);
-  const docType=txt(req.headers.get("x-csa-kyc-document-type"),40).toLowerCase(),consent=req.headers.get("x-csa-kyc-consent")==="true",mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),declared=Number(req.headers.get("content-length")||0);
-  if(!["passport","national_id","pan","voter_id","driving_licence"].includes(docType)||!consent)return bad("Select an accepted government ID type and confirm the KYC privacy notice.");
+  const docType=txt(req.headers.get("x-csa-kyc-document-type"),40).toLowerCase(),consent=req.headers.get("x-csa-kyc-consent")==="true",consentVersion=txt(req.headers.get("x-csa-kyc-consent-version"),20),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),declared=Number(req.headers.get("content-length")||0);
+  if(!["passport","national_id","pan","voter_id","driving_licence"].includes(docType)||!consent||consentVersion!=="1.0")return bad("Select an accepted government ID type and accept the current KYC privacy notice.");
   if(!["application/pdf","image/jpeg","image/png"].includes(mime))return bad("KYC document must be a PDF, JPG or PNG.",415);
   if(!Number.isSafeInteger(declared)||declared<1||declared>10*1024*1024)return bad("KYC document must be between 1 byte and 10 MB.",413);
   const pending=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status IN ('pending','in_review')").bind(editor.id).first();
@@ -197,7 +198,7 @@ async function handle(req,env){
   if(!valid)return bad("The document file signature does not match its selected type.",415);
   const id=uid("kyc"),key="private-kyc/"+editor.id+"/"+id+(mime==="application/pdf"?".pdf":mime==="image/png"?".png":".jpg");
   await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store"}});
-  try{await env.DB.prepare("INSERT INTO editor_kyc_documents(id,editor_id,document_type,r2_object_key,mime_type,size_bytes,status) VALUES(?,?,?,?,?,?,'pending')").bind(id,editor.id,docType,key,mime,bytes.byteLength).run();await log(env,editor.id,"editor_kyc_document_submitted","editor_kyc",id,{document_type:docType,mime_type:mime,size_bytes:bytes.byteLength});}
+  try{await env.DB.prepare("INSERT INTO editor_kyc_documents(id,editor_id,document_type,r2_object_key,mime_type,size_bytes,status,consent_version,consented_at) VALUES(?,?,?,?,?,?,'pending',?,?)").bind(id,editor.id,docType,key,mime,bytes.byteLength,consentVersion,new Date().toISOString()).run();await log(env,editor.id,"editor_kyc_document_submitted","editor_kyc",id,{document_type:docType,mime_type:mime,size_bytes:bytes.byteLength});}
   catch(e){await env.MEDIA.delete(key);throw e;}
   return out({ok:true,status:"pending_review",message:"KYC document submitted securely for CSA review."},201);
  }
@@ -803,8 +804,8 @@ async function handle(req,env){
  }
  const kycPreview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-preview$/);
  if(m==="GET"&&kycPreview){
-  await user(req,env,["admin"]);const doc=await env.DB.prepare("SELECT r2_object_key,mime_type FROM editor_kyc_documents WHERE editor_id=? ORDER BY created_at DESC LIMIT 1").bind(kycPreview[1]).first();
-  if(!doc)return bad("KYC document not found.",404);const object=await env.MEDIA.get(doc.r2_object_key);if(!object)return bad("KYC document is missing from private storage.",404);
+  const a=await user(req,env,["admin"]);const doc=await env.DB.prepare("SELECT id,r2_object_key,mime_type FROM editor_kyc_documents WHERE editor_id=? ORDER BY created_at DESC LIMIT 1").bind(kycPreview[1]).first();
+  if(!doc)return bad("KYC document not found.",404);await log(env,a.id,"editor_kyc_document_previewed","editor_kyc",doc.id,{editor_id:kycPreview[1]});const object=await env.MEDIA.get(doc.r2_object_key);if(!object)return bad("KYC document is missing from private storage.",404);
   return new Response(object.body,{headers:{"content-type":doc.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'; sandbox"}});
  }
  if(m==="GET"&&p==="/v1/admin/editors/kyc/pending"){
