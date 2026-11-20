@@ -53,19 +53,9 @@
  <div class="cd-progress"><span id="uploadProgress"></span></div><p class="cd-help" id="uploadStatus" aria-live="polite"></p>
  <button class="cd-btn cd-btn-light" id="uploadBeforePayment" type="button">Upload Raw Clips</button>
 </section>
-<section class="cd-upload-card cd-hide" id="paymentSection" style="border-style:solid;background:#f8fbfc">
- <h3>Step 2 · Choose your payment option</h3><p class="cd-help" id="paymentAmountText">Choose how you want to pay for this project.</p>
- <div class="cd-two">
-  <label><span><input type="radio" name="paymentType" value="advance" checked> 50% Advance Payment</span></label>
-  <label><span><input type="radio" name="paymentType" value="full"> 100% Full Payment</span></label>
- </div>
- <p class="cd-help" id="paymentBreakdown" aria-live="polite"></p>
- <button class="cd-btn" id="payNowButton" type="button">Pay Now with Razorpay</button>
- <p class="cd-help" id="paymentMessage" aria-live="polite"></p>
-</section>
 <section class="cd-upload-card cd-hide" id="videoTermsSection" style="border:1px solid #d7e5e8;background:#f5fafb;padding:18px;border-radius:14px">
- <h3>Step 3 · Terms &amp; Conditions</h3>
- <p class="cd-help">Payment verification successful. Please review these project terms carefully. Your application will be submitted only after you accept them.</p>
+ <h3>Step 2 · Terms &amp; Conditions</h3>
+ <p class="cd-help">Your raw clips have uploaded. Please review and accept these project terms before moving to payment. Your application will be submitted only after payment is verified.</p>
  <details style="background:#fff;border:1px solid #e3eaf0;border-radius:10px;padding:14px">
   <summary style="font-weight:750;cursor:pointer">Read Video Editing Terms &amp; Conditions</summary>
   <div class="cd-help" style="font-size:13px;line-height:1.7;margin-top:12px">
@@ -86,16 +76,27 @@
   <input id="acceptVideoTerms" type="checkbox" style="width:18px;height:18px;margin-top:2px;flex:0 0 auto">
   <span>I have read, understood and agree to the Video Editing Terms &amp; Conditions and the linked CSA policies.</span>
  </label>
- <p class="cd-help" style="margin:8px 0 0">Your acceptance time and terms version will be recorded with this application.</p>
+ <button class="cd-btn" id="acceptTermsContinue" type="button" disabled style="margin-top:12px">Accept Terms &amp; Continue to Payment</button>
+ <p class="cd-help" style="margin:8px 0 0">Your acceptance and the applicable terms version will be recorded when your application is submitted.</p>
+</section>
+<section class="cd-upload-card cd-hide" id="paymentSection" style="border-style:solid;background:#f8fbfc">
+ <h3>Step 3 · Choose your payment option</h3><p class="cd-help" id="paymentAmountText">Your terms are accepted. Choose 50% advance or 100% full payment to continue.</p>
+ <div class="cd-two">
+  <label><span><input type="radio" name="paymentType" value="advance" checked> 50% Advance Payment</span></label>
+  <label><span><input type="radio" name="paymentType" value="full"> 100% Full Payment</span></label>
+ </div>
+ <p class="cd-help" id="paymentBreakdown" aria-live="polite"></p>
+ <button class="cd-btn" id="payNowButton" type="button">Pay Now with Razorpay</button>
+ <p class="cd-help" id="paymentMessage" aria-live="polite"></p>
 </section>
 <button class="cd-btn" id="submitRequest" type="submit" disabled>Send Editing Request</button>
 <div class="cd-msg cd-hide" id="requestMessage" role="status" aria-live="polite"></div>
 </form></section>
 <aside class="cd-card"><h2>How the process works</h2><p class="cd-sub">Track every stage, from your initial request to final delivery.</p><div class="cd-steps">
 <div class="cd-step"><div class="cd-num">1</div><div><b>Upload your raw clips</b><span>Upload your footage and project files securely before submitting.</span></div></div>
-<div class="cd-step"><div class="cd-num">2</div><div><b>Choose your payment</b><span>Enter your project budget and select 50% advance or 100% full payment.</span></div></div>
-<div class="cd-step"><div class="cd-num">3</div><div><b>Review & accept terms</b><span>After verified payment, read and accept the project Terms &amp; Conditions.</span></div></div>
-<div class="cd-step"><div class="cd-num">4</div><div><b>Submit your application</b><span>Your application is submitted after payment verification and terms acceptance.</span></div></div>
+<div class="cd-step"><div class="cd-num">2</div><div><b>Review & accept terms</b><span>Read and accept the project Terms &amp; Conditions after upload.</span></div></div>
+<div class="cd-step"><div class="cd-num">3</div><div><b>Choose your payment</b><span>Select 50% advance or 100% full payment after accepting the terms.</span></div></div>
+<div class="cd-step"><div class="cd-num">4</div><div><b>Submit your application</b><span>Your request is submitted after payment verification.</span></div></div>
 <div class="cd-step"><div class="cd-num">5</div><div><b>CSA review & editing</b><span>Our team reviews your requirements and works on the agreed deliverables.</span></div></div>
 <div class="cd-step"><div class="cd-num">6</div><div><b>Preview & final delivery</b><span>Review your preview and receive final files after any remaining balance is paid.</span></div></div>
 </div><hr style="border:0;border-top:1px solid var(--line);margin:22px 0"><p class="cd-help"><strong>Need help?</strong><br>+91 92255 15679<br>amravati.csa@gmail.com<br>Monday–Saturday, 10:00 AM–7:00 PM (IST)</p></aside>
@@ -103,5 +104,5 @@
 <section class="cd-card cd-tracker" id="track-project"><h2>Track your project</h2><p class="cd-sub">Enter the Order ID and private access code you received after submitting your request.</p><form class="cd-form" id="trackForm"><div class="cd-two"><label>Order ID<input name="orderCode" required placeholder="CSA-VE-XXXXXXXX"></label><label>Private access code<input name="accessToken" required autocomplete="off" placeholder="Your private code"></label></div><button class="cd-btn" type="submit">View My Project</button></form><div class="cd-msg cd-hide" id="trackMessage" role="status"></div><div id="trackResult" class="cd-hide"></div></section>
 </main>
 <footer class="site-footer"><div class="container"><div class="footer-grid"><div><a class="brand" href="index.html"><img src="assets/images/logo.png" alt="Creator Support Amravati" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a><p>Creative production and digital growth solutions for businesses, creators and brands worldwide.</p><p>Vyankatesh Complex, Shop No. F-101, Mahendra Colony, Amravati, Maharashtra, India</p></div><div><h3>Explore</h3><div class="footer-links"><a href="index.html">Home</a><a href="about.html">About Us</a><a href="services.html">Our Services</a><a href="portfolio.html">Portfolio</a><a href="blog.html">Blog &amp; Insights</a><a href="contact.html">Contact</a></div></div><div><h3>Policies</h3><div class="footer-links"><a href="privacy-policy.html">Privacy Policy</a><a href="terms.html">Terms &amp; Conditions</a><a href="refund-policy.html">Refund Policy</a><a href="disclaimer.html">Disclaimer</a><a href="copyright-policy.html">Copyright Policy</a></div></div><div><h3>Contact</h3><div class="footer-links"><a href="tel:+919225515679">+91 92255 15679</a><a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a><span>Monday–Saturday · 10:00 AM–7:00 PM (IST)</span></div></div></div><div class="footer-bottom"><span>© 2026 Creator Support Amravati. All rights reserved.</span><span>Serving clients in India and worldwide.</span></div></div></footer>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script><script src="assets/js/client-dashboard.js?v=20261120-terms-v1"></script><script src="assets/js/firebase-config.js"></script><script src="assets/js/csa-engagement.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script><script src="assets/js/client-dashboard.js?v=20261120-terms-v2"></script><script src="assets/js/firebase-config.js"></script><script src="assets/js/csa-engagement.js"></script>
 </body></html>
