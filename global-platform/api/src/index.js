@@ -549,7 +549,7 @@ async function handle(req,env){
   return out({ok:true,agreements:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/editor/offers"){
-  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT o.id,o.offer_message,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.offer_expires_at,o.status,p.public_project_code,p.title,p.category,p.brief,p.preferred_deadline,p.revisions_included FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.editor_id=? AND o.status IN ('offered','accepted_pending_terms','terms_accepted_pending_deposit','deposit_pending','ready_for_assignment','assigned') ORDER BY o.created_at DESC").bind(a.id).all();
+  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT o.id,o.offer_message,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.offer_expires_at,o.status,p.public_project_code,p.title,p.category,p.brief,p.requirements_json,p.preferred_deadline,p.revisions_included FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.editor_id=? AND o.status IN ('offered','accepted_pending_terms','terms_accepted_pending_deposit','deposit_pending','ready_for_assignment','assigned') ORDER BY o.created_at DESC").bind(a.id).all();
   return out({ok:true,offers:r.results||[]});
  }
  const ac=p.match(/^\/v1\/offers\/([\w-]+)\/accept$/);
@@ -698,12 +698,12 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/v1/admin/projects"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,status,created_at FROM projects WHERE status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY created_at DESC LIMIT 100").all();
+  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,status,created_at FROM projects WHERE status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY created_at DESC LIMIT 100").all();
   return out({ok:true,projects:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/editors/verified"){
   await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.display_name,e.country,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND u.account_status='active' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
+  const r=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND u.account_status='active' AND e.verification_status='verified' ORDER BY e.display_name LIMIT 300").all();
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/editors/pending"){
