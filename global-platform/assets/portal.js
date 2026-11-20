@@ -398,12 +398,13 @@ async function loadAdminKycReviews(){
  }catch(err){root.textContent="KYC queue unavailable: "+err.message;}
 }
 async function loadAdmin(){
- const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
+ const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready"),departments=$("admin-departments");
  loadPortfolioVideoReviews();
  try{
-  const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
-   api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready"),api("/v1/admin/submissions/pending"),api("/v1/admin/deposits/refunds/eligible")
+  const [overview,pj,pe,ve,ro,qc,rf,dp]=await Promise.all([
+   api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready"),api("/v1/admin/submissions/pending"),api("/v1/admin/deposits/refunds/eligible"),api("/v1/admin/departments")
   ]);
+  if(departments){departments.replaceChildren();for(const d of dp.departments||[]){const tag=document.createElement("span");tag.className="tag blue";tag.textContent=d.name+" · "+d.access_level;departments.append(tag)}if(!(dp.departments||[]).length)departments.textContent="No department access has been assigned.";}
   metrics.replaceChildren();
   for(const [label,value] of Object.entries({Projects:overview.metrics.projects_to_review,EditorsPending:overview.metrics.editors_pending,ActiveAssignments:overview.metrics.active_assignments,OpenDisputes:overview.metrics.open_disputes})){
    const card=document.createElement("div");card.className="stat";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;card.append(small,strong);metrics.append(card);
@@ -414,7 +415,7 @@ async function loadAdmin(){
    const card=document.createElement("article");card.className="card";
    const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;
    const desc=document.createElement("p");desc.textContent=p.brief;
-   const meta=document.createElement("p");meta.className="muted";meta.textContent="Client budget: "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.category+" · "+p.status+" · Deadline: "+(p.preferred_deadline||"Not set");
+   const meta=document.createElement("p");meta.className="muted";meta.textContent="Client budget: "+(p.budget_amount_minor/100)+" "+p.budget_currency+" · "+p.category+" · "+p.status+" · Department queues: "+(p.department_names||"Not assigned")+" · Deadline: "+(p.preferred_deadline||"Not set");
    let req={};try{req=JSON.parse(p.requirements_json||"{}");}catch{}
    const langLoc=document.createElement("p");langLoc.className="muted";langLoc.textContent="Languages: "+[req.communication_language&&("Communication: "+req.communication_language),req.source_language&&("Source: "+req.source_language),req.output_language&&("Output: "+req.output_language),req.subtitle_languages&&("Captions: "+req.subtitle_languages)].filter(Boolean).join(" · ")+" | Location: "+[req.client_city,req.client_region,req.client_country].filter(Boolean).join(", ")+(req.project_mode?" · "+req.project_mode:"")+(req.project_location?" · Project site: "+req.project_location:"");
    card.append(h,desc,meta,langLoc);
