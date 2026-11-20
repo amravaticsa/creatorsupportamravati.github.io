@@ -37,7 +37,7 @@ Payment API (`csa-rush-payment-api-staging`):
 - `POST /api/verify-payment` — verifies signature, order ID, INR currency, captured status and exact amount; records payment and marks quote paid.
 
 ## Payment test gate
-The staging Payment Worker has no Razorpay secrets copied from Production. Its health response reports whether test credentials are configured. Until separate Razorpay **Test Mode** key ID and secret are set as staging-only Worker secrets, payment creation and verification return HTTP 503. Do not add Production Razorpay keys.
+Separate Razorpay **Test Mode** key ID and secret are configured as encrypted secrets on csa-rush-payment-api-staging; they are not copied from Production. The Worker settings confirm both secret bindings remain present after the latest deployment. Do not add Production Razorpay keys. Test Mode checkout still requires an end-to-end browser test before release.
 
 ## Current boundary
 The customer form is a separate staging copy. It uses only the staging API, staging D1 databases and staging R2 bucket. Production `video-editing.html`, live video/payment APIs, production database, production media bucket and live orders remain unchanged. The preview is noindex. Full browser/API end-to-end testing is still required before any production release.
@@ -48,7 +48,7 @@ The customer form is a separate staging copy. It uses only the staging API, stag
 - The Worker is routed only for `/rush-approvals*` and `/rush-api/*`; the existing Super Admin Worker and its secrets were not modified.
 - Approval API requests are same-origin and validate the existing `csa_admin_session` against the staging Super Admin D1 database. The session cookie is not sent to a workers.dev cross-origin host.
 - Customer rush quote preview: `https://csa-video-rush-api-staging.creatorsupportamravati.workers.dev/rush-preview` (served by the isolated staging API Worker; same-origin requests stay on staging).
-- Payment is intentionally disabled until separate Razorpay Test Mode credentials are configured. This preview currently tests quote creation and same-day approval only; it does not upload media or submit a production order.
+- Razorpay Test Mode credentials are configured on the isolated staging payment Worker. This preview is still not approved for production; complete browser-based upload, approval, checkout, payment verification, receipt and tracking tests first.
 
 
 ## Workflow staging deployment
@@ -59,4 +59,13 @@ The customer form is a separate staging copy. It uses only the staging API, stag
 - Same-day requests show a confirmation dialog, create a pending quote, and block checkout until Super Admin approval. After approval, the customer returns and clicks Pay Now again.
 - Priority one-day quotes require no Super Admin approval; they add 25%. Same-day adds 50%.
 - Final order records store rush level, surcharge and total project fee; order tracking displays the rush charge.
-- Payment remains disabled until separate Razorpay Test Mode credentials are configured as staging Worker secrets. Production keys are not copied.
+- Razorpay Test Mode credentials are configured as encrypted staging Worker secrets. Production keys are not copied. The payment Worker now supports idempotent verification retries and is deployed to staging.
+
+
+## Latest staging hardening — 2026-11-20
+- Super Admin approve/reject decision and audit insert now execute in one D1 batch; the update rechecks pending state and quote expiry. Deployed to csa-rush-admin-staging at 100% traffic.
+- Payment verification supports safe retries for an already-paid quote, avoids duplicate payment rows with INSERT OR IGNORE, and only writes the paid audit event once. Deployed to csa-rush-payment-api-staging at 100% traffic.
+- Payment API deployment was verified to retain both D1 bindings and both encrypted Razorpay Test Mode secret bindings.
+- The payment-order type synchronization change is committed to the staging branch frontend source. It has not been deployed to the public site; production remains unchanged.
+- D1 staging tables were checked and contained zero test orders, files, payment ledger rows, rush quotes and audit rows at the last read-only count.
+- Direct Worker URL health checks from the management execution environment are blocked by that environment's outbound request policy (403); this is not evidence of a Worker outage. Browser-based end-to-end testing remains outstanding.
