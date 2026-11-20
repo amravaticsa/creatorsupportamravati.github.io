@@ -69,3 +69,14 @@ The customer form is a separate staging copy. It uses only the staging API, stag
 - The payment-order type synchronization change is committed to the staging branch frontend source. It has not been deployed to the public site; production remains unchanged.
 - D1 staging tables were checked and contained zero test orders, files, payment ledger rows, rush quotes and audit rows at the last read-only count.
 - Direct Worker URL health checks from the management execution environment are blocked by that environment's outbound request policy (403); this is not evidence of a Worker outage. Browser-based end-to-end testing remains outstanding.
+
+
+## Six-step customer status workflow — 2026-11-20
+- Customer-facing tracker now uses exactly: Application received → Files received → Work assigned → Editing in progress → Preview & revisions → Final delivery.
+- Verified application finalization stores the order at `Files received` and writes separate history events for application receipt and raw footage receipt; it no longer starts at Editing in progress.
+- Admin status transitions are validated: Work assigned follows Files received; Editing in progress follows assignment or a revision return; Preview & revisions requires a completed preview file.
+- Final video upload, final download, and Final delivery status are blocked unless the order has `payment_status='paid'` and a completed final file exists. Advance-only orders remain locked pending the balance-payment workflow.
+- Preview upload automatically moves the order to Preview & revisions.
+- Updated the staging preview Worker to load the latest customer tracking script. Both workflow and preview Workers were uploaded and confirmed at 100% traffic on 2026-11-20.
+- The staging video-editing D1 database was read-only checked and contained no orders at the time of this update. The user's previously submitted trial application was therefore not modified; its screenshot appears to be from a different (likely production) backend. Production remains untouched.
+- Separate Editor accounts/assignment UI and the secure Admin status-control interface are not yet completed. These are the next phase; do not claim that Editor assignment or start-work actions are currently live.
