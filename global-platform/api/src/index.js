@@ -899,7 +899,7 @@ export default {async scheduled(controller,env){
  }
 },async fetch(req,env){
  // File uploads use PUT; include it in CORS so browser preflight succeeds for client and editor uploads.
- const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes,X-CSA-Video-Title,X-CSA-Video-Description,X-CSA-Video-Category,X-CSA-Video-Rights-Confirmed,X-CSA-Terms-Accepted,X-CSA-Terms-Version","access-control-max-age":"86400"};
+ const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes,X-CSA-Video-Title,X-CSA-Video-Description,X-CSA-Video-Category,X-CSA-Video-Rights-Confirmed,X-CSA-Terms-Accepted,X-CSA-Terms-Version,X-CSA-KYC-Document-Type,X-CSA-KYC-Consent,X-CSA-KYC-Consent-Version","access-control-max-age":"86400"};
  if(allowed.includes(origin))ch["access-control-allow-origin"]=origin;
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:ch});
  try{const r=await handle(req,env),h=new Headers(r.headers);Object.entries(ch).forEach(([k,v])=>h.set(k,v));return new Response(r.body,{status:r.status,headers:h});}
