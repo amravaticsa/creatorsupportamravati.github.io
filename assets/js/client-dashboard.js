@@ -6,10 +6,34 @@ const $=id=>document.getElementById(id);
 const hide=el=>el.classList.add("cd-hide");
 const show=(el,msg)=>{el.textContent=msg;el.classList.remove("cd-hide");};
 const auth=token=>({Authorization:"Bearer "+token});
-let orderCode="",accessToken="",draftCode="",draftToken="",verifiedPayment=null,projectTotal=0,draftFormData=null,termsAccepted=false;
+let orderCode="",accessToken="",draftCode="",draftToken="",verifiedPayment=null,projectTotal=0,draftFormData=null,termsAccepted=false,latestReceipt=null;
+function receiptMoney(paise){return "₹"+(Number(paise||0)/100).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function receiptEscape(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));}
+function renderReceipt(receipt){
+ if(!receipt||receipt.status!=="PAID")return;
+ latestReceipt=receipt;
+ const root=$("paymentReceiptPanel");if(!root)return;
+ root.replaceChildren();root.classList.remove("cd-hide");
+ const title=document.createElement("h2");title.textContent="Payment receipt";root.append(title);
+ const intro=document.createElement("p");intro.className="cd-help";intro.textContent="Payment successfully verified by Razorpay. Your receipt is ready.";root.append(intro);
+ const grid=document.createElement("div");grid.className="cd-payment-grid";
+ const date=receipt.paymentDate?new Date(receipt.paymentDate).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"—";
+ [["Receipt No.",receipt.receiptNumber],["Payment status",receipt.status],["Amount received",receiptMoney(receipt.paymentAmountPaise)],["Payment date",date],["Payment ID",receipt.paymentId],["Payment method",String(receipt.paymentMethod||"—").toUpperCase()],["Project amount",receiptMoney(receipt.projectTotalPaise)],["Balance after payment",receiptMoney(receipt.balancePaise)]].forEach(([label,value])=>{const cell=document.createElement("div"),small=document.createElement("small"),b=document.createElement("b");small.textContent=label;b.textContent=value||"—";cell.append(small,b);grid.append(cell);});
+ root.append(grid);
+ const button=document.createElement("button");button.type="button";button.className="cd-btn";button.textContent="Download PDF Receipt / Print";button.addEventListener("click",()=>printReceipt(receipt));root.append(button);
+ const note=document.createElement("p");note.className="cd-help";note.textContent="This is a payment receipt, not a GST tax invoice. Keep it for your records.";root.append(note);
+}
+function printReceipt(r){
+ const win=window.open("","_blank");if(!win){alert("Please allow pop-ups to download your receipt.");return;}
+ const fmt=receiptMoney,dt=r.paymentDate?new Date(r.paymentDate).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"—";
+ const rows=[["Receipt number",r.receiptNumber],["Receipt date",dt],["Customer",r.customerName],["Email",r.customerEmail],["Phone",r.customerPhone],["Razorpay Order ID",r.razorpayOrderId],["Razorpay Payment ID",r.paymentId],["Payment method",String(r.paymentMethod||"—").toUpperCase()],["Payment type",r.paymentType==="advance"?"50% Advance":"Full Payment"],["Project amount",fmt(r.projectTotalPaise)],["Amount received",fmt(r.paymentAmountPaise)],["Balance after payment",fmt(r.balancePaise)]];
+ const table=rows.map(([k,v])=>"<tr><th>"+receiptEscape(k)+"</th><td>"+receiptEscape(v)+"</td></tr>").join("");
+ const html="<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+receiptEscape(r.receiptNumber)+"</title><style>body{font:15px Arial,sans-serif;color:#17212b;margin:32px auto;max-width:760px;padding:20px}header{border-bottom:3px solid #0f9d8c;padding-bottom:16px;margin-bottom:22px}h1{margin:0 0 6px;font-size:25px}p{line-height:1.5;color:#52606d}.paid{display:inline-block;background:#e8f7ef;color:#126b3a;padding:7px 12px;border-radius:20px;font-weight:bold}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e5e9ef;vertical-align:top}th{width:38%;color:#52606d;font-weight:600}.amount{font-size:23px;font-weight:700;margin:20px 0}.foot{margin-top:28px;border-top:1px solid #e5e9ef;padding-top:14px;font-size:12px}@media print{body{margin:0 auto;padding:10mm}.no-print{display:none}}</style></head><body><header><h1>"+receiptEscape(r.businessName)+"</h1><p>"+receiptEscape(r.businessAddress)+"<br>"+receiptEscape(r.businessEmail)+" · "+receiptEscape(r.businessPhone)+"</p><span class='paid'>PAYMENT RECEIVED · PAID</span></header><h2>Payment Receipt</h2><div class='amount'>"+fmt(r.paymentAmountPaise)+" received</div><table>"+table+"</table><p class='foot'>This document confirms receipt of the payment shown above. It is a payment receipt and not a GST tax invoice.</p><button class='no-print' onclick='window.print()'>Print / Save as PDF</button></body></html>";
+ win.document.open();win.document.write(html);win.document.close();win.focus();
+}
 async function api(path,options={}){const r=await fetch(API+path,options);let d={};try{d=await r.json();}catch{}if(!r.ok)throw Error(d.error||"Request failed ("+r.status+")");return d;}
 function save(code,token){try{localStorage.setItem("csa_video_last_order",code);localStorage.setItem("csa_video_order_"+code,token);}catch{}}
-function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}}catch{}}
+function loadSaved(){try{const code=localStorage.getItem("csa_video_last_order");if(code){$("trackForm").elements.orderCode.value=code;$("trackForm").elements.accessToken.value=localStorage.getItem("csa_video_order_"+code)||"";}const receipt=JSON.parse(localStorage.getItem("csa_video_last_receipt")||"null");if(receipt)renderReceipt(receipt);}catch{}}
 const publicShareUrl="https://creatorsupportamravati.in/video-editing.html";
 const budgetSelect=$("clientBudget"),budgetAmountInput=$("projectBudgetAmount");
 function currentPaymentType(){return document.querySelector('input[name="paymentType"]:checked')?.value||"advance";}
@@ -87,6 +111,8 @@ $("payNowButton").addEventListener("click",async()=>{
      const vr=await fetch(PAYMENT_API+"/api/verify-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(response)}),verified=await vr.json();
      if(!vr.ok||!verified.verified||verified.paymentStatus!=="captured")throw Error(verified.error||verified.message||"Payment is not yet captured.");
      verifiedPayment={orderId:response.razorpay_order_id,paymentId:response.razorpay_payment_id,type};
+     if(!verified.receipt||verified.receipt.status!=="PAID")throw Error("Payment is captured, but receipt generation is pending. Contact CSA with your payment ID.");
+     renderReceipt(verified.receipt);try{localStorage.setItem("csa_video_last_receipt",JSON.stringify(verified.receipt));}catch{}
      note.textContent="Payment successfully verified. Your accepted Terms & Conditions will be included with the application.";$("submitRequest").disabled=!termsAccepted;
      $("submitRequest").scrollIntoView({behavior:"smooth",block:"center"});
     }catch(err){verifiedPayment=null;note.textContent="Payment verification pending: "+err.message+" Your application remains unsubmitted. Contact CSA with your payment ID if money was deducted.";}
