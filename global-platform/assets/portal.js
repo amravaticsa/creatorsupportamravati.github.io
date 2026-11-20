@@ -105,6 +105,17 @@ if(user.role==="client"){
    }catch(err){$("project-message").textContent=(project?"Project "+project.project_code+" is safely saved with CSA, but file upload needs attention: ":"")+err.message;loadClientProjects();}
    finally{delete form.dataset.submitting;if(submit){submit.disabled=false;submit.textContent="Submit Project to CSA";}}
   };
+  $("legacy-video-claim-form").onsubmit=async e=>{
+   e.preventDefault();const form=e.target;if(form.dataset.submitting==="1"||!form.reportValidity())return;
+   const submit=form.querySelector('button[type="submit"]'),message=$("legacy-claim-message"),data=new FormData(form);
+   form.dataset.submitting="1";submit.disabled=true;submit.textContent="Verifying securely…";message.textContent="Checking the original Order ID and access token. This may take a moment.";
+   try{
+    const result=await api("/v1/client/legacy-video-orders/claim",{method:"POST",body:JSON.stringify({order_code:String(data.get("order_code")||"").trim(),access_token:String(data.get("access_token")||"").trim()})});
+    message.textContent=(result.already_claimed?"This order is already linked to your account. ":"Legacy order linked successfully. ")+"Application ID: "+result.project_code+". "+(result.files_imported??"Existing")+" file(s) are now available in your CSA Global dashboard.";
+    form.reset();await loadClientProjects();
+   }catch(err){message.textContent=err.message;}
+   finally{delete form.dataset.submitting;submit.disabled=false;submit.textContent="Securely Link My Old Order";}
+  };
   $("video-editing-form").onsubmit=async e=>{
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
    if(!form.reportValidity())return;const submit=form.querySelector('button[type="submit"]');form.dataset.submitting="1";submit.disabled=true;submit.textContent="Submitting application…";
