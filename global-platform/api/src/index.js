@@ -38,6 +38,8 @@ function adminPermissionFor(req){
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
  if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials)$/.test(p)))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/editor-portfolio-videos")return "content.manage";
+ if(m==="GET"&&p==="/v1/client/editor-portfolio-videos")return null;
+ if(m==="GET"&&/^\/v1\/client\/editor-portfolio-videos\/[\w-]+\/stream$/.test(p))return null;
  if(m==="POST"&&/^\/v1\/admin\/editor-portfolio-videos\/[\w-]+\/review$/.test(p))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/overview")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
@@ -227,6 +229,19 @@ async function handle(req,env){
   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
   await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(idu,name,txt(b.company_name,160)||null,txt(b.country,100)||null,txt(b.timezone,80)||null,txt(b.language,40)||null).run();
   return out({ok:true,status:"active"},201);
+ }
+
+ if(m==="GET"&&p==="/v1/client/editor-portfolio-videos"){
+  const a=await user(req,env,["client"]);
+  const rows=await env.DB.prepare("SELECT id,title,description,category,mime_type FROM editor_portfolio_videos WHERE review_status='approved' AND client_visible=1 ORDER BY reviewed_at DESC,created_at DESC LIMIT 100").all();
+  return out({ok:true,videos:rows.results||[]});
+ }
+ const clientPortfolioStream=p.match(/^\/v1\/client\/editor-portfolio-videos\/([\w-]+)\/stream$/);
+ if(m==="GET"&&clientPortfolioStream){
+  const a=await user(req,env,["client"]),video=await env.DB.prepare("SELECT r2_object_key,mime_type FROM editor_portfolio_videos WHERE id=? AND review_status='approved' AND client_visible=1").bind(clientPortfolioStream[1]).first();
+  if(!video)return bad("Showcase video not found.",404);
+  const object=await env.MEDIA.get(video.r2_object_key);if(!object)return bad("Showcase video is temporarily unavailable.",404);
+  return new Response(object.body,{headers:{"content-type":video.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
  }
  if(m==="GET"&&p==="/v1/client/projects"){
   const a=await user(req,env,["client"]);
