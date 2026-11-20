@@ -37,6 +37,8 @@ function adminPermissionFor(req){
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
  if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials)$/.test(p)))return "content.manage";
+ if(m==="GET"&&p==="/v1/admin/editor-portfolio-videos")return "content.manage";
+ if(m==="POST"&&/^\/v1\/admin\/editor-portfolio-videos\/[\w-]+\/review$/.test(p))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/overview")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
  if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\w-]+\/incidents$/.test(p))return "support.manage";
@@ -73,6 +75,7 @@ async function handle(req,env){
  let policy=null;
  if(m==="POST"&&p==="/v1/auth/editor-password")policy={scope:"editor-password-login",limit:8,window:300};
  if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
+ else if(m==="POST"&&p==="/v1/editor/portfolio-videos")policy={scope:"editor-portfolio-upload",limit:6,window:300};
  else if(m==="POST"&&["/v1/onboarding/editor","/v1/onboarding/client"].includes(p))policy={scope:"onboarding",limit:5,window:60};
  else if(m==="POST"&&p==="/v1/uploads/multipart")policy={scope:"multipart-create",limit:5,window:60};
  else if(m==="PUT"&&/^\/v1\/uploads\/multipart\/[\w-]+\/parts\/\d+$/.test(p))policy={scope:"multipart-part",limit:120,window:300};
@@ -158,25 +161,58 @@ async function handle(req,env){
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
    await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
   }else{
-   const country=txt(profile.country,100),portfolio=safeHttpUrl(profile.portfolio_url,500),sample=safeHttpUrl(profile.sample_url,500),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
-   if(!country||!portfolio||!skills.length)return bad("Editor country, a valid HTTP(S) portfolio URL and at least one specialization are required.");
-   if(profile.sample_url&&!sample)return bad("Sample URL must use a valid HTTP or HTTPS address.");
+   const country=txt(profile.country,100),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
+   if(!country||!skills.length)return bad("Editor country and at least one specialization are required.");
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
-   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),portfolio,sample||null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
+   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(profile.city,100)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),null,null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
   }
   await log(env,newId,"google_account_registered",role,newId,{email_domain:c.email.split("@")[1]});
   return out({ok:true,user_id:newId,role,status:role==="editor"?"pending":"active",email:c.email},201);
  }
  if(m==="POST"&&p==="/v1/onboarding/editor"){
   const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),country=txt(b.country,100);
-  const portfolio=safeHttpUrl(b.portfolio_url,500),sample=safeHttpUrl(b.sample_url,500);
-  if(!name||!country||!Array.isArray(b.specializations)||!b.specializations.length||!portfolio)return bad("Name, country, specializations and a valid HTTP(S) portfolio URL are required.");
-  if(b.sample_url&&!sample)return bad("Sample URL must use a valid HTTP or HTTPS address.");
+  if(!name||!country||!Array.isArray(b.specializations)||!b.specializations.length)return bad("Name, country and specializations are required.");
   const idu=uid("usr");
   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
-  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(b.city,100)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),portfolio,sample||null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
+  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,country,city,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,country,txt(b.city,100)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),null,null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
   await log(env,idu,"editor_registration_submitted","editor",idu);
   return out({ok:true,status:"pending_verification",message:"Registration is free. No deposit is charged until an editor chooses to accept a project offer."},201);
+ }
+
+ if(m==="POST"&&p==="/v1/editor/portfolio-videos"){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const c=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(c.sub,c.email).first();
+  if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status)||!["pending","in_review","verified"].includes(editor.verification_status))return bad("An eligible editor registration is required.",403);
+  const title=txt(req.headers.get("x-csa-video-title"),120),description=txt(req.headers.get("x-csa-video-description"),1200),category=txt(req.headers.get("x-csa-video-category"),80),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),rights=req.headers.get("x-csa-video-rights-confirmed")==="true",terms=txt(req.headers.get("x-csa-terms-version"),20),declared=Number(req.headers.get("content-length")||0);
+  if(!title||!description||!category||!rights||terms!=="1.0")return bad("Video details, rights confirmation and current terms acceptance are required.");
+  if(!["video/mp4","video/quicktime"].includes(mime))return bad("Only MP4 and MOV videos are accepted.",415);
+  if(!Number.isSafeInteger(declared)||declared<1||declared>80*1024*1024)return bad("Each portfolio video must be between 1 byte and 80 MB.",413);
+  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM editor_portfolio_videos WHERE editor_id=?").bind(editor.id).first();
+  if(Number(count?.n||0)>=3)return bad("A maximum of 3 portfolio videos is allowed.",409);
+  const bytes=await req.arrayBuffer();if(bytes.byteLength!==declared)return bad("Uploaded file size does not match Content-Length.",400);
+  const head=new Uint8Array(bytes.slice(0,12));if(head.length<8||String.fromCharCode(...head.slice(4,8))!=="ftyp")return bad("The uploaded file does not have a valid MP4/MOV container signature.",415);
+  const id=uid("pvid"),key="editor-portfolio/"+editor.id+"/"+id+(mime==="video/quicktime"?".mov":".mp4");
+  await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store"}});
+  try{await env.DB.prepare("INSERT INTO editor_portfolio_videos(id,editor_id,title,description,category,r2_object_key,mime_type,size_bytes,rights_confirmed,terms_version,terms_accepted_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)").bind(id,editor.id,title,description,category,key,mime,bytes.byteLength,terms,new Date().toISOString()).run();await log(env,editor.id,"editor_portfolio_video_uploaded","editor_portfolio_video",id,{category,mime_type:mime,size_bytes:bytes.byteLength,terms_version:terms});}
+  catch(e){await env.MEDIA.delete(key);throw e;}
+  return out({ok:true,video_id:id,review_status:"pending"},201);
+ }
+ if(m==="GET"&&p==="/v1/admin/editor-portfolio-videos"){
+  const a=await user(req,env,["admin"]),status=txt(u.searchParams.get("status"),20)||"pending";
+  if(!["pending","approved","rejected","all"].includes(status))return bad("Invalid review status.");
+  const query=env.DB.prepare("SELECT v.id,v.editor_id,e.display_name,e.country,v.title,v.description,v.category,v.mime_type,v.size_bytes,v.review_status,v.client_visible,v.terms_version,v.terms_accepted_at,v.created_at FROM editor_portfolio_videos v JOIN editor_profiles e ON e.user_id=v.editor_id "+(status==="all"?"":"WHERE v.review_status=?")+" ORDER BY v.created_at DESC LIMIT 200");
+  const rows=status==="all"?await query.all():await query.bind(status).all();
+  return out({ok:true,videos:rows.results||[]});
+ }
+ const portfolioReview=p.match(/^\/v1\/admin\/editor-portfolio-videos\/([\w-]+)\/review$/);
+ if(m==="POST"&&portfolioReview){
+  const a=await user(req,env,["admin"]),b=await req.json(),status=txt(b.status,20),note=txt(b.note,1000);
+  if(!["approved","rejected"].includes(status))return bad("Review status must be approved or rejected.");
+  const video=await env.DB.prepare("SELECT id FROM editor_portfolio_videos WHERE id=?").bind(portfolioReview[1]).first();
+  if(!video)return bad("Portfolio video not found.",404);
+  await env.DB.prepare("UPDATE editor_portfolio_videos SET review_status=?,client_visible=?,reviewed_by=?,reviewed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),review_note=? WHERE id=?").bind(status,status==="approved"?1:0,a.id,note||null,video.id).run();
+  await log(env,a.id,"editor_portfolio_video_reviewed","editor_portfolio_video",video.id,{status,note});
+  return out({ok:true,status,client_visible:status==="approved"});
  }
  if(m==="POST"&&p==="/v1/onboarding/client"){
   const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120);if(!name)return bad("Name is required.");
