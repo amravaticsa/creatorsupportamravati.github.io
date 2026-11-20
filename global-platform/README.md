@@ -103,3 +103,12 @@ Super Admin receives all existing departments, Editor Admin receives Content &
 Video Production, Project Admin receives Operations & Events, Finance Admin
 receives Finance & Accounts, and Support Admin receives Sales & Client Success.
 The Global project queue filters by the synchronized department access.
+
+## Shared application routing
+
+Each application remains one row in `projects` with one public application code.
+The additive `project_department_routes` table links that same record to three
+queues: Content & Video Production (intake), Operations & Events (tender and
+assignment), and Finance & Accounts (payment). Department Admins receive only
+the queues granted by their synchronized role; Super Admin receives all
+existing departments. Editor profiles route to HR & Administration for KYC.
