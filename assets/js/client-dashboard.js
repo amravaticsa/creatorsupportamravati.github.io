@@ -133,25 +133,25 @@ $("trackForm").addEventListener("submit",async e=>{
  catch(err){show(msg,"Unable to open the project: "+err.message+". Please check your Order ID and private access code.");}
 });
 function norm(v){return String(v||"").toLowerCase().replace(/[_–—-]+/g," ").replace(/\s+/g," ").trim();}
-function stageFor(status,payment,amount){
- const s=norm(status),p=norm(payment);
+function stageFor(status,payment,amount,files=[]){
+ const s=norm(status);
  if(s.includes("cancel"))return 0;
- if(s.includes("completed")||s.includes("download available"))return 5;
- if(s.includes("preview"))return 4;
- if(s.includes("editing")||s.includes("revision")||s.includes("final editing"))return 3;
- if(p.includes("paid")||p.includes("partial"))return 3;
- if(Number(amount||0)>0)return 2;
- if(s.includes("file")||s.includes("review")||s.includes("hold"))return 1;
+ if(s.includes("final delivery")||s.includes("completed")||s.includes("download available"))return 5;
+ if(s.includes("preview")||s.includes("revision"))return 4;
+ if(s.includes("editing in progress")||s.includes("final editing"))return 3;
+ if(s.includes("work assigned"))return 2;
+ if(s.includes("files received")||s.includes("files under review")||s.includes("review"))return 1;
+ if(s.includes("order received")||s.includes("application received"))return (files||[]).some(f=>f.file_role==="raw"&&f.upload_state==="complete")?1:0;
  return 0;
 }
-const stageNames=["Application submitted","CSA review","Quotation & 50% advance","Editing in progress","Preview & revisions","Final delivery"];
+const stageNames=["Application received","Files received","Work assigned","Editing in progress","Preview & revisions","Final delivery"];
 function render(d){
  const root=$("trackResult"),o=d.order||{};root.replaceChildren();root.classList.remove("cd-hide");
  const panel=document.createElement("div");panel.className="cd-status-panel";
  const head=document.createElement("div");head.className="cd-status-head";
  const h=document.createElement("h3");h.textContent="Application status · "+(o.order_code||orderCode);head.append(h);
  const pill=document.createElement("span");pill.className="cd-status";pill.textContent=humanStatus(o.order_status);head.append(pill);panel.append(head);
- const current=stageFor(o.order_status,o.payment_status,o.quoted_amount_paise);
+ const current=stageFor(o.order_status,o.payment_status,o.quoted_amount_paise,d.files||[]);
  const timeline=document.createElement("div");timeline.className="cd-timeline";
  stageNames.forEach((name,i)=>{const item=document.createElement("div");item.className="cd-stage"+(i<current?" done":i===current?" current":"");const dot=document.createElement("span");dot.className="dot";dot.textContent=i<current?"✓":String(i+1);const b=document.createElement("b");b.textContent=name;const small=document.createElement("small");small.textContent=i<current?"Completed":i===current?"Current stage":"Pending";item.append(dot,b,small);timeline.append(item);});panel.append(timeline);
  const summary=document.createElement("p");summary.className="cd-help";summary.textContent="Video type: "+(o.service_package||"Video editing")+" · Deadline: "+(o.deadline||"To be confirmed")+" · Last updated: "+(o.updated_at||"");panel.append(summary);
@@ -202,17 +202,16 @@ function render(d){
  const note=document.createElement("p");note.className="cd-help";upload.append(note);
  const button=document.createElement("button");button.type="button";button.className="cd-btn cd-btn-light";button.textContent="Upload selected raw clips";button.addEventListener("click",async()=>{await uploadSelected(input,o.order_code,accessToken,note,fill,button);if(!button.disabled&&note.textContent.startsWith("Upload complete")){try{const fresh=await api("/api/orders/"+encodeURIComponent(o.order_code),{headers:auth(accessToken)});render(fresh);}catch{}}});upload.append(button);root.append(upload);
  const delivered=(d.files||[]).filter(f=>["preview","final"].includes(f.file_role));
- if(delivered.length){const title=document.createElement("h3");title.textContent="Preview & final delivery";root.append(title);delivered.forEach(file=>{const row=document.createElement("div");row.className="cd-file";const name=document.createElement("span");name.textContent=file.file_role==="final"?"Final video":"Your preview";row.append(name);if(file.upload_state==="complete"){const b=document.createElement("button");b.className="cd-btn cd-btn-light";b.type="button";b.textContent="Download";b.addEventListener("click",async()=>{try{const r=await fetch(API+"/api/orders/"+encodeURIComponent(o.order_code)+"/files/"+file.id+"/download",{headers:auth(accessToken)});if(!r.ok)throw Error("Download unavailable");const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.original_filename||"CSA-video";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert(err.message);}});row.append(b);}else{const pending=document.createElement("small");pending.textContent="Processing";row.append(pending);}root.append(row);});}
+ if(delivered.length){const title=document.createElement("h3");title.textContent="Preview & final delivery";root.append(title);delivered.forEach(file=>{const row=document.createElement("div");row.className="cd-file";const name=document.createElement("span");name.textContent=file.file_role==="final"?"Final video":"Your preview";row.append(name);if(file.upload_state==="complete"){if(file.file_role==="final"&&norm(o.payment_status)!=="paid"){const locked=document.createElement("small");locked.textContent="Locked · remaining balance payment required";row.append(locked);}else{const b=document.createElement("button");b.className="cd-btn cd-btn-light";b.type="button";b.textContent="Download";b.addEventListener("click",async()=>{try{const r=await fetch(API+"/api/orders/"+encodeURIComponent(o.order_code)+"/files/"+file.id+"/download",{headers:auth(accessToken)});if(!r.ok)throw Error("Download unavailable");const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.original_filename||"CSA-video";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert(err.message);}});row.append(b);}}else{const pending=document.createElement("small");pending.textContent="Processing";row.append(pending);}root.append(row);});}
 }
 function humanStatus(status){
  const s=norm(status);
- if(s.includes("order received"))return "Application received";
- if(s.includes("files under review"))return "Documents / footage under review";
+ if(s.includes("application received")||s.includes("order received"))return "Application received";
+ if(s.includes("files received")||s.includes("files under review"))return "Files received";
+ if(s.includes("work assigned"))return "Work assigned";
  if(s.includes("editing in progress"))return "Editing in progress";
- if(s.includes("preview ready"))return "Preview ready";
- if(s.includes("revision requested"))return "Revision in progress";
- if(s.includes("final editing"))return "Final editing";
- if(s.includes("completed"))return "Completed · final video available";
+ if(s.includes("preview")||s.includes("revision"))return "Preview & revisions";
+ if(s.includes("final delivery")||s.includes("completed")||s.includes("download available"))return "Final delivery";
  if(s.includes("on hold"))return "On hold";
  if(s.includes("cancel"))return "Cancelled";
  return status||"Status update pending";
