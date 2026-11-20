@@ -4,6 +4,24 @@ const $=id=>document.getElementById(id);
 const role=$("role"),status=$("status"),editor=$("editor-fields"),client=$("client-fields");
 role.addEventListener("change",()=>{const isEditor=role.value==="editor";editor.hidden=!isEditor;client.hidden=isEditor;});
 let nonce="",clientId="";
+async function editorPasswordLogin(){
+ const username=$("editor-user-id").value.trim(),password=$("editor-password").value;
+ status.textContent="CSA Editor ID verify ho raha hai…";
+ try{
+  const r=await fetch(API+"/v1/auth/editor-password",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username,password})}),d=await r.json();
+  if(!r.ok||!d.ok){status.textContent=d.error?.message||"Login failed.";return;}
+  sessionStorage.setItem("csa_global_token",d.token);sessionStorage.setItem("csa_global_user",JSON.stringify(d.user));
+  if(d.user.must_change_password){
+   const next=prompt("First login: naya password set karein (minimum 12 characters).");
+   if(!next||next.length<12){status.textContent="Password update zaroori hai. Dobara login karke try karein.";sessionStorage.clear();return;}
+   const cr=await fetch(API+"/v1/editor/password/change",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+d.token},body:JSON.stringify({new_password:next})}),cd=await cr.json();
+   if(!cr.ok||!cd.ok){status.textContent=cd.error?.message||"Password update nahi hua.";sessionStorage.clear();return;}
+   d.user.must_change_password=false;sessionStorage.setItem("csa_global_user",JSON.stringify(d.user));
+  }
+  location.href="portal.html";
+ }catch(e){status.textContent="Network error. Please retry.";}
+}
+
 function makeNonce(){const a=new Uint8Array(32);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,"0")).join("");}
 async function boot(){
  try{
@@ -38,5 +56,6 @@ async function onGoogleCredential(response){
   location.href="portal.html";
  }catch(e){status.textContent="Network error. Please retry.";}
 }
+$("editor-login-form")?.addEventListener("submit",e=>{e.preventDefault();editorPasswordLogin();});
 boot();
 })();
