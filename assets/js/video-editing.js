@@ -15,7 +15,7 @@ function saveAccess(code,token){try{localStorage.setItem("csa_video_order_"+code
 async function api(path,options={}){const r=await fetch(API+path,options);let data={};try{data=await r.json();}catch(e){}if(!r.ok)throw Error(data.error||("Request failed ("+r.status+")"));return data;}
 $("orderForm").addEventListener("submit",async e=>{
  e.preventDefault();const form=e.currentTarget,btn=$("createOrderBtn"),msg=$("orderMessage");btn.disabled=true;hide(msg);
- const d=Object.fromEntries(new FormData(form).entries());if(d.reference)d.instructions=(d.instructions?d.instructions+"\\n\\n":"")+"Reference link: "+d.reference;
+ const d=Object.fromEntries(new FormData(form).entries());\n const matchDetails=["CSA EDITOR MATCHING REQUIREMENTS","Content style: "+(d.contentStyle||"Not specified"),"Raw video spoken language: "+(d.sourceLanguage||"Not specified"),"Final video language: "+(d.outputLanguage||"Not specified"),"Subtitle/caption language: "+(d.subtitleLanguage||"Not specified"),"Dialect/accent: "+(d.dialect||"Not specified"),"Client location: "+[d.city,d.state,d.country].filter(Boolean).join(", "),"Project location mode: "+(d.locationMode||"Remote editing")].join("\\n");\n d.instructions=(d.instructions?d.instructions+"\\n\\n":"")+matchDetails;if(d.reference)d.instructions+="\\nReference link: "+d.reference;
  try{const result=await api("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
  currentOrder=result.orderCode;currentToken=result.accessToken;saveAccess(currentOrder,currentToken);
  show(msg,"Order created successfully.\nOrder ID: "+currentOrder+"\nPrivate access token: "+currentToken+"\nSave both now. The token is shown only once and cannot be recovered. You can upload your raw footage below.");
