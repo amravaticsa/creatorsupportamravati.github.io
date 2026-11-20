@@ -14,3 +14,12 @@ ENVIRONMENT = "staging"
 [[r2_buckets]]
 binding = "MEDIA"
 bucket_name = "csa-global-media-staging"
+
+[[d1_databases]]
+binding = "LEGACY_VIDEO_DB"
+database_name = "csa-video-workflow-staging"
+database_id = "69f070a4-b71f-4448-973f-31993715b781"
+
+[[r2_buckets]]
+binding = "LEGACY_VIDEO_BUCKET"
+bucket_name = "csa-video-editing-staging"
