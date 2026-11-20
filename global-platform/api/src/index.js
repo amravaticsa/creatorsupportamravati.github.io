@@ -36,7 +36,7 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
- if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/verify$/.test(p)))return "content.manage";
+ if((m==="GET"&&/^\/v1\/admin\/editors\/(verified|pending)$/.test(p))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials)$/.test(p)))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/overview")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
  if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\w-]+\/incidents$/.test(p))return "support.manage";
@@ -46,22 +46,11 @@ function globalAdminCan(u,permission){
  return !!u&&u.role==="admin"&&(GLOBAL_ROLE_PERMISSIONS[u.source_role]||[]).includes(permission);
 }
 async function user(req,env,roles){
- const c=await claims(req,env);
- const u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();
- if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");
- if(!roles.includes(u.role))throw Error("Role is not permitted.");
- if(u.role==="admin"){
-  const a=await env.DB.prepare("SELECT source_role FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();
-  if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");
-  const required=adminPermissionFor(req);
-  if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");
-  if(required!==null){
-   const needs=Array.isArray(required)?required:[required];
-   if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");
-  }
-  return {...u,source_role:a.source_role};
- }
- return u;
+ const bearer=(req.headers.get("Authorization")||"").replace(/^Bearer\\s+/i,"");let u=null;
+ try{const c=await claims(req,env);u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();}
+ catch(identityError){if(!bearer)throw identityError;const th=await hmacHex("csa-editor-session-v1",bearer),x=await env.DB.prepare("SELECT u.id,u.role,u.account_status,u.email,e.verification_status FROM editor_sessions s JOIN users u ON u.id=s.user_id JOIN editor_profiles e ON e.user_id=u.id WHERE s.token_hash=? AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(th).first();if(!x)throw identityError;if(x.role!=="editor"||x.account_status!=="active"||x.verification_status!=="verified")throw Error("Editor account is inactive.");u=x;}
+ if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");if(!roles.includes(u.role))throw Error("Role is not permitted.");
+ if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role};}return u;
 }
 async function hmacHex(secret,message){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(message)));return [...sig].map(x=>x.toString(16).padStart(2,"0")).join("");}
 function constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length)return false;let v=0;for(let i=0;i<a.length;i++)v|=a.charCodeAt(i)^b.charCodeAt(i);return v===0;}
@@ -82,6 +71,7 @@ async function handle(req,env){
  const u=new URL(req.url),p=u.pathname.replace(/\/$/,""),m=req.method;
  // IP-based abuse controls for unauthenticated entry points and expensive upload routes.
  let policy=null;
+ if(m==="POST"&&p==="/v1/auth/editor-password")policy={scope:"editor-password-login",limit:8,window:300};
  if(m==="POST"&&p==="/v1/auth/google")policy={scope:"google-auth",limit:10,window:60};
  else if(m==="POST"&&["/v1/onboarding/editor","/v1/onboarding/client"].includes(p))policy={scope:"onboarding",limit:5,window:60};
  else if(m==="POST"&&p==="/v1/uploads/multipart")policy={scope:"multipart-create",limit:5,window:60};
@@ -126,6 +116,21 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/health")return out({ok:true,service:"CSA Global API",status:"healthy",google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
  if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
+ if(m==="POST"&&p==="/v1/auth/editor-password"){
+ const b=await req.json(),username=txt(b.username,80).toUpperCase(),password=typeof b.password==="string"?b.password:"";if(!username||!password||password.length>256)return bad("CSA Editor ID and password are required.");
+ const row=await env.DB.prepare("SELECT c.user_id,c.password_salt,c.password_hash,c.failed_attempts,c.locked_until,c.must_change_password,u.email,u.account_status,e.verification_status FROM editor_credentials c JOIN users u ON u.id=c.user_id JOIN editor_profiles e ON e.user_id=u.id WHERE c.username=? COLLATE NOCASE").bind(username).first();if(!row)return bad("Invalid CSA Editor ID or password.",401,"credentials_invalid");if(row.locked_until&&row.locked_until>new Date().toISOString())return bad("Login temporarily locked.",429,"login_locked");
+ const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:Uint8Array.from(atob(row.password_salt),c=>c.charCodeAt(0)),iterations:310000},km,256),actual=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ if(!constantTime(actual,row.password_hash)){const fails=Number(row.failed_attempts||0)+1,lock=fails>=5?new Date(Date.now()+900000).toISOString():null;await env.DB.prepare("UPDATE editor_credentials SET failed_attempts=?,locked_until=? WHERE user_id=?").bind(fails,lock,row.user_id).run();return bad("Invalid CSA Editor ID or password.",401,"credentials_invalid");}
+ if(row.account_status!=="active"||row.verification_status!=="verified")return bad("Your profile is not yet activated by CSA.",403,"editor_not_activated");
+ const bytes=crypto.getRandomValues(new Uint8Array(32)),token=btoa(String.fromCharCode(...bytes)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,""),th=await hmacHex("csa-editor-session-v1",token),expires=new Date(Date.now()+43200000).toISOString();
+ await env.DB.batch([env.DB.prepare("UPDATE editor_credentials SET failed_attempts=0,locked_until=NULL WHERE user_id=?").bind(row.user_id),env.DB.prepare("INSERT INTO editor_sessions(token_hash,user_id,expires_at) VALUES(?,?,?)").bind(th,row.user_id,expires)]);
+ return out({ok:true,token,user:{id:row.user_id,role:"editor",status:"active",email:row.email,must_change_password:!!row.must_change_password},expires_at:expires});
+ }
+ if(m==="POST"&&p==="/v1/editor/password/change"){
+ const a=await user(req,env,["editor"]),b=await req.json(),password=typeof b.new_password==="string"?b.new_password:"";if(password.length<12||password.length>128)return bad("New password must contain 12 to 128 characters.");
+ const salt=crypto.getRandomValues(new Uint8Array(16)),km=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:310000},km,256),salt64=btoa(String.fromCharCode(...salt)),hash=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ await env.DB.prepare("UPDATE editor_credentials SET password_salt=?,password_hash=?,must_change_password=0,failed_attempts=0,locked_until=NULL WHERE user_id=?").bind(salt64,hash,a.id).run();await log(env,a.id,"editor_password_changed","editor",a.id,{forced_change:true});return out({ok:true,password_changed:true});
+ }
  if(m==="POST"&&p==="/v1/auth/google"){
   const b=await req.json(),role=b.role,credential=txt(b.credential,10000),nonce=txt(b.nonce,200);
   if(!credential||!nonce||!["client","editor","admin"].includes(role))return bad("Google credential, login nonce and account type are required.");
@@ -741,9 +746,16 @@ async function handle(req,env){
  if(m==="POST"&&ev){
   const a=await user(req,env,["admin"]),b=await req.json();if(!["verified","rejected","in_review"].includes(b.status))return bad("Invalid verification status.");
   await env.DB.prepare("UPDATE editor_profiles SET verification_status=? WHERE user_id=?").bind(b.status,ev[1]).run();
-  if(b.status==="verified")await env.DB.prepare("UPDATE users SET account_status='active' WHERE id=? AND role='editor'").bind(ev[1]).run();
+  if(b.status==="verified")await env.DB.prepare("UPDATE users SET account_status='pending' WHERE id=? AND role='editor'").bind(ev[1]).run();
   if(b.status==="rejected")await env.DB.prepare("UPDATE users SET account_status='suspended' WHERE id=? AND role='editor'").bind(ev[1]).run();
   await log(env,a.id,"editor_verification_updated","editor",ev[1],{status:b.status});return out({ok:true,status:b.status});
+ }
+ const cred=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/credentials$/);
+ if(m==="POST"&&cred){
+ const a=await user(req,env,["admin"]),ed=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.id=? AND u.role='editor'").bind(cred[1]).first();if(!ed||ed.verification_status!=="verified")return bad("Verify editor before issuing credentials.",409);
+ const username=ed.public_editor_code.toUpperCase(),raw=crypto.getRandomValues(new Uint8Array(24)),temporaryPassword=btoa(String.fromCharCode(...raw)).replace(/\\+/g,"R").replace(/\\//g,"S").replace(/=+$/,"")+"d8!",salt=crypto.getRandomValues(new Uint8Array(16)),km=await crypto.subtle.importKey("raw",new TextEncoder().encode(temporaryPassword),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:310000},km,256),salt64=btoa(String.fromCharCode(...salt)),hash=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ await env.DB.batch([env.DB.prepare("INSERT INTO editor_credentials(user_id,username,password_salt,password_hash,must_change_password,created_by) VALUES(?,?,?,?,1,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,password_salt=excluded.password_salt,password_hash=excluded.password_hash,must_change_password=1,failed_attempts=0,locked_until=NULL,created_by=excluded.created_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(ed.id,username,salt64,hash,a.id),env.DB.prepare("UPDATE users SET account_status='active' WHERE id=?").bind(ed.id),env.DB.prepare("DELETE FROM editor_sessions WHERE user_id=?").bind(ed.id)]);
+ await log(env,a.id,"editor_credentials_issued","editor",ed.id,{username,must_change_password:true});return out({ok:true,username,temporary_password:temporaryPassword,must_change_password:true,one_time_display:true},201);
  }
  const of=p.match(/^\/v1\/admin\/projects\/([\w-]+)\/offers$/);
  if(m==="POST"&&of){
