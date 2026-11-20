@@ -79,19 +79,12 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val uri = request.url
-                val scheme = uri.scheme ?: return true
-                val host = uri.host?.lowercase() ?: ""
-                if (scheme == "https" && (host == "creatorsupportamravati.in" ||
-                    host.endsWith(".creatorsupportamravati.in") ||
-                    host == "razorpay.com" || host.endsWith(".razorpay.com") ||
-                    host == "razorpay.in" || host.endsWith(".razorpay.in") ||
-                    host.endsWith(".workers.dev"))) return false
-                if (scheme == "http" && host == "creatorsupportamravati.in") {
-                    view.loadUrl("https://creatorsupportamravati.in" + (uri.path ?: "/"))
-                    return true
-                }
-                return openExternal(uri)
+                return handleNavigation(view, request.url, request.hasGesture)
+            }
+
+            @Suppress("DEPRECATION")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                return handleNavigation(view, Uri.parse(url), false)
             }
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
@@ -201,6 +194,46 @@ class MainActivity : AppCompatActivity() {
                 } else if (webView.canGoBack()) webView.goBack() else finish()
             }
         })
+    }
+
+    private fun isCsaHost(host: String): Boolean {
+        val normalized = host.lowercase().removePrefix("www.")
+        return normalized == "creatorsupportamravati.in" ||
+            normalized.endsWith(".creatorsupportamravati.in")
+    }
+
+    private fun isPaymentHost(host: String): Boolean {
+        val h = host.lowercase()
+        return h == "razorpay.com" || h.endsWith(".razorpay.com") ||
+            h == "razorpay.in" || h.endsWith(".razorpay.in") ||
+            h.endsWith(".workers.dev")
+    }
+
+    private fun handleNavigation(view: WebView, uri: Uri, userGesture: Boolean): Boolean {
+        val scheme = uri.scheme?.lowercase() ?: return true
+        val host = uri.host?.lowercase() ?: ""
+
+        // Keep every CSA page inside the app, including www and HTTP-to-HTTPS redirects.
+        if (isCsaHost(host)) {
+            if (scheme != "https") {
+                val secure = uri.buildUpon().scheme("https").build()
+                view.loadUrl(secure.toString())
+                return true
+            }
+            return false
+        }
+
+        // Razorpay checkout and CSA API endpoints must remain available to the WebView.
+        if (scheme == "https" && isPaymentHost(host)) return false
+
+        // Only a deliberate tap may leave the app. Silent redirects to unrelated
+        // hosts are blocked so the app cannot unexpectedly jump to an external browser.
+        if (userGesture && (scheme == "https" || scheme == "http" ||
+                scheme == "mailto" || scheme == "tel" || scheme == "intent" ||
+                scheme == "whatsapp")) {
+            return openExternal(uri)
+        }
+        return true
     }
 
     private fun showLoadError(message: String) {
