@@ -93,7 +93,8 @@ $("payNowButton").addEventListener("click",async()=>{
 });
 $("clientOrderForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("submitRequest"),msg=$("requestMessage");hide(msg);
- if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips and complete verified payment before submitting the application.");return;}\n if(!$("acceptVideoTerms").checked){show(msg,"Please read and accept the Terms & Conditions before submitting your application.");$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});return;}
+ if(!verifiedPayment||!draftCode||!draftToken){show(msg,"Upload your raw clips and complete verified payment before submitting the application.");return;}
+ if(!$("acceptVideoTerms").checked){show(msg,"Please read and accept the Terms & Conditions before submitting your application.");$("videoTermsSection").scrollIntoView({behavior:"smooth",block:"center"});return;}
  btn.disabled=true;
  try{
   const result=await api("/api/drafts/"+encodeURIComponent(draftCode)+"/finalize",{method:"POST",headers:{...auth(draftToken),"Content-Type":"application/json"},body:JSON.stringify({paymentOrderId:verifiedPayment.orderId,paymentId:verifiedPayment.paymentId,termsAccepted:true,termsVersion:"CSA-VIDEO-EDITING-2026-11-20-v1"})});
@@ -210,5 +211,6 @@ function humanStatus(status){
  if(s.includes("cancel"))return "Cancelled";
  return status||"Status update pending";
 }
-$("acceptVideoTerms").addEventListener("change",()=>{if(verifiedPayment)$("submitRequest").disabled=!$("acceptVideoTerms").checked;});\nloadSaved();
+$("acceptVideoTerms").addEventListener("change",()=>{if(verifiedPayment)$("submitRequest").disabled=!$("acceptVideoTerms").checked;});
+loadSaved();
 })();
