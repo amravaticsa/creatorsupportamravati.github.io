@@ -10,8 +10,32 @@
 <label for="exp">Experience</label><select id="exp"><option>Beginner (under 1 year)</option><option>1–3 years</option><option>3–5 years</option><option>5+ years</option></select>
 <label for="software">Editing software</label><input id="software" placeholder="Premiere Pro, DaVinci Resolve, Final Cut, Filmora">
 <label for="specializations">Specializations *</label><textarea id="specializations" placeholder="YouTube, Reels, podcasts, wedding films, ads..."></textarea>
-<label for="portfolio">Portfolio URL *</label><input id="portfolio" type="url" placeholder="https://...">
-<label for="sample">Best work sample URL</label><input id="sample" type="url" placeholder="https://...">
+<h3>Editing Portfolio Videos</h3>
+<p class="muted">Upload 1–3 original editing samples. MP4 or MOV only; maximum 80 MB per video.</p>
+<div id="portfolio-video-list"><div class="portfolio-video-entry">
+<label>Video File 1 *</label><input class="portfolio-video-file" type="file" accept="video/mp4,video/quicktime" required>
+<label>Video Title *</label><input class="portfolio-video-title" maxlength="120" required placeholder="e.g. Cinematic Wedding Highlight">
+<label>Video Description *</label><textarea class="portfolio-video-description" maxlength="1200" required placeholder="Describe your editing approach, techniques and contribution."></textarea>
+<label>Video Category *</label><select class="portfolio-video-category" required><option value="">Select category</option><option>Reels / Shorts</option><option>YouTube Video</option><option>Wedding Film</option><option>Podcast</option><option>Advertisement / Commercial</option><option>Corporate Video</option><option>Motion Graphics / VFX</option><option>Other</option></select>
+<label><input class="portfolio-video-rights" type="checkbox" required> I confirm that I own this work or have all permissions required to upload and showcase it.</label></div></div>
+<button class="btn outline" type="button" id="add-portfolio-video">Add another video (maximum 3)</button>
+<hr><h3>Portfolio Video Upload Terms &amp; Conditions</h3>
+<div style="max-height:260px;overflow:auto;border:1px solid #d8dee8;border-radius:10px;padding:14px;background:#f8fafc">
+<p>By uploading videos to CSA Global, you agree that:</p><ol>
+<li>You upload only original work or content for which you have all necessary rights and permissions.</li>
+<li>Videos must not display your name, logo, watermark, contact details, social media handles or other personal branding.</li>
+<li>You are responsible for copyright permissions covering music, footage, images, graphics, fonts and other materials.</li>
+<li>You must not upload confidential client projects, private recordings or third-party content without required permission.</li>
+<li>You grant Creator Support Amravati (CSA) a non-exclusive, worldwide, royalty-free permission to host, reproduce, stream and display the videos solely for CSA portfolio showcase, promotional and client-evaluation purposes.</li>
+<li>You retain ownership of your original work. This permission does not transfer copyright or ownership to CSA.</li>
+<li>All videos are subject to CSA review and will only be shown to clients after approval by an authorized CSA administrator.</li>
+<li>CSA may reject, hide or remove content that violates these terms, applicable law, copyright requirements or CSA policies.</li>
+<li>Misleading, stolen or unauthorized content may result in rejection of the video, registration or account suspension.</li>
+<li>CSA will not publicly display your name, login ID or personal contact details alongside portfolio videos in the Client Showcase.</li>
+<li>CSA will take reasonable protection measures, but cannot guarantee complete prevention of screen recording, copying or redistribution.</li>
+<li>You may request removal of a portfolio video by contacting CSA, subject to legal and record-retention obligations.</li>
+</ol><p><strong>Organization:</strong> Creator Support Amravati (CSA) · <strong>Platform:</strong> CSA Global · <strong>Terms version:</strong> 1.0</p></div>
+<label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px"><input id="portfolio-terms-accepted" type="checkbox" required><span>I have read and agree to the CSA Global Portfolio Video Upload Terms &amp; Conditions. I confirm that I own or have the necessary rights and permissions for every video I upload.</span></label>
 <label for="bio">Professional introduction</label><textarea id="bio" placeholder="Your skills, workflow and typical turnaround time"></textarea>
 </div><div class="field full"><div id="google-button"></div><p id="status" class="muted" role="status">Checking secure sign-in configuration…</p></div></div>
 <div class="notice"><strong>Editor policy:</strong> No registration fee or deposit. Never share passwords, OTPs or bank credentials in project messages.</div>
