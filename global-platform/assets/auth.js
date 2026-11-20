@@ -126,7 +126,7 @@ async function onGoogleCredential(response){
     await uploadKycDocument(response.credential);await uploadPortfolioVideos(response.credential);
     status.textContent="Registration, KYC document and portfolio samples submitted securely. CSA team KYC, profile aur video review karegi. Approval ke baad CSA aapko Editor User ID aur temporary Password degi. Google se Dashboard login nahi hoga.";
    }
-  }else{location.href="portal.html";}
+  }else{sessionStorage.setItem("csa_global_token",response.credential);sessionStorage.setItem("csa_global_user",JSON.stringify({id:data.user_id,role:data.role,status:data.status,email:data.email}));location.href="portal.html";}
  }catch(e){status.textContent="Network error. Please retry.";}
 }
 $("editor-login-form")?.addEventListener("submit",e=>{e.preventDefault();editorPasswordLogin();});
