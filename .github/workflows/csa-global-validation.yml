@@ -85,7 +85,7 @@ jobs:
           grep -q "Starting fresh upload" global-platform/assets/portal.js
           grep -q "CSA review required before retry" global-platform/assets/portal.js
           grep -q "navigator.onLine===false" global-platform/assets/portal.js
-          grep -q "type:\"retry\"" global-platform/assets/portal.js
+          grep -q 'type:"retry"' global-platform/assets/portal.js
           grep -q "Verifying upload" global-platform/assets/portal.js
           grep -q "Upload paused" global-platform/assets/portal.js
           grep -q "multipartInspect" global-platform/api/src/index.js
