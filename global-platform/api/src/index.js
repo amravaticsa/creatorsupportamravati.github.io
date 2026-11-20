@@ -187,7 +187,7 @@ async function handle(req,env){
   const identity=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(identity.sub,identity.email).first();
   if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status))return bad("An eligible editor registration is required.",403);
   const docType=txt(req.headers.get("x-csa-kyc-document-type"),40).toLowerCase(),consent=req.headers.get("x-csa-kyc-consent")==="true",consentVersion=txt(req.headers.get("x-csa-kyc-consent-version"),20),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),declared=Number(req.headers.get("content-length")||0);
-  if(!["passport","national_id","pan","voter_id","driving_licence"].includes(docType)||!consent||consentVersion!=="1.0")return bad("Select an accepted government ID type and accept the current KYC privacy notice.");
+  if(!["passport","national_id","pan","voter_id","driving_licence","aadhaar","residence_permit","tax_id","other_government_id"].includes(docType)||!consent||consentVersion!=="1.0")return bad("Select an accepted government ID type and accept the current KYC privacy notice.");
   if(!["application/pdf","image/jpeg","image/png"].includes(mime))return bad("KYC document must be a PDF, JPG or PNG.",415);
   if(!Number.isSafeInteger(declared)||declared<1||declared>10*1024*1024)return bad("KYC document must be between 1 byte and 10 MB.",413);
   const pending=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status IN ('pending','in_review')").bind(editor.id).first();
