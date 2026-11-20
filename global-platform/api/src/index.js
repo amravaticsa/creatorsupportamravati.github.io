@@ -31,7 +31,9 @@ const GLOBAL_ROLE_PERMISSIONS={
 function adminPermissionFor(req){
  const p=new URL(req.url).pathname.replace(/\/$/,""),m=req.method;
  if(/^\/v1\/files\/[\w-]+$/.test(p))return null;
- if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/projects","/v1/admin/offers/ready"].includes(p))return "projects.manage";
+ if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/offers/ready"].includes(p))return "projects.manage";
+ if(m==="GET"&&p==="/v1/admin/projects")return ["projects.manage","content.manage"];
+ if(m==="GET"&&p==="/v1/admin/departments")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
@@ -54,7 +56,7 @@ async function user(req,env,roles){
  try{const c=await claims(req,env);u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();if(u?.role==="editor")throw Error("Editor Panel access requires CSA-issued User ID and Password.");}
  catch(identityError){if(!bearer)throw identityError;const th=await hmacHex("csa-editor-session-v1",bearer),x=await env.DB.prepare("SELECT u.id,u.role,u.account_status,u.email,e.verification_status,c.must_change_password FROM editor_sessions s JOIN users u ON u.id=s.user_id JOIN editor_profiles e ON e.user_id=u.id JOIN editor_credentials c ON c.user_id=u.id WHERE s.token_hash=? AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(th).first();if(!x)throw identityError;if(x.role!=="editor"||x.account_status!=="active"||x.verification_status!=="verified")throw Error("Editor account is inactive.");if(x.must_change_password&&new URL(req.url).pathname!=="/v1/editor/password/change")throw Error("Change your temporary password before accessing the Editor Panel.");u=x;}
  if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");if(!roles.includes(u.role))throw Error("Role is not permitted.");
- if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role};}return u;
+ if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role,source_admin_id FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role,source_admin_id:a.source_admin_id};}return u;
 }
 async function hmacHex(secret,message){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(message)));return [...sig].map(x=>x.toString(16).padStart(2,"0")).join("");}
 function constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length)return false;let v=0;for(let i=0;i<a.length;i++)v|=a.charCodeAt(i)^b.charCodeAt(i);return v===0;}
@@ -116,7 +118,12 @@ async function handle(req,env){
    await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();
   }catch{return bad("Sync nonce was already used.",409,"sync_replay");}
   const statements=[env.DB.prepare("UPDATE global_admin_authorizations SET status='revoked',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')")];
-  for(const a of records)statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status) VALUES(?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status));
+  for(const a of records){
+   statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status) VALUES(?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status));
+   statements.push(env.DB.prepare("DELETE FROM global_admin_department_access WHERE source_admin_id=?").bind(a.sourceId));
+   const departmentId=({editor_admin:"dept-content-video",project_admin:"dept-operations-events",finance_admin:"dept-finance-accounts",support_admin:"dept-sales-client"})[a.role];
+   if(a.status==="active"&&departmentId)statements.push(env.DB.prepare("INSERT INTO global_admin_department_access(id,source_admin_id,department_id,access_level,granted_by) VALUES(?,?,?,'manage','superadmin_role_sync')").bind(uid("deptaccess"),a.sourceId,departmentId));
+  }
   statements.push(env.DB.prepare("DELETE FROM admin_sync_nonces WHERE expires_at<?").bind(nowSeconds));
   await env.DB.batch(statements);
   return out({ok:true,synced:records.length,revoked_if_absent:true},200);
@@ -845,9 +852,15 @@ async function handle(req,env){
   await log(env,a.id,"agreement_version_activated","agreement",ag.id,{agreement_type:ag.agreement_type});
   return out({ok:true,active:true,agreement_id:ag.id});
  }
+ if(m==="GET"&&p==="/v1/admin/departments"){
+  const a=await user(req,env,["admin"]);
+  const r=await env.DB.prepare("SELECT d.id,d.name,d.status,x.access_level FROM global_admin_department_access x JOIN global_departments d ON d.id=x.department_id WHERE x.source_admin_id=? AND d.status='active' ORDER BY d.name").bind(a.source_admin_id).all();
+  return out({ok:true,departments:r.results||[]});
+ }
  if(m==="GET"&&p==="/v1/admin/projects"){
-  await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,status,created_at FROM projects WHERE status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY created_at DESC LIMIT 100").all();
+  const a=await user(req,env,["admin"]);
+  if(!a.source_admin_id)return bad("Department access is not configured for this admin.",403,"department_access_missing");
+  const r=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.category,p.brief,p.requirements_json,p.budget_amount_minor,p.budget_currency,p.budget_type,p.preferred_deadline,p.priority,p.status,p.department_id,d.name AS department_name,p.created_at FROM projects p LEFT JOIN global_departments d ON d.id=p.department_id WHERE p.department_id IN (SELECT department_id FROM global_admin_department_access WHERE source_admin_id=?) AND p.status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') ORDER BY p.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
   return out({ok:true,projects:r.results||[]});
  }
  const kycPreview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-preview$/);
