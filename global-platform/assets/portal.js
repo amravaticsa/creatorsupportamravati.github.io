@@ -368,8 +368,8 @@ async function loadAdmin(){
     const form=document.createElement("div");form.className="form";
     const editorSelect=document.createElement("select");editorSelect.setAttribute("aria-label","Verified editor");
     const first=document.createElement("option");first.value="";first.textContent="Select verified editor";editorSelect.append(first);
-    const normalizeLang=v=>String(v||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]+/gu," ").trim();
-    const requestedLangs=String(req.source_language||"").split(/[,;+\\/|]/).map(normalizeLang).filter(Boolean);
+    const normalizeLang=v=>String(v||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+    const requestedLangs=String(req.source_language||"").split(/[,;+|]/).map(normalizeLang).filter(Boolean);
     const eligibleEditors=ve.editors.filter(x=>x.account_status==="active").map(e=>{let langs=[];try{langs=JSON.parse(e.languages_json||"[]");}catch{}const normalized=langs.map(normalizeLang).filter(Boolean);const matched=requestedLangs.length>0&&requestedLangs.some(want=>normalized.some(have=>have===want||have.startsWith(want+" ")||want.startsWith(have+" ")));return {...e,editorLanguages:langs,languageMatched:matched};}).sort((a,b)=>Number(b.languageMatched)-Number(a.languageMatched)||a.display_name.localeCompare(b.display_name));
     const matchedEditors=eligibleEditors.filter(e=>e.languageMatched);
     const matchNote=document.createElement("p");matchNote.className="muted";
