@@ -1,12 +1,16 @@
 (()=>{"use strict";
-const API="https://csa-global-api.creatorsupportamravati.workers.dev",token=sessionStorage.getItem("csa_global_token"),user=JSON.parse(sessionStorage.getItem("csa_global_user")||"null");
+const API="https://csa-global-api.creatorsupportamravati.workers.dev";
 const $=id=>document.getElementById(id);
-if(!token||!user){location.href="login.html";return;}
+function readSessionValue(key){try{return sessionStorage.getItem(key);}catch{return null;}}
+function readSessionUser(){try{const raw=readSessionValue("csa_global_user");return raw?JSON.parse(raw):null;}catch{return null;}}
+const token=readSessionValue("csa_global_token"),user=readSessionUser();
+if(!token||!user||typeof user!=="object"||!user.role){try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");return;}
 const headers={"content-type":"application/json","authorization":"Bearer "+token};
 $("welcome").textContent="Welcome to CSA Global";
-$("account-status").textContent="Signed in as "+user.email+" · "+user.role+" · "+user.status;
-$("logout").onclick=()=>{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");location.href="login.html";};
-async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});const d=await r.json();if(r.status===401){$("account-status").textContent="Session expired. Please sign in again.";sessionStorage.clear();setTimeout(()=>location.href="login.html",1200);}if(!r.ok)throw Error(d.error?.message||"Request failed");return d;}
+$("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · "+(user.status||"active");
+function endSession(message="Session expired. Please sign in again."){$("account-status").textContent=message;try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");}
+$("logout").onclick=()=>endSession("You have been signed out.");
+async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
 async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
  const report=state=>{try{onStatus(state);}catch{}};
  const identity=[details.purpose,details.project_id||details.assignment_id||"",file.name,file.size,file.lastModified].join("|");
