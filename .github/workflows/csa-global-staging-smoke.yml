@@ -30,7 +30,7 @@ jobs:
             process.stdin.on("data", chunk => body += chunk);
             process.stdin.on("end", () => {
               const data = JSON.parse(body);
-              if (data.ok !== true || data.status !== "healthy" || data.service !== "CSA Global API") {
+              if (data.ok !== true || data.status !== "healthy" || data.service !== "CSA Global API" || data.d1_connected !== true) {
                 console.error("Staging API health response did not meet the expected contract.");
                 process.exit(1);
               }
@@ -38,6 +38,6 @@ jobs:
                 console.error("Safety check failed: API did not identify itself as staging.");
                 process.exit(1);
               }
-              console.log("PASS: CSA Global staging API is reachable and reports healthy staging mode.");
+              console.log("PASS: CSA Global staging API is reachable, reports staging mode, and confirms a read-only D1 query.");
             });
           ' <<< "$response"
