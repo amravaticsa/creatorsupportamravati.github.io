@@ -47,8 +47,11 @@ test("refund review uses compare-and-set and only audits a successful status tra
   assert.ok(source.indexOf("if(!updated.meta?.changes)") < source.indexOf('await log(env,a.id,"client_refund_"+next'));
 });
 
-test("health endpoint performs a read-only D1 connectivity check", () => {
-  assert.ok(source.includes('if(m==="GET"&&p==="/health"){let d1=false;try{const row=await env.DB.prepare("SELECT 1 AS ok").first();d1=row?.ok===1;}catch{}'));
+test("health endpoint checks D1 connectivity and required platform tables without writes", () => {
+  assert.ok(source.includes('if(m==="GET"&&p==="/health"){const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests"]'));
+  assert.ok(source.includes('SELECT name FROM sqlite_master WHERE type=\'table\' AND name IN ('));
   assert.ok(source.includes('d1_connected:d1'));
-  assert.ok(source.includes('status:d1?"healthy":"degraded"'));
+  assert.ok(source.includes('schema_ready:schemaReady'));
+  assert.ok(source.includes('missing_tables:missingTables'));
+  assert.ok(source.includes('status:d1&&schemaReady?"healthy":"degraded"'));
 });
