@@ -84,5 +84,6 @@ $("loginButton").addEventListener("click",login);$("refresh").addEventListener("
 try{if(!window.CSA_FIREBASE_CONFIG)throw new Error("Firebase config missing");if(!firebase.apps.length)firebase.initializeApp(window.CSA_FIREBASE_CONFIG);auth=firebase.auth();db=firebase.database();fs=firebase.firestore();auth.onAuthStateChanged(user=>{if(user&&(user.email||"").toLowerCase()===ADMIN_EMAIL)showDashboard();else if(user){auth.signOut();showLogin("यह account अधिकृत नहीं है।");}else showLogin();});}catch(e){console.error(e);showLogin("Firebase setup उपलब्ध नहीं है।");}
 })();
 </script>
+<script src="/assets/js/role-menu.js?v=20261121"></script>
 </body>
 </html>
