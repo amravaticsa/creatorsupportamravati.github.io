@@ -7,7 +7,7 @@ assert.ok(names.length > 0, "No numbered SQL migrations found");
 
 const versions = names.map((name) => Number(name.slice(0, 4)));
 for (let i = 0; i < versions.length; i++) {
-  assert.equal(versions[i], i + 1, \`Migration sequence gap or duplicate at \${names[i]}\`);
+  assert.equal(versions[i], i + 1, "Migration sequence gap or duplicate at " + names[i]);
 }
 
 const sql = new Map();
@@ -26,10 +26,10 @@ assert.match(quotePayments, /ALTER TABLE\s+client_quotes\s+ADD COLUMN\s+payment_
 assert.match(quotePayments, /ALTER TABLE\s+payments\s+ADD COLUMN\s+quote_id/i,
   "0024 must link payments to quotes");
 for (const table of ["notifications", "notification_preferences", "notification_delivery_attempts", "client_refund_requests"]) {
-  assert.match(notificationRefunds, new RegExp(\`CREATE TABLE IF NOT EXISTS \${table}\\\\s*\\\\(\`),
-    \`0025 must create \${table} idempotently\`);
+  assert.match(notificationRefunds, new RegExp("CREATE TABLE IF NOT EXISTS " + table + "\\s*\\("),
+    "0025 must create " + table + " idempotently");
 }
 assert.match(notificationRefunds, /whatsapp_enabled INTEGER NOT NULL DEFAULT 0/,
   "WhatsApp must remain opt-in by default");
 
-console.log(\`Validated \${names.length} ordered migrations and critical 0023–0025 schema invariants.\`);
+console.log("Validated " + names.length + " ordered migrations and critical 0023–0025 schema invariants.");
