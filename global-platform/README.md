@@ -139,3 +139,12 @@ Migration `0024_client_quote_payments.sql` adds a quote-to-payment reference and
 The API refuses client checkout unless the staging Razorpay key ID starts with `rzp_test_`. Payment signatures and captured amount/currency are verified server-side; webhook capture events update quote payment status. This is a test-only integration and must not be treated as permission to accept live payments.
 
 Not yet completed: client refund initiation/reconciliation, payment receipt UI, failed/unknown payment support workflow, Razorpay Test Mode end-to-end checkout with a real test card, and legal approval of the client service agreement. Live payments remain disabled.
+
+## Super Admin staging hostname routing (2026-11-21)
+
+- Route `superadmin-staging.creatorsupportamravati.in/*` is configured to `csa-superadmin-api-staging`.
+- The Worker host-role guard explicitly permits the staging hostname for `super_admin` sessions only.
+- The two more-specific Editor Management routes remain on `csa-editor-portal-staging`: `/editor-management*` and `/editor-api/*`.
+- This routing change is staging-only. The production `superadmin.creatorsupportamravati.in/*` route was not modified.
+- Cloudflare currently has its account D1 database quota fully occupied (10 databases). A separate `csa-global-platform-isolated-staging` database could not be created. The unused `csa-global-api-isolated-staging` Worker still has its `DB` binding pointed at the shared staging Global D1; its workers.dev subdomain is disabled and it has no custom route. Do not enable or route this Worker until a dedicated D1 database is provisioned and the full migration set is applied.
+- Existing production resources and live payment settings were not changed.
