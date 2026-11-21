@@ -186,3 +186,20 @@ A read-only check of the deployed Rush Admin Worker, its D1 bindings, the matchi
 - No dedicated production Rush Admin Worker or production Rush D1 was verified in this audit. The production-hostname Rush routes must be considered staging-to-production routing blockers until a production data store and Worker are provisioned and validated.
 - Do not repoint these routes to another Worker or change D1 bindings until the production Rush schema, identity integration, authorization rules, and rollback plan are verified. Keep production routing changes behind explicit owner approval.
 - This audit was read-only: no route, Worker binding, D1 schema, or row was changed. No HTTP end-to-end runtime test was claimed.
+
+
+## D1 capacity and safe-retirement dependency audit (2026-11-21)
+
+A fresh read-only inventory enumerated all 10 D1 databases, all deployed Workers' D1/R2 bindings, and all custom routes. The account remains at 10/10 D1 slots.
+
+- All six databases previously observed with zero application rows are still referenced by at least one deployed Worker binding:
+  - `csa-global-legacy-video-isolated-staging` → `csa-global-api-isolated-staging` (`LEGACY_VIDEO_DB`).
+  - `csa-video-isolated-staging` and `csa-editor-superadmin-isolated-staging` → `csa-editor-portal-isolated-staging`.
+  - `csa-superadmin-isolated-staging` → `csa-superadmin-isolated-staging`.
+  - `csa-video-workflow-staging` → staging Global, Editor, Rush/payment workflow Workers.
+  - `csa-video-rush-staging` → Rush Admin and Rush/video workflow Workers.
+- Some of these Workers currently have no custom route, but a missing route does not prove that the Worker or its binding is disposable; workers.dev status, deployment intent, scripts, scheduled triggers, service bindings and rollback use must also be checked.
+- The remaining four databases contain operational records or production data and must be preserved.
+- Therefore, this audit found **no database that can safely be declared a retirement candidate** based only on current evidence. No D1 database was deleted or modified.
+- Production Super Admin and Rush provisioning remains blocked by the D1 account quota. Preferred next path: ask Cloudflare to raise the D1 database limit, or obtain explicit owner approval for a separately planned consolidation/retirement after backups and complete dependency review. Do not unbind or delete an empty-but-referenced database just to free a slot.
+- The inventory was read-only. No Worker settings, routes, D1 data/schema, DNS, or payment configuration changed. Runtime HTTP/end-to-end behavior was not tested by this inventory.
