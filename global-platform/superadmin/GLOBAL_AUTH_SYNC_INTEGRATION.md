@@ -147,3 +147,11 @@ Limitations:
 - Cloudflare staging deployment ID: `f7d2595ec74b488490a82e2c4f9bd3b5`; deployed entry point `index.js`; startup time 1 ms. The deployed module was patched in place to preserve its existing staging-only code, rather than replacing it with a non-identical repository copy.
 - Post-deploy verification confirmed both new route mappings in deployed source and preserved D1, R2, OAuth, origin and staging environment bindings.
 - This is static permission/deployment verification. Authenticated HTTP tests for each role remain pending; no role assignments, production resources or client records were changed.
+
+
+## RBAC regression test suite — 2026-11-21
+- Added `global-platform/api/tests/rbac-route-map.test.mjs`, a Node built-in test suite that extracts the deployed permission resolver and role map from the Worker source and checks Project, Editor, Finance and Support role boundaries, shared views, explicit refund-write permission, and fail-closed behavior for unmapped routes.
+- Added the test to `.github/workflows/csa-global-validation.yml` so staging pushes and pull requests run it alongside syntax validation.
+- Test coverage also asserts that `super_admin` is absent from the synchronized Global role map and that CSA pricing policy remains explicitly restricted by the separate Super Admin-only handler guard.
+- GitHub staging commits: test suite `3564a6018c80f35841d9d6667bdfe8a44fab504b`; workflow integration `72ed0e04a17005d39cac7b486ce1502cfc538a7f`; pricing-guard assertion clarification `73b296ca3461ca02c29237ad4cd339fc57579a3a`.
+- This is automated static regression coverage, not authenticated live HTTP testing. Workflow execution status has not yet been confirmed. No production deployment or role/account changes were made.
