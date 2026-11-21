@@ -85,3 +85,16 @@ test("Client project budget recommendation can be submitted without an amount", 
   assert.match(api, /const recommendBudget=b\.budget_type==="recommend"/);
   assert.match(api, /\(!budget&&!recommendBudget\)/);
 });
+
+
+test("Client quotation exposes a transparent cost, CSA fee, advance and remaining-balance breakdown", () => {
+  assert.match(api, /q\.base_cost_minor,q\.margin_minor,q\.total_amount_minor/);
+  assert.match(api, /pol\.client_advance_bps/);
+  assert.match(api, /AS paid_amount_minor/);
+  assert.match(portal, /Editor \/ production cost/);
+  assert.match(portal, /CSA service & coordination fee/);
+  assert.match(portal, /Final quotation/);
+  assert.match(portal, /Advance payable/);
+  assert.match(portal, /Remaining balance/);
+  assert.match(portal, /Math\.ceil\(total\*Number\(q\.client_advance_bps\|\|0\)\/10000\)/);
+});
