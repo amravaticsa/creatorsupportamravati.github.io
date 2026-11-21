@@ -321,6 +321,18 @@ async function loadClientProjects(){
    const list=document.createElement("dl");list.className="application-details";
    for(const [label,value] of rows){if(value===null||value===undefined||String(value).trim()==="")continue;const wrap=document.createElement("div");const dt=document.createElement("dt");dt.textContent=label;const dd=document.createElement("dd");dd.textContent=String(value);wrap.append(dt,dd);list.append(wrap);}
    section.append(heading,brief,list);
+   const referenceValue=String(req.reference_url||"").trim();
+   if(referenceValue){
+    try{
+     const referenceUrl=new URL(referenceValue);
+     if(referenceUrl.protocol==="https:"||referenceUrl.protocol==="http:"){
+      const referenceWrap=document.createElement("p");referenceWrap.className="muted";
+      const referenceLabel=document.createElement("strong");referenceLabel.textContent="Project reference: ";
+      const referenceLink=document.createElement("a");referenceLink.href=referenceUrl.href;referenceLink.target="_blank";referenceLink.rel="noopener noreferrer";referenceLink.textContent="Open your reference link";
+      referenceWrap.append(referenceLabel,referenceLink);section.append(referenceWrap);
+     }
+    }catch{}
+   }
    const locked=Boolean(p.application_locked);
    const lockNote=document.createElement("p");lockNote.className="muted";
    lockNote.textContent=locked?"This application has been accepted by CSA and is now locked. You cannot edit or change the submitted application. For any clarification, contact CSA support.":"Your application is awaiting CSA acceptance. The submitted details are shown here for your reference.";
