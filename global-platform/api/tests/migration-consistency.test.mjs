@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
 // Keep migration validation runnable from the API test suite directory.
+// The workflow validates isolated snapshots without applying database migrations.
 
 const dir = new URL("../../migrations/", import.meta.url);
 const names = (await readdir(dir)).filter((name) => /^\d{4}_.+\.sql$/.test(name)).sort();
