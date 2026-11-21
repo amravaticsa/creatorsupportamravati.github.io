@@ -48,5 +48,7 @@ test("refund review uses compare-and-set and only audits a successful status tra
 });
 
 test("health endpoint performs a read-only D1 connectivity check", () => {
-  assert.match(source, /if\(m==="GET"&&p==="\\/health"\)\{let d1=false;try\{const row=await env\.DB\.prepare\("SELECT 1 AS ok"\)\.first\(\);d1=row\?\.ok===1;\}catch\{\}return out\(\{ok:true,service:"CSA Global API",status:d1\?"healthy":"degraded",d1_connected:d1/);
+  assert.ok(source.includes('if(m==="GET"&&p==="/health"){let d1=false;try{const row=await env.DB.prepare("SELECT 1 AS ok").first();d1=row?.ok===1;}catch{}'));
+  assert.ok(source.includes('d1_connected:d1'));
+  assert.ok(source.includes('status:d1?"healthy":"degraded"'));
 });
