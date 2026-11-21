@@ -60,3 +60,15 @@ Status: design specification only. No bridge endpoint or credentials are deploye
 - Snapshot application revokes all previously synchronized authorizations, then upserts the supplied authoritative snapshot in a single D1 batch. Admin API authorization also checks the active registry on each request, so a suspended/revoked admin is blocked even if their Google token remains valid.
 - Migration `0012_admin_sync_nonces.sql` creates the replay-protection nonce store. It has been applied and verified on CSA Global Staging D1 only.
 - The receiver is not deployed. `ADMIN_SYNC_HMAC_SECRET` has not been created or installed. The Super Admin sender/lifecycle hooks are not implemented. No sync records have been inserted. Production remains untouched.
+
+
+## Security hardening — Super Admin excluded from Global Admin sync (2026-11-21)
+- Review of the deployed staging Workers found that the sender snapshot included the `super_admin` account and the Global receiver accepted `super_admin` as a synchronized Global role. The Global API permission map also contained a full-access `super_admin` role.
+- Staging D1 was checked before remediation: it contained two authorization rows (`super_admin` and `editor_admin`), and neither row matched an active Global Admin user. No active Global Admin account was receiving access from those rows.
+- Both staging Workers were updated successfully without changing Worker bindings or reading/replacing any secrets:
+  - Super Admin sender now excludes `super_admin` from the snapshot.
+  - Global receiver now rejects `super_admin` records.
+  - Global API no longer defines Global permissions for `super_admin`.
+  - Department access mapping no longer grants a Global department set to `super_admin`.
+- The next successful authoritative sync will revoke the stale `super_admin` authorization row because it is absent from the sender snapshot. Do not treat the end-to-end lifecycle as fully tested until that sync and role-specific tests are performed.
+- Production remains untouched.
