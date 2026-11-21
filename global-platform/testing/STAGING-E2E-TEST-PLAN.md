@@ -79,3 +79,16 @@ No test is PASS until the full action sequence and its resulting database/API st
 - Test payment and refund records reconcile in the staging ledger and Razorpay Test Mode.
 - Test data is removed or clearly retained as non-production QA evidence under an approved retention policy.
 - A separate release review approves production migration, production routing and any live payment activation. This test plan does not authorize those actions.
+
+
+## Tender award handoff audit (2026-11-21)
+
+The staging source review confirms that the tender award endpoint is **not** the same operation as editor assignment:
+
+- Award is permitted only after the tender is closed, the selected bid is still submitted/shortlisted, the bid currency matches the project currency, and the admin independently passes both global projects.manage permission and the tender department route check.
+- Award marks the selected bid won, rejects the other eligible bids, marks the tender awarded, and returns the explicit next step create_client_quote_and_send_managed_editor_offer.
+- Award does not create a project_offers record or an assignments record. This is intentional for now: the existing managed-editor offer requires an active, verified editor, an agreed fee, delivery period, currency and security-deposit amount. Those commercial terms must not be guessed from the bid.
+- The existing offer-creation endpoint rejects editors who are not both verification_status=verified and account_status=active. Assignment is a separate later action and requires an offer in ready_for_assignment; the deposit verification flow must have a captured payment before that state is reached.
+- The client quote is a separate action after award and uses the active Super Admin pricing policy. It creates a draft quote; a separate authorized send action is required before the client can see it.
+
+Regression assertions were added for the handoff boundary, verified-editor offer gate, deposit gate, and department authorization. These are source-level regression checks, not a signed-in browser E2E pass. E2E-04 remains BLOCKED until a dedicated staging client/editor/admin test set and test deposit setup are available. No offer, assignment, notification, quote, or payment was created by this audit.
