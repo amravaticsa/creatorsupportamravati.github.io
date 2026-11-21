@@ -23,43 +23,22 @@ Prefer allow-listed structured fields only:
 ## Source-specific remediation queue
 
 ### csa-superadmin-isolated-staging
-Replace these patterns with fixed event/error codes only:
-- `console.error("CSA recovery email failed", e)`
-- `console.error("Employee recovery email failed", err)`
-- `console.error('Attendance punch failed', err)`
+The exported Worker entry module contained two unsafe sync-failure paths:
+- global_admin_sync_logs.error_code was populated from arbitrary exception text.
+- A failed attempt to write that row logged the raw database exception message.
 
-Recommended safe equivalents:
-```js
-console.error(JSON.stringify({
-  event: "recovery_email_delivery_failed",
-  error_code: "email_provider_error"
-}));
-console.error(JSON.stringify({
-  event: "employee_recovery_email_delivery_failed",
-  error_code: "email_provider_error"
-}));
-console.error(JSON.stringify({
-  event: "attendance_capture_failed",
-  error_code: "attendance_storage_or_write_error"
-}));
-```
-Do not include recipient address, employee code, request body, uploaded image, object key, provider response, or exception text.
+Both have been patched in the GitHub source snapshot:
+- Persisted error code is now the fixed value `global_sync_failed`.
+- The secondary failure log is a fixed structured event with `database_write_failed`.
+- The original exception is still rethrown for the existing request/lifecycle error handling; it is not stringified or persisted by this wrapper.
+
+The recovery-email and attendance log patterns previously listed were not present in the currently exported entry module or its four companion modules during this re-scan. They should not be treated as confirmed current targets without another deployed-bundle inspection.
 
 ### csa-global-api-isolated-staging
-Replace arbitrary exception text in the multipart cleanup warning:
-```js
-console.warn(JSON.stringify({
-  event: "multipart_cleanup_abort_failed",
-  session_id: session.id,
-  error_code: "storage_abort_failed"
-}));
-```
-Before retaining `session_id`, confirm it is an internal random identifier and not a credential or externally reusable token. Otherwise omit it and log only a generated correlation ID.
-
-The cleanup completion event is aggregate-only; retain only bounded counts and timestamp.
+The currently exported `index.js` snapshot did not contain multipart cleanup execution code, a `multipart_cleanup_runs.error_message` write, or a console warning containing an exception message. It does expose admin read/incident routes for multipart cleanup records. The earlier cleanup logging targets therefore remain unverified against this snapshot and must be re-located in the actual deployed module/source before patching.
 
 ### csa-editor-portal-isolated-staging
-Targeted scan found no explicit console log statements. Keep this as the first observability pilot after authenticated runtime tests.
+The exported `worker.js` snapshot had no explicit console logging, stack logging, or exception-message persistence markers in the targeted scan. Keep it as a candidate for a synthetic runtime pilot after broader source review.
 
 ## Pilot validation checklist
 
@@ -116,3 +95,13 @@ Cloudflare deployed module bundles have now been exported into:
 The snapshot contains all modules for the isolated Super Admin Worker, plus the single entry modules for isolated Global API and Editor Portal. This resolves the immediate source-recovery blocker for review and patch preparation. The snapshots are explicitly labeled as deployed-bundle exports, not assumed original source-of-truth.
 
 No Worker code was deployed or modified in Cloudflare during this export. Next step is to patch the snapshot files, run syntax validation and regression checks, then deploy only isolated staging Workers after route/binding parity is confirmed.
+
+## Patch record — 2026-11-21
+
+GitHub snapshot-only patch:
+- File: `global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js`
+- Commit: `25483e958e15eae68344fbbeeebeed8e1cbd24a2`
+- Replaced raw exception-derived sync error code with fixed `global_sync_failed`.
+- Replaced raw database exception logging with fixed event/error-code fields.
+
+This patch changed GitHub on the `staging` branch only. No Cloudflare Worker source, deployment, settings, bindings, routes, or D1 records were changed. Syntax validation, deployment, and synthetic runtime tests remain pending.
