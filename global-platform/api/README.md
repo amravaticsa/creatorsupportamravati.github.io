@@ -20,6 +20,11 @@ Private media binding: `MEDIA` → `csa-global-media-staging`
 - `GET|POST /v1/admin/multipart-uploads/:id/incidents` — admin/staff-only append-only incident and resolution timeline for a specific upload session; bounded notes and allow-listed incident/status values.
 - `GET /v1/uploads/multipart/history` — signed-in client's/editor's own latest 30 sessions.
 - `GET /v1/admin/deposits/refunds/eligible`, `POST /v1/admin/deposits/:paymentId/refund` — full original-method refund, available only after CSA QC approval; one request per deposit.
+- `GET /v1/notifications`, `POST /v1/notifications/:id/read` — authenticated user's own in-app notifications and read state.
+- `GET|PUT /v1/notifications/preferences` — per-user in-app, email and WhatsApp preferences; WhatsApp defaults off and is explicit opt-in.
+- `POST /v1/admin/notifications` — Support Admin can send an in-app notice to an active client/editor.
+- `GET|POST /v1/client/refunds` — client can list and request partial/full refunds only against their own successful client advance/balance payments; requests are idempotency-keyed and limited to the remaining refundable amount.
+- `GET /v1/admin/client-refunds`, `PATCH /v1/admin/client-refunds/:id` — Finance Admin review queue; approve means authorized for processing only and does not call Razorpay.
 - `GET /v1/editor/deposit-refunds` — editor's own refund status and Razorpay refund reference.
 
 ## Authentication
@@ -83,3 +88,8 @@ Hourly scheduled cleanup executions are written to the staging D1 table `multipa
 ### Multipart upload incident and resolution audit
 
 Admin/staff can inspect an upload session and append an incident/resolution event. Each record captures the session, authenticated actor, allow-listed incident type, resolution status, bounded note (maximum 1,000 characters) and timestamp. Events are append-only so later updates do not erase the earlier investigation trail. Supported outcomes are reviewed, awaiting user, re-upload requested, resolved and escalated. This is an audit-only workflow: it does not retry or abort multipart uploads, delete R2 objects, or trigger refunds. The API exposes no R2 object keys, provider upload IDs or file contents through this feature.
+
+## Notification and client refund limits
+- Only in-app notification delivery is implemented. Email and WhatsApp preferences are stored, but no outbound provider is configured or called. WhatsApp remains opt-in and disabled by default.
+- Client refund requests create a finance-review record only. Finance approval does not initiate a provider refund; processing and reconciliation require a separately reviewed Razorpay workflow.
+- Client refund requests are restricted to the authenticated client's own successful `client_advance` or `client_balance` payment and the unreserved remaining amount. Rejected, failed or cancelled requests release the reserved amount.
