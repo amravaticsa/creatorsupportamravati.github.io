@@ -24,6 +24,8 @@
 
 **Current staging status (2026-11-19):** the deployed staging homepage has been opened successfully in a connected browser. This confirms the homepage renders, but does not prove Google sign-in or client/editor/admin workflows pass end-to-end. Keep the site marked as staging until those tests are completed.
 
+**Automated post-deploy smoke check:** the staging deployment workflow now requests the published Pages homepage and the staging API `/health` endpoint after each deployment. It requires a valid HTML response and `status: healthy` with `d1_connected: true`. This verifies basic frontend availability and API-to-D1 connectivity only; it does not replace browser-level authentication, uploads, tender, editor, QC, payment or refund end-to-end tests.
+
 ## Isolated Cloudflare staging resources
 - Worker: `csa-global-api-staging`
 - D1 database: `csa-global-platform-staging`
