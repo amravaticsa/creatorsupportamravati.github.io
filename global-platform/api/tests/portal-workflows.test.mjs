@@ -108,3 +108,21 @@ test("Admin tender bid comparison shows editor context and requires confirmation
   assert.match(portal, /Other eligible bids will be rejected/);
   assert.match(portal, /Select this editor/);
 });
+
+
+test("Tender award is a handoff only; it does not bypass verified-editor offer and deposit gates", () => {
+  assert.match(api, /if\(action==="award"\)\{if\(t\.status!=="closed"/);
+  assert.match(api, /tender_bid_awarded/);
+  assert.match(api, /next_step:"create_client_quote_and_send_managed_editor_offer"/);
+  assert.match(api, /SELECT e\.user_id FROM editor_profiles e JOIN users u ON u\.id=e\.user_id WHERE e\.user_id=\? AND e\.verification_status='verified' AND u\.account_status='active'/);
+  assert.match(api, /if\(!ed\)return bad\("Only verified editors can receive offers\."/);
+  assert.match(api, /o\.status!=="ready_for_assignment"/);
+  assert.match(api, /payment\.status!=="captured"/);
+  assert.doesNotMatch(api, /if\(action==="award"\)[\s\S]{0,1800}INSERT INTO assignments/);
+});
+
+test("Tender award and quote actions enforce project-department access independently", () => {
+  assert.match(api, /const ta=p\.match\(\/\^\\\/v1\\\/admin\\\/tenders/);
+  assert.match(api, /dr\.route_key='tender' AND da\.source_admin_id=\?\)\.bind\(t\.project_id,a\.source_admin_id\)/);
+  assert.match(api, /adminPermissionFor\(req\)/);
+});
