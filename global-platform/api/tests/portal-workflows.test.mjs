@@ -112,6 +112,8 @@ test("Admin tender bid comparison shows editor context and requires confirmation
 
 test("Tender award is a handoff only; it does not bypass verified-editor offer and deposit gates", () => {
   assert.match(api, /if\(action==="award"\)\{\s*if\(t\.status!=="closed"/);
+  assert.match(api, /editor_kyc_documents k WHERE k.editor_id=u.id AND k.status='verified'/);
+  assert.match(api, /editor_kyc_required/);
   assert.match(api, /tender_bid_awarded/);
   assert.match(api, /next_step:"create_client_quote_and_send_managed_editor_offer"/);
   assert.match(api, /SELECT e\.user_id FROM editor_profiles e JOIN users u ON u\.id=e\.user_id WHERE e\.user_id=\? AND e\.verification_status='verified' AND u\.account_status='active'/);
