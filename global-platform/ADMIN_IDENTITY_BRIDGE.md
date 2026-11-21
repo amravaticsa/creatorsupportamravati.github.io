@@ -70,5 +70,5 @@ Status: design specification only. No bridge endpoint or credentials are deploye
   - Global receiver now rejects `super_admin` records.
   - Global API no longer defines Global permissions for `super_admin`.
   - Department access mapping no longer grants a Global department set to `super_admin`.
-- The next successful authoritative sync will revoke the stale `super_admin` authorization row because it is absent from the sender snapshot. Do not treat the end-to-end lifecycle as fully tested until that sync and role-specific tests are performed.
+- The stale `super_admin` authorization row was also explicitly changed to `revoked`, and its eight Global department grants were removed. The independent Super Admin account remains active in the Super Admin system. Do not treat the end-to-end lifecycle as fully tested until a fresh sync and role-specific tests are performed.
 - Production remains untouched.
