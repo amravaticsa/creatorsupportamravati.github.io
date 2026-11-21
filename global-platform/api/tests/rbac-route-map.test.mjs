@@ -87,8 +87,8 @@ test("shared admin views are mapped and unknown admin routes fail closed", () =>
 });
 
 test("pricing policy remains explicitly locked to the separate Super Admin boundary", () => {
-  assert.equal(required("GET", "/v1/admin/pricing-policy"), "projects.manage");
-  assert.equal(required("POST", "/v1/admin/pricing-policy"), "projects.manage");
+  assert.equal(required("GET", "/v1/admin/pricing-policy"), "__deny__");
+  assert.equal(required("POST", "/v1/admin/pricing-policy"), "__deny__");
   assert.match(source, /Only Super Admin can (manage|change) CSA pricing policy/);
   assert.equal(rolePermissions.super_admin, undefined);
 });
