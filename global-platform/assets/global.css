@@ -56,3 +56,19 @@ pre,code{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
 .project-timeline-event time{display:block;color:var(--muted,#64748b);font-size:12px;margin-top:3px}
 .project-timeline-event p{margin:5px 0 0;font-size:13px;line-height:1.5;color:var(--muted,#475569)}
 @media(max-width:600px){.project-timeline{padding-left:15px}.project-timeline-event{padding-left:10px}.project-timeline-event:before{left:-21px}}
+
+
+/* Secure project messaging */
+.project-messages{margin-top:16px}
+.project-messages>summary{cursor:pointer;font-weight:700;padding:4px 0}
+.project-message-body{margin-top:14px}
+.project-message-history{display:grid;gap:10px;margin:12px 0}
+.project-message{padding:12px;border:1px solid var(--border,#d8dee9);border-radius:10px;background:var(--surface,#fff)}
+.project-message.is-own{border-left:3px solid var(--accent,#2563eb)}
+.project-message-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px}
+.project-message-meta time{color:var(--muted,#64748b);font-size:12px}
+.project-message p{margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+.project-message-form{display:grid;gap:8px;margin-top:12px}
+.project-message-form textarea{width:100%;min-height:88px;resize:vertical}
+.project-message-form small{text-align:right}
+@media(max-width:600px){.project-message-meta{align-items:flex-start;flex-direction:column;gap:3px}.project-message{padding:10px}}
