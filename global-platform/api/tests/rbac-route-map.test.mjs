@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+const pricingMigration = readFileSync(new URL("../../migrations/0023_tenders_pricing_quotes.sql", import.meta.url), "utf8");
 
 function extractBlock(marker) {
   const start = source.indexOf(marker);
@@ -116,4 +117,12 @@ test("Super Admin pricing bridge is signed, replay-protected and staging-only", 
   assert.match(source, /margin_bps/);
   assert.match(source, /minimum_margin_minor/);
   assert.match(source, /client_advance_bps/);
+});
+
+
+test("pricing migration defines validated CSA margin and client advance fields", () => {
+  assert.match(pricingMigration, /margin_bps INTEGER CHECK\(margin_bps BETWEEN 0 AND 10000\)/);
+  assert.match(pricingMigration, /minimum_margin_minor INTEGER NOT NULL DEFAULT 0 CHECK\(minimum_margin_minor>=0\)/);
+  assert.match(pricingMigration, /client_advance_bps INTEGER CHECK\(client_advance_bps BETWEEN 1 AND 10000\)/);
+  assert.match(pricingMigration, /status TEXT NOT NULL DEFAULT 'unconfigured'/);
 });
