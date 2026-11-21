@@ -629,6 +629,8 @@ async function loadAdmin(){
  loadPortfolioVideoReviews();
  loadAdminKycReviews();
  loadEditorReviewHistory();
+ loadEditorPerformance();
+ loadAdminClientFeedback();
  try{
   updateEditorReviewSummary("profile",null,"loading");
   const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
