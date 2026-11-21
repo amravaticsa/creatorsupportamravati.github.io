@@ -386,3 +386,23 @@ Official reference: https://developers.cloudflare.com/d1/platform/limits/
 The account's API create attempt returned error 7406 at exactly 10 databases, consistent with the Free-tier database count. The least disruptive path is for the account owner to review the Cloudflare Workers plan and billing, then decide whether to upgrade to Workers Paid or submit the official limit-increase request if eligible. No plan or billing change was made by this audit.
 
 **Owner action required:** approve any paid-plan upgrade or submit the limit-increase form from the Cloudflare dashboard. Once the account limit is increased and verified, create the production D1 database and continue the already-prepared schema bootstrap. Do not delete any currently bound D1 database to work around the limit.
+
+
+### Worker observability readiness check — 2026-11-21
+
+Read-only Cloudflare Worker settings inspection covered:
+- `csa-superadmin-api-staging`
+- `csa-editor-portal-staging`
+- `csa-global-api-staging`
+- `csa-video-workflow-api-staging`
+- `csa-rush-admin-staging`
+
+Findings:
+- `csa-global-api-staging` has Workers observability enabled, with persisted logs and traces; configured log and trace sampling are each 10%.
+- The other four inspected Workers did not return an observability configuration in their settings response. Treat this as **not verified/enabled**, not as proof that no platform-level telemetry exists.
+- Compatibility dates are recent (Nov 15–21, 2026) across the five inspected Workers.
+- All five show empty placement configuration. Do not change placement without confirming database region and workload behavior.
+
+**Recommended next implementation gate:** enable structured Workers Logs and Traces for isolated staging Workers first, using conservative sampling and redaction. Validate that logs do not include credentials, session cookies, authorization headers, personal identity documents, uploaded media contents, or payment secrets. Then enable equivalent observability on production-facing Workers in a separate approved change after reviewing retention, privacy, and cost.
+
+**Safety note:** `csa-superadmin-api-staging` still serves the official production catch-all route. No observability settings were changed during this audit. No Worker was redeployed and no routes, bindings, secrets, databases, or buckets were changed.
