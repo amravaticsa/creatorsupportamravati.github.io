@@ -75,3 +75,13 @@ test("Editor submission enters QC and approved QC moves project to client review
   assert.match(api, /status==="approved"\?"client_review"/);
   assert.match(api, /status==="approved"\?"reviewing"/);
 });
+
+test("Client project budget recommendation can be submitted without an amount", () => {
+  assert.match(html, /name="budget" type="number" min="1" step="0\.01" placeholder="Enter your maximum or estimated budget"/);
+  assert.match(html, /Optional when you select Recommend a budget/);
+  assert.match(portal, /budgetType\?\.addEventListener\("change",syncProjectBudgetRequirement\)/);
+  assert.match(portal, /budgetInput\.required=!recommended/);
+  assert.match(portal, /budgetText\?Math\.round\(Number\(budgetText\)\*100\):null/);
+  assert.match(api, /const recommendBudget=b\.budget_type==="recommend"/);
+  assert.match(api, /\(!budget&&!recommendBudget\)/);
+});
