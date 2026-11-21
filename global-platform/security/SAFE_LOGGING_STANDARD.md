@@ -65,3 +65,17 @@ GitHub Actions run: https://github.com/amravaticsa/creatorsupportamravati.github
 All changes in this phase are GitHub snapshot and CI workflow changes only. No Cloudflare Worker source, version, deployment, settings, bindings, routes, or D1 records were modified by the security patch. The staging Pages workflow is a separate repository action and does not constitute a Worker deployment.
 
 These snapshots are exports of deployed Cloudflare bundles, not proof of the original developer source or build pipeline. Do not deploy them until settings parity, rollback, and runtime tests are complete.
+
+## Read-only Cloudflare pre-deployment check — 2026-11-21
+
+Read-only settings and zone-route checks were performed for the three isolated staging Workers. No secret values were read or returned.
+
+- The zone route list contains no route targeting any of these isolated Worker names; this confirms the patched snapshots cannot affect the official Super Admin route through these Worker routes.
+- Super Admin isolated settings currently list ACCESS_AUD, ACCESS_TEAM_DOMAIN, ADMIN_DASHBOARD_URL, ADMIN_EMAIL, ATTENDANCE_MEDIA, DB, and ENVIRONMENT. The required binding names ADMIN_SYNC_HMAC_SECRET, RESEND_API_KEY, and RESEND_FROM_EMAIL are referenced by source but are absent from the settings binding list.
+- Global API isolated settings currently list ADMIN_EMAILS, ALLOWED_ORIGINS, AUTH_AUDIENCE, AUTH_ISSUER, AUTH_JWKS_URL, DB, ENVIRONMENT, GOOGLE_CLIENT_ID, LEGACY_VIDEO_BUCKET, LEGACY_VIDEO_DB, and MEDIA. ADMIN_SYNC_HMAC_SECRET is referenced by source but absent from the settings binding list.
+- Editor Portal isolated settings list CSA_SUPERADMIN_DB, CSA_VIDEO_BUCKET, and CSA_VIDEO_DB.
+- Compatibility dates reported by settings: Super Admin and Global API 2026-11-17; Editor Portal 2026-11-20. Compatibility flags are empty for all three.
+
+These missing secret binding names are a hard pre-deployment/runtime-test blocker for Super Admin recovery email and the Super Admin-to-Global API signed authorization/pricing bridge. Obtain the correct secret values through the approved secret-management process; never put them in GitHub source, documentation, or logs.
+
+No Cloudflare settings, secrets, routes, bindings, Worker versions, or deployments were changed by this read-only check.
