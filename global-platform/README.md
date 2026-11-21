@@ -148,3 +148,14 @@ Not yet completed: client refund initiation/reconciliation, payment receipt UI, 
 - This routing change is staging-only. The production `superadmin.creatorsupportamravati.in/*` route was not modified.
 - Cloudflare currently has its account D1 database quota fully occupied (10 databases). A separate `csa-global-platform-isolated-staging` database could not be created. The unused `csa-global-api-isolated-staging` Worker still has its `DB` binding pointed at the shared staging Global D1; its workers.dev subdomain is disabled and it has no custom route. Do not enable or route this Worker until a dedicated D1 database is provisioned and the full migration set is applied.
 - Existing production resources and live payment settings were not changed.
+
+
+## Cloudflare D1 capacity and data-preservation audit (2026-11-21)
+
+- Cloudflare account currently has 10 of 10 D1 database slots occupied.
+- Read-only inspection of `sqlite_master` and row counts found six databases with schema objects but zero application rows: `csa-global-legacy-video-isolated-staging` (10 tables), `csa-video-isolated-staging` (13), `csa-editor-superadmin-isolated-staging` (33), `csa-superadmin-isolated-staging` (33), `csa-video-workflow-staging` (10), and `csa-video-rush-staging` (3).
+- These six databases are not automatically safe to delete: they may be intentional migration targets or referenced by Worker configurations. No database was deleted, renamed, or modified during this audit.
+- Databases with confirmed application rows include `csa-superadmin-staging` (admin, employee, audit and access records), `csa-global-platform-staging` (client profiles, users, projects, department routes, admin authorizations and operational records), `csa-global-platform` (one agreement-version row), and `csa-orders` (orders, payment and video-file records). Preserve these databases.
+- The isolated staging databases contain table structures but currently no application data. This does not prove that the corresponding Workers are correctly bound, migrated for their intended purpose, or safe to activate.
+- Next safe step: reconcile every Worker D1 binding and route against the intended database, export and verify backups for any proposed retirement candidate, then obtain explicit owner approval before deleting any database. Do not use a production database as a staging substitute.
+- The row-count audit used read-only `SELECT COUNT(*)` queries. No rows or schema were changed. Production payment settings, DNS, routes and databases were not modified.
