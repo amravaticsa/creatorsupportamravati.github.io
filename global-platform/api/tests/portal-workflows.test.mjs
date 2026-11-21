@@ -131,3 +131,15 @@ test("Tender award and quote actions enforce project-department access independe
   assert.match(api, /route_key/);
   assert.match(api, /bind\(t\.project_id,a\.source_admin_id\)/);
 });
+
+
+test("Winning tender bid can be converted into a managed offer with an explicit deposit amount", () => {
+  assert.match(api, /b\.editor_id,b\.bid_amount_minor/);
+  assert.match(api, /active_offer_exists/);
+  assert.match(api, /An active offer already exists for this editor and project/);
+  assert.match(portal, /Create Managed Editor Offer/);
+  assert.match(portal, /Enter the security deposit amount/);
+  assert.match(portal, /proposed_fee_minor:bid\.bid_amount_minor/);
+  assert.match(portal, /deposit_amount_minor:Math\.round\(deposit\*100\)/);
+  assert.match(portal, /The editor must accept the offer, agreement and deposit before assignment/);
+});
