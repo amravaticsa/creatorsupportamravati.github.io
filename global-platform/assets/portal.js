@@ -10,7 +10,7 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · "+(user.status||"active");
 function endSession(message="Session expired. Please sign in again."){$("account-status").textContent=message;try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");}
 $("logout").onclick=()=>endSession("You have been signed out.");
-const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";location.reload();};
+const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
 async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
  const report=state=>{try{onStatus(state);}catch{}};
@@ -86,6 +86,7 @@ if(user.role==="client"){
       client_city:String(f.get("client_city")||"").trim(),
       project_mode:String(f.get("project_mode")||"").trim(),
       project_location:String(f.get("project_location")||"").trim(),
+      reference_url:String(f.get("reference_url")||"").trim(),
       client_timezone:String(f.get("client_timezone")||"").trim()
     }};
    const startedAt=Date.now();let project=null;
@@ -128,7 +129,7 @@ if(user.role==="client"){
    const packageName=String(f.get("service_package")||"Video Editing"),style=String(f.get("content_style")||"");
    const title=(packageName+" — "+(f.get("project_type")||style)).slice(0,180);
    const payload={title,category:"Video Editing",brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:"INR",budget_type:budget?"fixed":"recommend",preferred_deadline:String(f.get("preferred_deadline")||"").trim()||null,priority:"normal",revisions_included:2,requirements:{
-    communication_language:String(f.get("communication_language")||"").trim(),source_language:String(f.get("source_language")||"").trim(),output_language:String(f.get("output_language")||"").trim(),subtitle_languages:String(f.get("subtitle_languages")||"").trim(),client_country:String(f.get("client_country")||"").trim(),client_region:String(f.get("client_region")||"").trim(),client_city:String(f.get("client_city")||"").trim(),project_mode:String(f.get("project_mode")||"remote"),project_location:"",client_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"Asia/Kolkata",contact_name:String(f.get("contact_name")||"").trim(),contact_phone:String(f.get("contact_phone")||"").trim(),content_style:style,dialect:String(f.get("dialect")||"").trim(),service_package:packageName,project_type:String(f.get("project_type")||"").trim(),raw_footage_duration:String(f.get("raw_footage_duration")||"").trim()
+    communication_language:String(f.get("communication_language")||"").trim(),source_language:String(f.get("source_language")||"").trim(),output_language:String(f.get("output_language")||"").trim(),subtitle_languages:String(f.get("subtitle_languages")||"").trim(),client_country:String(f.get("client_country")||"").trim(),client_region:String(f.get("client_region")||"").trim(),client_city:String(f.get("client_city")||"").trim(),project_mode:String(f.get("project_mode")||"remote"),project_location:"",reference_url:String(f.get("reference_url")||"").trim(),client_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"Asia/Kolkata",contact_name:String(f.get("contact_name")||"").trim(),contact_phone:String(f.get("contact_phone")||"").trim(),content_style:style,dialect:String(f.get("dialect")||"").trim(),service_package:packageName,project_type:String(f.get("project_type")||"").trim(),raw_footage_duration:String(f.get("raw_footage_duration")||"").trim()
    }};
    const message=$("video-editing-message");message.textContent="Submitting your application securely…";let project=null;
    try{
@@ -424,6 +425,7 @@ async function loadAdmin(){
    let req={};try{req=JSON.parse(p.requirements_json||"{}");}catch{}
    const langLoc=document.createElement("p");langLoc.className="muted";langLoc.textContent="Languages: "+[req.communication_language&&("Communication: "+req.communication_language),req.source_language&&("Source: "+req.source_language),req.output_language&&("Output: "+req.output_language),req.subtitle_languages&&("Captions: "+req.subtitle_languages)].filter(Boolean).join(" · ")+" | Location: "+[req.client_city,req.client_region,req.client_country].filter(Boolean).join(", ")+(req.project_mode?" · "+req.project_mode:"")+(req.project_location?" · Project site: "+req.project_location:"");
    card.append(h,desc,meta,langLoc);
+   if(req.reference_url){try{const reference=new URL(req.reference_url);if(["https:","http:"].includes(reference.protocol)){const link=document.createElement("a");link.href=reference.href;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Open client reference";card.append(link);}}catch{}}
    if(["submitted","under_review","approved","matching"].includes(p.status)){
     const form=document.createElement("div");form.className="form";
     const editorSelect=document.createElement("select");editorSelect.setAttribute("aria-label","Verified editor");
