@@ -34,11 +34,13 @@ function adminPermissionFor(req){
  if(/^\/v1\/files\/[\w-]+$/.test(p))return null;
  if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/offers/ready"].includes(p))return "projects.manage";
  if(m==="GET"&&["/v1/admin/tenders","/v1/admin/pricing-policy"].includes(p))return "projects.manage";
- if(m==="POST"&&(/^\\/v1\\/admin\\/projects\\/[\\w-]+\\/tender$/.test(p)||/^\\/v1\\/admin\\/tenders\\/[\\w-]+\\/(publish|close|award|quote)$/.test(p)||p==="/v1/admin/pricing-policy"))return "projects.manage";
+ if(m==="GET"&&p==="/v1/admin/tenders/bids")return "projects.manage";
+ if(m==="POST"&&/^\\/v1\\/admin\\/quotes\\/[\\w-]+\\/send$/.test(p))return "projects.manage";
+ if(m==="POST"&&(/^\/v1\/admin\/projects\/[\\w-]+\/tender$/.test(p)||/^\/v1\/admin\/tenders\/[\\w-]+\/(publish|close|award|quote)$/.test(p)||p==="/v1/admin/pricing-policy"))return "projects.manage";
  if(m==="GET"&&p==="/v1/client/quotes")return null;
- if(m==="POST"&&/^\\/v1\\/client\\/quotes\\/[\\w-]+\\/decision$/.test(p))return null;
+ if(m==="POST"&&/^\/v1\/client\/quotes\/[\\w-]+\/decision$/.test(p))return null;
  if(m==="GET"&&p==="/v1/editor/tenders")return null;
- if(m==="POST"&&/^\\/v1\\/editor\\/tenders\\/[\\w-]+\\/bids$/.test(p))return null;
+ if(m==="POST"&&/^\/v1\/editor\/tenders\/[\\w-]+\/bids$/.test(p))return null;
  if(m==="GET"&&p==="/v1/admin/projects")return ["projects.manage","content.manage"];
  if(m==="GET"&&p==="/v1/admin/departments")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
@@ -336,7 +338,7 @@ async function handle(req,env){
   const mime=txt(b.mime_type,100).toLowerCase(),allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
   if(!Number.isSafeInteger(total)||total<=90*1024*1024||total>maxSize)return bad("Resumable upload supports files larger than 90 MB and up to 5 GB.",413,"invalid_upload_size");
   if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
-  const rawName=txt(b.filename,180)||"upload.bin",name=rawName.split(/[\\\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
+  const rawName=txt(b.filename,180)||"upload.bin",name=rawName.split(/[\\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
   let projectId=null,assignmentId=null,key="";
   if(purpose==="project_file"){
    projectId=txt(b.project_id,100);
@@ -520,7 +522,7 @@ async function handle(req,env){
   if(!size||size>90*1024*1024)return bad("File must include Content-Length and be 90 MB or smaller for this staging uploader.",413);
   const allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
   if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
-  const rawName=txt(req.headers.get("x-file-name"),180)||"upload.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
+  const rawName=txt(req.headers.get("x-file-name"),180)||"upload.bin",name=rawName.split(/[\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
   const fileId=uid("file"),key="projects/"+projectId+"/source/"+fileId+"/"+name;
   let actualSize=0;
   const limitedBody=req.body.pipeThrough(new TransformStream({
@@ -576,7 +578,7 @@ async function handle(req,env){
   const allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
   if(!allowed.includes(mime))return bad("Submission file type is not allowed.",415);
   const last=await env.DB.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM work_submissions WHERE assignment_id=?").bind(assignmentId).first(),version=Number(last.n)+1;
-  const rawName=txt(req.headers.get("x-file-name"),180)||"submission.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"submission.bin",submissionId=uid("sub"),key="assignments/"+assignmentId+"/submissions/"+version+"/"+submissionId+"/"+name;
+  const rawName=txt(req.headers.get("x-file-name"),180)||"submission.bin",name=rawName.split(/[\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"submission.bin",submissionId=uid("sub"),key="assignments/"+assignmentId+"/submissions/"+version+"/"+submissionId+"/"+name;
   const saved=await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
   if(saved.size>90*1024*1024){await env.MEDIA.delete(key);return bad("Submission exceeds the staging upload size limit.",413);}
   await env.DB.batch([
@@ -694,7 +696,7 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT t.id,t.project_id,t.title,t.scope_summary,t.bid_deadline,t.status,t.published_at,p.public_project_code,p.title AS project_title,p.category,p.budget_currency,(SELECT COUNT(*) FROM editor_tender_bids b WHERE b.tender_id=t.id AND b.status IN ('submitted','shortlisted')) AS bid_count FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE EXISTS(SELECT 1 FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=p.id AND dr.route_key='tender' AND da.source_admin_id=?) ORDER BY t.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
   return out({ok:true,tenders:r.results||[]});
  }
- const tenderDraft=p.match(/^\\/v1\\/admin\\/projects\\/([\\w-]+)\\/tender$/);
+ const tenderDraft=p.match(/^\/v1\/admin\/projects\/([\\w-]+)\/tender$/);
  if(m==="POST"&&tenderDraft){
   const a=await user(req,env,["admin"]),b=await req.json(),pr=await env.DB.prepare("SELECT id,title FROM projects WHERE id=?").bind(tenderDraft[1]).first();if(!pr)return bad("Application not found.",404);
   const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(pr.id,a.source_admin_id).first();if(!access)return bad("Operations & Events tender access is required.",403);
@@ -705,7 +707,7 @@ async function handle(req,env){
   await env.DB.prepare("INSERT INTO project_tenders(id,project_id,title,scope_summary,bid_deadline,status) VALUES(?,?,?,?,?,'draft') ON CONFLICT(project_id) DO UPDATE SET title=excluded.title,scope_summary=excluded.scope_summary,bid_deadline=excluded.bid_deadline,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,pr.id,title,scope,deadline).run();
   await log(env,a.id,"tender_draft_saved","tender",id,{project_id:pr.id});return out({ok:true,tender_id:id,status:"draft"},201);
  }
- const ta=p.match(/^\\/v1\\/admin\\/tenders\\/([\\w-]+)\\/(publish|close|award|quote)$/);
+ const ta=p.match(/^\/v1\/admin\/tenders\/([\\w-]+)\/(publish|close|award|quote)$/);
  if(ta){
   const a=await user(req,env,["admin"]),id=ta[1],action=ta[2],t=await env.DB.prepare("SELECT t.*,p.client_id,p.budget_currency FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.id=?").bind(id).first();if(!t)return bad("Tender not found.",404);
   const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(t.project_id,a.source_admin_id).first();if(!access)return bad("Operations & Events department access is required.",403);
@@ -726,14 +728,14 @@ async function handle(req,env){
    await log(env,a.id,"client_quote_created","client_quote",qid,{project_id:t.project_id});return out({ok:true,quote_id:qid,status:"draft",base_cost_minor:bid.bid_amount_minor,margin_minor:markup,total_amount_minor:total,currency:t.budget_currency,valid_until:validUntil});
   }
  }
- if(m==="POST"&&/^\\/v1\\/admin\\/quotes\\/[\\w-]+\\/send$/.test(p)){
+ if(m==="POST"&&/^\/v1\/admin\/quotes\/[\\w-]+\/send$/.test(p)){
   const a=await user(req,env,["admin"]),id=p.split("/")[4],q=await env.DB.prepare("SELECT id,status FROM client_quotes WHERE id=?").bind(id).first();if(!q||q.status!=="draft")return bad("Only a draft quote can be sent.",409);
   await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status='sent',sent_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,'sent')").bind(uid("qev"),id,a.id)]);await log(env,a.id,"client_quote_sent","client_quote",id);return out({ok:true,status:"sent"});
  }
  if(m==="GET"&&p==="/v1/editor/tenders"){
   const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT t.id,t.title,t.scope_summary,t.bid_deadline,p.public_project_code,p.category,p.budget_currency,p.preferred_deadline,p.priority FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.status='published' AND t.bid_deadline>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND NOT EXISTS(SELECT 1 FROM editor_tender_bids b WHERE b.tender_id=t.id AND b.editor_id=?) ORDER BY t.bid_deadline LIMIT 100").bind(a.id).all();return out({ok:true,tenders:r.results||[]});
  }
- const eb=p.match(/^\\/v1\\/editor\\/tenders\\/([\\w-]+)\\/bids$/);
+ const eb=p.match(/^\/v1\/editor\/tenders\/([\\w-]+)\/bids$/);
  if(m==="POST"&&eb){
   const a=await user(req,env,["editor"]),b=await req.json(),t=await env.DB.prepare("SELECT t.id,t.project_id,t.status,t.bid_deadline,p.budget_currency FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.id=?").bind(eb[1]).first();
   if(!t||t.status!=="published"||Date.parse(t.bid_deadline)<=Date.now())return bad("Tender is not open for bidding.",409);
@@ -748,7 +750,7 @@ async function handle(req,env){
  if(m==="GET"&&p==="/v1/client/quotes"){
   const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT q.id,q.project_id,q.base_cost_minor,q.margin_minor,q.total_amount_minor,q.currency,q.status,q.valid_until,q.created_at,q.sent_at,p.public_project_code,p.title FROM client_quotes q JOIN projects p ON p.id=q.project_id WHERE q.client_id=? AND q.status IN ('sent','accepted','rejected','expired') ORDER BY q.created_at DESC").bind(a.id).all();return out({ok:true,quotes:r.results||[]});
  }
- const qd=p.match(/^\\/v1\\/client\\/quotes\\/([\\w-]+)\\/decision$/);
+ const qd=p.match(/^\/v1\/client\/quotes\/([\\w-]+)\/decision$/);
  if(m==="POST"&&qd){
   const a=await user(req,env,["client"]),b=await req.json(),status=b.decision==="accept"?"accepted":b.decision==="reject"?"rejected":null;if(!status)return bad("Decision must be accept or reject.");
   const q=await env.DB.prepare("SELECT id,status,valid_until FROM client_quotes WHERE id=? AND client_id=?").bind(qd[1],a.id).first();if(!q||q.status!=="sent")return bad("Quote is not available for a decision.",404);
@@ -1001,7 +1003,7 @@ async function handle(req,env){
  const cred=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/credentials$/);
  if(m==="POST"&&cred){
  const a=await user(req,env,["admin"]),ed=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.id=? AND u.role='editor'").bind(cred[1]).first();if(!ed||ed.verification_status!=="verified")return bad("Verify editor before issuing credentials.",409);
- const username=ed.public_editor_code.toUpperCase(),raw=crypto.getRandomValues(new Uint8Array(24)),temporaryPassword=btoa(String.fromCharCode(...raw)).replace(/\\+/g,"R").replace(/\\//g,"S").replace(/=+$/,"")+"d8!",salt=crypto.getRandomValues(new Uint8Array(16)),km=await crypto.subtle.importKey("raw",new TextEncoder().encode(temporaryPassword),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:310000},km,256),salt64=btoa(String.fromCharCode(...salt)),hash=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const username=ed.public_editor_code.toUpperCase(),raw=crypto.getRandomValues(new Uint8Array(24)),temporaryPassword=btoa(String.fromCharCode(...raw)).replace(/\\+/g,"R").replace(/\//g,"S").replace(/=+$/,"")+"d8!",salt=crypto.getRandomValues(new Uint8Array(16)),km=await crypto.subtle.importKey("raw",new TextEncoder().encode(temporaryPassword),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:310000},km,256),salt64=btoa(String.fromCharCode(...salt)),hash=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
  await env.DB.batch([env.DB.prepare("INSERT INTO editor_credentials(user_id,username,password_salt,password_hash,must_change_password,created_by) VALUES(?,?,?,?,1,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,password_salt=excluded.password_salt,password_hash=excluded.password_hash,must_change_password=1,failed_attempts=0,locked_until=NULL,created_by=excluded.created_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(ed.id,username,salt64,hash,a.id),env.DB.prepare("UPDATE users SET account_status='active' WHERE id=?").bind(ed.id),env.DB.prepare("DELETE FROM editor_sessions WHERE user_id=?").bind(ed.id)]);
  await log(env,a.id,"editor_credentials_issued","editor",ed.id,{username,must_change_password:true});return out({ok:true,username,temporary_password:temporaryPassword,must_change_password:true,one_time_display:true},201);
  }
