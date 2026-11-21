@@ -152,7 +152,7 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
 
 if(user.role==="client"){
  $("client-panel").hidden=false;
- loadClientProjects();
+ loadClientProjects();loadClientFinancialQuotes();
  loadClientFeedbackEligible();
   $("project-form").onsubmit=async e=>{
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
@@ -787,6 +787,54 @@ async function loadAdminProjectOffers(){
 }
 
 function moneyINR(minor){return new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(minor||0)/100);}
+
+async function loadFinancialLedger(){
+ const root=$("financial-ledger");if(!root)return;root.textContent="Loading quotations, payouts and CSA profit…";
+ try{
+  const d=await api("/v1/admin/financial-ledger");root.replaceChildren();
+  const heading=(label)=>{const h=document.createElement("h4");h.textContent=label;root.append(h);};
+  heading("Offers awaiting Client quotation");
+  if(!d.available_offers?.length){const p=document.createElement("p");p.className="muted";p.textContent="No accepted/assigned Editor offers are awaiting a quotation.";root.append(p);}
+  for(const item of d.available_offers||[]){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h4");h.textContent=item.title+" · "+item.public_project_code;
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=(item.editor_name||item.public_editor_code)+" · Editor fee "+moneyINR(item.proposed_fee_minor)+" · "+item.status;
+   const speed=document.createElement("select");speed.setAttribute("aria-label","Client delivery speed");for(const [v,l] of [["standard","Standard delivery"],["48h","Within 48 hours"],["24h","Within 24 hours"],["same_day","Same day"]]){const o=document.createElement("option");o.value=v;o.textContent=l;speed.append(o);}
+   const send=document.createElement("button");send.className="btn dark";send.textContent="Create & Present Client Quotation";
+   send.onclick=async()=>{if(!confirm("Present a client quotation for "+item.public_project_code+" using the currently active financial policy?"))return;send.disabled=true;try{const q=await api("/v1/admin/financial-quotes",{method:"POST",body:JSON.stringify({project_id:item.project_id,offer_id:item.offer_id,delivery_speed:speed.value})});alert("Client quotation presented. Total: "+moneyINR(q.client_total_minor));await loadFinancialLedger();}catch(e){alert(e.message);send.disabled=false;}};
+   card.append(h,meta,speed,send);root.append(card);
+  }
+  heading("Client quotations");
+  if(!d.quotes?.length){const p=document.createElement("p");p.className="muted";p.textContent="No quotations have been presented yet.";root.append(p);}
+  for(const q of d.quotes||[]){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h4");h.textContent=q.title+" · "+q.public_project_code;
+   const meta=document.createElement("p");meta.className="muted";meta.textContent="Editor base "+moneyINR(q.editor_base_amount_minor)+" · CSA margin "+moneyINR(q.csa_markup_amount_minor)+" · Urgent "+moneyINR(q.urgent_surcharge_minor)+" · Client total "+moneyINR(q.client_total_minor)+" · Advance "+moneyINR(q.advance_amount_minor)+" · Balance "+moneyINR(q.balance_amount_minor)+" · "+q.status+" · Policy r"+q.policy_revision;
+   const payout=document.createElement("button");payout.className="btn outline";payout.textContent="Create Editor payout ledger";payout.onclick=async()=>{if(!confirm("Create the Editor payout ledger? This is allowed only after CSA quality approval/completion and does not transfer money."))return;payout.disabled=true;try{await api("/v1/admin/editor-payouts",{method:"POST",body:JSON.stringify({quote_id:q.id})});await loadFinancialLedger();}catch(e){alert(e.message);payout.disabled=false;}};
+   card.append(h,meta,payout);root.append(card);
+  }
+  heading("Editor payout ledger");
+  if(!d.payouts?.length){const p=document.createElement("p");p.className="muted";p.textContent="No Editor payouts have been accrued.";root.append(p);}
+  for(const x of d.payouts||[]){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h4");h.textContent=x.editor_name+" · "+x.public_project_code;
+   const meta=document.createElement("p");meta.className="muted";meta.textContent="Payable "+moneyINR(x.payable_minor)+" · Paid "+moneyINR(x.paid_minor)+" · Remaining "+moneyINR(Number(x.payable_minor)-Number(x.paid_minor))+" · "+x.status;
+   card.append(h,meta);
+   if(x.status==="pending"){const b=document.createElement("button");b.className="btn outline";b.textContent="Approve payout";b.onclick=async()=>{if(!confirm("Approve this payout for manual bank transfer? No transfer will be initiated."))return;b.disabled=true;try{await api("/v1/admin/editor-payouts/"+encodeURIComponent(x.id)+"/approve",{method:"POST",body:"{}"});await loadFinancialLedger();}catch(e){alert(e.message);b.disabled=false;}};card.append(b);}
+   if(["approved","partially_paid"].includes(x.status)){const b=document.createElement("button");b.className="btn dark";b.textContent="Record manual payment";b.onclick=async()=>{const remaining=Number(x.payable_minor)-Number(x.paid_minor),amount=prompt("Amount paid in ₹ (maximum "+(remaining/100)+")");if(amount===null)return;const reference=prompt("Bank UTR / transfer reference (required):");if(reference===null)return;b.disabled=true;try{await api("/v1/admin/editor-payouts/"+encodeURIComponent(x.id)+"/record",{method:"POST",body:JSON.stringify({amount_minor:Math.round(Number(amount)*100),payment_reference:reference.trim()})});await loadFinancialLedger();}catch(e){alert(e.message);b.disabled=false;}};card.append(b);}
+   root.append(card);
+  }
+  heading("CSA project profit ledger");
+  if(!d.profits?.length){const p=document.createElement("p");p.className="muted";p.textContent="Profit figures will appear after the first quotation is presented.";root.append(p);}
+  for(const f of d.profits||[]){const card=document.createElement("article");card.className="card";const h=document.createElement("h4");h.textContent=f.title+" · "+f.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent="Projected CSA profit "+moneyINR(f.projected_profit_minor)+" · Client received "+moneyINR(f.client_received_minor)+" · Refunds "+moneyINR(f.client_refunded_minor)+" · Editor paid "+moneyINR(f.editor_paid_minor)+" · Realized net "+moneyINR(f.realized_profit_minor);card.append(h,meta);root.append(card);}
+ }catch(e){root.textContent="Financial ledger unavailable: "+e.message;}
+}
+async function loadClientFinancialQuotes(){
+ const root=$("client-financial-quotes");if(!root)return;root.textContent="Loading your quotations…";
+ try{const d=await api("/v1/client/financial-quotes");root.replaceChildren();if(!d.quotes?.length){root.textContent="No Client quotation has been issued yet. CSA will show it here after presenting the approved price.";return;}
+  for(const q of d.quotes){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=q.title+" · "+q.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent="Quotation status: "+q.status+" · Policy revision "+q.policy_revision;const total=document.createElement("p");total.textContent="Total: "+moneyINR(q.client_total_minor)+" · Advance: "+moneyINR(q.advance_amount_minor)+" · Balance: "+moneyINR(q.balance_amount_minor);card.append(h,meta,total);root.append(card);}
+ }catch(e){root.textContent="Quotations unavailable: "+e.message;}
+}
 async function loadFinancialPolicy(){
  const root=$("financial-policy-panel");if(!root)return;
  root.hidden=false;const status=$("financial-policy-status");status.textContent="Loading secure financial policy…";
@@ -811,7 +859,7 @@ if(financialForm)financialForm.addEventListener("submit",async e=>{
  e.preventDefault();const f=e.currentTarget,b=f.querySelector('button[type="submit"]'),n=name=>Number(f.elements[name].value);
  const payload={default_markup_bps:Math.round(n("default_markup_percent")*100),minimum_markup_bps:Math.round(n("minimum_markup_percent")*100),client_advance_percent:n("client_advance_percent"),urgent_same_day_bps:Math.round(n("urgent_same_day_percent")*100),urgent_24h_bps:Math.round(n("urgent_24h_percent")*100),urgent_48h_bps:Math.round(n("urgent_48h_percent")*100),urgent_surcharge_enabled:f.elements.urgent_surcharge_enabled.checked,admin_override_enabled:f.elements.admin_override_enabled.checked,notes:f.elements.notes.value.trim()};
  b.disabled=true;$("financial-policy-status").textContent="Saving policy draft…";
- try{const r=await api("/v1/admin/financial-policy",{method:"PUT",body:JSON.stringify(payload)});$("financial-policy-status").textContent="Draft saved · Revision "+r.revision+". It is not active; use the separate activation step after review.";await loadFinancialPolicy();}
+ try{const r=await api("/v1/admin/financial-policy",{method:"PUT",body:JSON.stringify(payload)});$("financial-policy-status").textContent="Draft saved · Revision "+r.revision+". It is not active; use the separate activation step after review.";await loadFinancialPolicy();loadFinancialLedger();}
  catch(err){$("financial-policy-status").textContent="Could not save: "+err.message;}
  finally{b.disabled=false;}
 });
