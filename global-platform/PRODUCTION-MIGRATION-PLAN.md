@@ -83,3 +83,15 @@ This document records a preparation plan based on read-only inspection. It does 
 A fresh read-only inventory confirmed 10/10 D1 slots are occupied. Every one of the six databases previously observed with zero application rows is still referenced by at least one deployed Worker D1 binding. Some attached Workers have no custom route, but that alone is insufficient evidence to delete or unbind them. Four other databases contain operational or production records.
 
 **Decision:** no safe D1 retirement candidate is established. Do not delete or unbind any of these databases as part of this migration. Obtain a Cloudflare D1 quota increase, or perform a separately approved consolidation project with verified exports, complete Worker/trigger/service-binding dependency review, and a tested rollback plan. Production provisioning remains blocked until dedicated production D1 capacity is available.
+
+
+## D1 plan-limit decision (2026-11-21)
+
+Cloudflare's current D1 documentation states:
+- Workers Free: up to 10 D1 databases per account.
+- Workers Paid: 100,000 D1 databases included; additional databases are billed separately under current pricing.
+- Enterprise accounts with custom database limits should contact Cloudflare support if the expected limit is not reflected.
+
+The account inventory currently contains exactly 10 D1 databases. Attempts to read account subscription and billing usage through the connected API returned HTTP 403 authentication errors, so the active plan cannot be verified through this connection. Do not assume the account is Free solely from the database count.
+
+**Recommended next gate:** the account owner should verify the active Workers plan in Cloudflare Dashboard → Workers & Pages → Plans/Billing. If Free, evaluate upgrading to Workers Paid (review current billing and usage before confirming). If already Paid, contact Cloudflare support because the observed 10-database ceiling does not match the published Paid allowance. No plan, billing, database, Worker, or route change was made by this audit.
