@@ -63,6 +63,19 @@
 .ve-reel{aspect-ratio:16/10;background:#101827;overflow:hidden}
 .ve-reel iframe{width:100%;height:100%;border:0}
 .ve-work-copy{padding:18px 20px}
+.ve-poster{position:relative;display:flex;align-items:flex-end;min-height:330px;aspect-ratio:16/10;overflow:hidden;padding:25px;color:#fff;text-decoration:none!important;background:#14233b}
+.ve-poster:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 78% 22%,rgba(255,255,255,.28),transparent 24%),linear-gradient(135deg,transparent 35%,rgba(0,0,0,.58))}
+.ve-poster:after{content:"";position:absolute;width:230px;height:230px;border:1px solid rgba(255,255,255,.25);border-radius:50%;right:-42px;top:-58px;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025)}
+.ve-poster-avni{background:linear-gradient(135deg,#0d766e,#122d3b 60%,#172033)}
+.ve-poster-maths{background:linear-gradient(135deg,#263e76,#18223e 58%,#111827)}
+.ve-poster-content{position:relative;z-index:1;max-width:78%}
+.ve-poster-kicker{display:inline-block;padding:6px 9px;border:1px solid rgba(255,255,255,.45);border-radius:30px;font-size:10px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#d8fff5}
+.ve-poster-title{display:block;font-size:clamp(26px,3vw,42px);font-weight:950;letter-spacing:-.045em;line-height:.98;margin:15px 0 8px}
+.ve-poster-sub{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.78)}
+.ve-poster-play{position:absolute;z-index:2;right:24px;bottom:25px;width:54px;height:54px;display:grid;place-items:center;padding-left:3px;border-radius:50%;background:#fff;color:#102033;font-size:19px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.ve-poster-hint{position:absolute;z-index:2;top:18px;left:20px;color:rgba(255,255,255,.8);font-size:10px;letter-spacing:.15em;font-weight:850}
+@media(max-width:560px){.ve-poster{min-height:280px;padding:20px}.ve-poster-play{right:18px;bottom:18px;width:46px;height:46px}}
+
 .ve-work-copy h3{font-size:18px;margin:0 0 6px}
 .ve-work-copy p{font-size:14px;color:var(--ve-muted);margin:0 0 12px}
 .ve-text-link{font-size:13px;font-weight:800;color:#087e6b;text-decoration:none}
@@ -121,8 +134,8 @@
 </div></section>
 <section class="ve-section" id="selected-work"><div class="ve-section-head"><span class="ve-kicker">Selected work</span><h2>Work that speaks for itself.</h2><p class="ve-lead">Explore selected published CSA projects. Open the original Instagram posts to view each sample.</p></div>
 <div class="ve-work-grid">
-<article class="ve-work"><div class="ve-reel"><iframe src="https://www.instagram.com/reel/Dfoy153z16U/embed/" title="Avni Enterprises brand awareness video sample" loading="lazy" allowtransparency="true" allow="encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe></div><div class="ve-work-copy"><h3>Avni Enterprises · Brand Awareness</h3><p>Business promotional video sample.</p><a class="ve-text-link" href="https://www.instagram.com/reel/Dfoy153z16U/" target="_blank" rel="noopener noreferrer">Watch original project ↗</a></div></article>
-<article class="ve-work"><div class="ve-reel"><iframe src="https://www.instagram.com/reel/De8ZplfsZTF/embed/" title="Maths By Ankush Sir client feedback video sample" loading="lazy" allowtransparency="true" allow="encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe></div><div class="ve-work-copy"><h3>Maths By Ankush Sir · Client Feedback</h3><p>Customer experience short-form video sample.</p><a class="ve-text-link" href="https://www.instagram.com/reel/De8ZplfsZTF/" target="_blank" rel="noopener noreferrer">Watch original project ↗</a></div></article>
+<article class="ve-work"><a class="ve-poster ve-poster-avni" href="https://www.instagram.com/reel/Dfoy153z16U/" target="_blank" rel="noopener noreferrer" aria-label="Play Avni Enterprises brand awareness video on Instagram"><span class="ve-poster-hint">CSA SELECTED WORK · 01</span><span class="ve-poster-content"><span class="ve-poster-kicker">Brand Film</span><span class="ve-poster-title">AVNI<br>ENTERPRISES</span><span class="ve-poster-sub">Brand awareness · Business film</span></span><span class="ve-poster-play" aria-hidden="true">▶</span></a><div class="ve-work-copy"><h3>Avni Enterprises · Brand Awareness</h3><p>Business promotional video sample.</p><a class="ve-text-link" href="https://www.instagram.com/reel/Dfoy153z16U/" target="_blank" rel="noopener noreferrer">Play video on Instagram ↗</a></div></article>
+<article class="ve-work"><a class="ve-poster ve-poster-maths" href="https://www.instagram.com/reel/De8ZplfsZTF/" target="_blank" rel="noopener noreferrer" aria-label="Play Maths By Ankush Sir client feedback video on Instagram"><span class="ve-poster-hint">CSA SELECTED WORK · 02</span><span class="ve-poster-content"><span class="ve-poster-kicker">Client Story</span><span class="ve-poster-title">MATHS BY<br>ANKUSH SIR</span><span class="ve-poster-sub">Client feedback · Testimonial</span></span><span class="ve-poster-play" aria-hidden="true">▶</span></a><div class="ve-work-copy"><h3>Maths By Ankush Sir · Client Feedback</h3><p>Customer experience short-form video sample.</p><a class="ve-text-link" href="https://www.instagram.com/reel/De8ZplfsZTF/" target="_blank" rel="noopener noreferrer">Play video on Instagram ↗</a></div></article>
 </div>
 </section>
 <section class="ve-order-band" id="new-order"><div><span class="ve-eyebrow">Ready when you are</span><h2>Let’s bring your next video to life.</h2><p>Start with your CSA Global client account. Submit your requirements and manage your video editing application from one place.</p></div><a class="ve-action ve-action-primary" href="/global-platform/login.html">Start Your Project ↗</a></section>
