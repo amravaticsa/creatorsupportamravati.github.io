@@ -22,3 +22,26 @@ html{width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust
 }
 @media(max-width:420px){.wrap{width:calc(100% - 24px)}.nav{padding:10px 12px}.nav .brand{font-size:15px}.navlinks{gap:2px 10px}.hero h1{font-size:30px}.card,.panel{padding:15px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* CSA Global — accessibility and dashboard interaction polish */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:3px solid #d89b27;outline-offset:3px;border-radius:6px}
+:where(a,button,input,select,textarea){scroll-margin-top:88px}
+button:disabled,.btn[aria-disabled="true"]{opacity:.58;cursor:not-allowed}
+.notice,.muted,.card p,.panel p{overflow-wrap:anywhere}
+pre,code{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+[role="status"],[aria-live]{overflow-wrap:anywhere}
+@media(max-width:760px){
+  .navlinks a,.navlinks button{min-height:42px;padding-top:8px;padding-bottom:8px}
+  .field label{line-height:1.4}
+  .check{gap:12px;line-height:1.5}
+  .check input{width:20px;height:20px;flex:0 0 20px}
+  .notice{line-height:1.55}
+  .actions{gap:9px}
+  .actions .btn{min-height:46px}
+  .card h2,.card h3,.panel h2,.panel h3{line-height:1.3;overflow-wrap:anywhere}
+}
+@media(prefers-contrast:more){
+  .muted,small{color:#46536a}
+  input,select,textarea,.card,.panel,.stat{border-color:#778399}
+}
