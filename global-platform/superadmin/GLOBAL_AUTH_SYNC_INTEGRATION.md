@@ -174,3 +174,9 @@ The Global API pricing-policy routes are intentionally fail-closed for all synch
 - The Super Admin Worker has an `ADMIN_SYNC_HMAC_SECRET` secret binding, but the Global API staging Worker currently has no matching secret binding. Therefore the Global bridge intentionally returns `503 pricing_bridge_unavailable` until the same newly generated secret is configured on both staging Workers. The existing secret is write-only and was not read or copied. Do not paste secrets into chat. Set/rotate the same random value in Cloudflare Worker > Settings > Variables and Secrets for both staging Workers under the exact binding name `ADMIN_SYNC_HMAC_SECRET`. Re-check both bindings before using Save.
 - No pricing policy rows have been created or modified. The dashboard is installed but end-to-end Save/Load is pending the matching staging secret.
 - Never add this secret to production as part of this staging task. Production remains untouched.
+
+### Pricing schema regression hardening
+
+- Updated `global-platform/migrations/0023_tenders_pricing_quotes.sql` so a fresh staging database defines `client_advance_bps` with a 1–10000 basis-point CHECK constraint, matching the currently inspected Global staging D1 schema.
+- Extended `global-platform/api/tests/rbac-route-map.test.mjs` to assert the CSA margin, minimum margin, client advance and unconfigured-by-default constraints.
+- This was a source migration/test update only; no D1 migration was run and no pricing data was changed.
