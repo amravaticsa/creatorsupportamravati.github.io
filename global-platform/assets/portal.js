@@ -10,6 +10,7 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · "+(user.status||"active");
 function endSession(message="Session expired. Please sign in again."){$("account-status").textContent=message;try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");}
 $("logout").onclick=()=>endSession("You have been signed out.");
+const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";location.reload();};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
 async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
  const report=state=>{try{onStatus(state);}catch{}};
