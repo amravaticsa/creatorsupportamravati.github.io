@@ -402,7 +402,7 @@ async function loadEditorReviewHistory(){
   const controls=document.createElement("div");controls.className="form";
   const search=document.createElement("input");search.type="search";search.placeholder="Search editor name, code, admin or note";search.setAttribute("aria-label","Search editor review history");
   const type=document.createElement("select");type.setAttribute("aria-label","Filter review type");
-  for(const [v,label] of [["all","All review types"],["editor_kyc_reviewed","KYC decisions"],["editor_verification_updated","Profile decisions"],["editor_portfolio_video_reviewed","Portfolio decisions"]]){const o=document.createElement("option");o.value=v;o.textContent=label;type.append(o);}
+  for(const [v,label] of [["all","All review types"],["editor_kyc_reviewed","KYC decisions"],["editor_verification_updated","Profile decisions"],["editor_portfolio_video_reviewed","Portfolio decisions"],["editor_profile_correction_submitted","Profile corrections"]]){const o=document.createElement("option");o.value=v;o.textContent=label;type.append(o);}
   const list=document.createElement("div");
   const render=()=>{
    list.replaceChildren();
@@ -412,7 +412,7 @@ async function loadEditorReviewHistory(){
    for(const event of filtered){
     const card=document.createElement("article");card.className="card";
     const title=document.createElement("h4");
-    const kind=event.action==="editor_kyc_reviewed"?"KYC verification":event.action==="editor_verification_updated"?"Editor profile":event.action==="editor_portfolio_video_reviewed"?"Portfolio video":"Editor review";
+    const kind=event.action==="editor_kyc_reviewed"?"KYC verification":event.action==="editor_verification_updated"?"Editor profile":event.action==="editor_portfolio_video_reviewed"?"Portfolio video":event.action==="editor_profile_correction_submitted"?"Profile correction submitted":"Editor review";
     title.textContent=kind+" · "+String(event.review_status||"recorded").replaceAll("_"," ").toUpperCase();
     const meta=document.createElement("p");meta.className="muted";
     meta.textContent=(event.display_name||"Editor record")+(event.public_editor_code?" · "+event.public_editor_code:"")+" · Reviewed by "+(event.actor_email||"CSA Admin")+" · "+(event.created_at?new Date(event.created_at).toLocaleString():"Time unavailable");
