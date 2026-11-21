@@ -98,3 +98,13 @@ test("Client quotation exposes a transparent cost, CSA fee, advance and remainin
   assert.match(portal, /Remaining balance/);
   assert.match(portal, /Math\.ceil\(total\*Number\(q\.client_advance_bps\|\|0\)\/10000\)/);
 });
+
+
+test("Admin tender bid comparison shows editor context and requires confirmation before awarding", () => {
+  assert.match(portal, /Editor bid comparison/);
+  assert.match(portal, /Specializations:/);
+  assert.match(portal, /Proposal:/);
+  assert.match(portal, /window\.confirm\("Confirm tender award/);
+  assert.match(portal, /Other eligible bids will be rejected/);
+  assert.match(portal, /Select this editor/);
+});
