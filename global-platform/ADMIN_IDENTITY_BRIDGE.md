@@ -98,3 +98,11 @@ Status: **partially deployed to staging; end-to-end authenticated sync still pen
 - Deployment version: `df89c857e4334b828f47c67fa67c2f70` (staging Super Admin Worker).
 - Cloudflare accepted the complete five-module Worker bundle; existing D1, R2, Access, and secret bindings and the 15-minute schedule were re-checked after deployment.
 - A real authenticated manual sync has not yet been performed. The monitoring table will show its first result only after the next scheduled invocation or a Super Admin manual retry. Production remains untouched.
+
+
+## Runtime signed-sync verification — 2026-11-21
+- The previous sections marked the end-to-end sync as pending. That status is now superseded for the scheduled sync path: Cloudflare D1 logs contain repeated `scheduled / success / synced_count=1` records, including 15 consecutive scheduled successes. A lifecycle-triggered sync also logged success.
+- Latest observed scheduled success: 2026-11-21T10:45:22Z to 10:45:23Z. The Cron Trigger remains `*/15 * * * *`.
+- Global staging D1 has one active `editor_admin` authorization. The historical `super_admin` authorization remains revoked, with zero active Super Admin authorizations and no department grants for that revoked record.
+- Therefore, the scheduled HMAC sender/receiver execution path is verified in staging. Role-specific authenticated API tests and a browser-initiated manual retry remain pending; this is not a production launch sign-off.
+- No production resources or credentials were changed, and no test admin account was created.
