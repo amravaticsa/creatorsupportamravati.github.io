@@ -181,3 +181,13 @@ The first workflow run for commit `516814578e9dc7a7aad2882c1868e20be3e36487` com
 To prevent unrelated Worker snapshot syntax checks from blocking database validation, the schema smoke test has now been moved into its own independent GitHub Actions job, `schema-snapshot`. The job will run in parallel with the existing `validate` job. Its result must be checked separately; no passing result is assumed yet.
 
 Workflow correction commit: `58cff5becba3ff90fdf707b8cd4ffcf4002d056c`.
+
+
+### CI evidence: schema snapshot validation passed (2026-11-21)
+
+GitHub Actions run `44916566418` completed successfully for commit `0c13dcad60472d8f9f2290d8d2947d66bcab30fc`. Both independent jobs passed:
+
+- `validate`: success
+- `schema-snapshot`: success
+
+The schema job executed `python3 global-platform/scripts/verify-schema-snapshots.py` against the committed Super Admin and Rush SQL snapshots. This confirms successful local SQLite execution, expected object counts, required table presence, foreign-key checks and integrity checks. It does **not** establish Cloudflare D1 compatibility or production readiness; disposable D1 validation remains a separate release gate.
