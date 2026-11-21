@@ -391,10 +391,26 @@ async function loadClientProjects(){
   }
  }catch(e){root.textContent=e.message;}
 }
+const editorReviewCounts={kyc:null,profile:null,portfolio:null};
+function updateEditorReviewSummary(kind,count,state="ready"){
+ editorReviewCounts[kind]=state==="ready"?count:{state};
+ const root=$("admin-editor-review-summary");if(!root)return;
+ const rows=[["kyc","KYC documents"],["profile","Profile approvals"],["portfolio","Portfolio videos"]];
+ root.replaceChildren();
+ for(const [key,label] of rows){
+  const card=document.createElement("div");card.className="stat";
+  const small=document.createElement("small");small.textContent=label;
+  const strong=document.createElement("strong");
+  const value=editorReviewCounts[key];
+  strong.textContent=typeof value==="number"?String(value):value?.state==="loading"?"Loading…":"Unavailable";
+  const note=document.createElement("small");note.textContent=typeof value==="number"?(value===1?"1 item awaiting review":value+" items awaiting review"):value?.state==="loading"?"Fetching queue":"Queue could not be loaded";
+  card.append(small,strong,note);root.append(card);
+ }
+}
 async function loadPortfolioVideoReviews(){
- const root=$("admin-portfolio-videos");if(!root)return;root.textContent="Loading submitted portfolio videos…";
+ const root=$("admin-portfolio-videos");if(!root)return;updateEditorReviewSummary("portfolio",null,"loading");root.textContent="Loading submitted portfolio videos…";
  try{
-  const data=await api("/v1/admin/editor-portfolio-videos?status=pending");root.replaceChildren();
+  const data=await api("/v1/admin/editor-portfolio-videos?status=pending");updateEditorReviewSummary("portfolio",Array.isArray(data.videos)?data.videos.length:0);root.replaceChildren();
   if(!data.videos.length){root.textContent="No portfolio videos are waiting for review.";return;}
   for(const item of data.videos){
    const card=document.createElement("article");card.className="card";
@@ -414,12 +430,12 @@ async function loadPortfolioVideoReviews(){
    }
    card.append(h,meta,desc,consent,preview,player,note,actions);root.append(card);
   }
- }catch(e){root.textContent="Portfolio review queue unavailable: "+e.message;}
+ }catch(e){updateEditorReviewSummary("portfolio",null,"error");root.textContent="Portfolio review queue unavailable: "+e.message;}
 }
 async function loadAdminKycReviews(){
- const root=$("admin-kyc-documents");if(!root)return;root.textContent="Loading private KYC review queue…";
+ const root=$("admin-kyc-documents");if(!root)return;updateEditorReviewSummary("kyc",null,"loading");root.textContent="Loading private KYC review queue…";
  try{
-  const data=await api("/v1/admin/editors/kyc/pending");root.replaceChildren();
+  const data=await api("/v1/admin/editors/kyc/pending");updateEditorReviewSummary("kyc",Array.isArray(data.documents)?data.documents.length:0);root.replaceChildren();
   if(!data.documents.length){root.textContent="No KYC documents are awaiting review.";return;}
   for(const doc of data.documents){
    const card=document.createElement("article");card.className="card";
@@ -438,16 +454,18 @@ async function loadAdminKycReviews(){
    reject.onclick=async()=>{const note=prompt("Enter the reason. This will be shown to the editor for correction:");if(!note||!note.trim())return;reject.disabled=true;try{await api("/v1/admin/editors/"+encodeURIComponent(doc.editor_id)+"/kyc-review",{method:"POST",body:JSON.stringify({status:"rejected",note:note.trim()})});loadAdmin();}catch(err){alert(err.message);reject.disabled=false;}};
    actions.append(preview,approve,reject);card.append(title,meta,address,date,actions);root.append(card);
   }
- }catch(err){root.textContent="KYC queue unavailable: "+err.message;}
+ }catch(err){updateEditorReviewSummary("kyc",null,"error");root.textContent="KYC queue unavailable: "+err.message;}
 }
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
  loadAdminKycReviews();
  try{
+  updateEditorReviewSummary("profile",null,"loading");
   const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
    api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready"),api("/v1/admin/submissions/pending"),api("/v1/admin/deposits/refunds/eligible")
   ]);
+  updateEditorReviewSummary("profile",Array.isArray(pe.editors)?pe.editors.length:0);
   metrics.replaceChildren();
   for(const [label,value] of Object.entries({Projects:overview.metrics.projects_to_review,EditorsPending:overview.metrics.editors_pending,ActiveAssignments:overview.metrics.active_assignments,OpenDisputes:overview.metrics.open_disputes})){
    const card=document.createElement("div");card.className="stat";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;card.append(small,strong);metrics.append(card);
@@ -495,7 +513,7 @@ async function loadAdmin(){
   for(const o of ro.offers){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=o.title+" · "+o.public_project_code;const meta=document.createElement("p");meta.textContent=o.public_editor_code+" · Deposit captured · Fee "+(o.proposed_fee_minor/100)+" "+o.fee_currency;const assign=document.createElement("button");assign.className="btn dark";assign.textContent="Confirm Assignment";assign.onclick=async()=>{try{await api("/v1/admin/offers/"+o.id+"/assign",{method:"POST",body:"{}"});alert("Assignment confirmed.");loadAdmin();}catch(e){alert(e.message);}};card.append(h,meta,assign);ready.append(card);}
   const qcRoot=$("admin-submissions");if(qcRoot){qcRoot.replaceChildren();if(!qc.submissions.length)qcRoot.textContent="No submissions waiting for quality review.";for(const item of qc.submissions){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=item.title+" · "+item.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent=item.display_name+" · "+item.public_editor_code+" · Version "+item.version_number+" · Submitted "+item.submitted_at;const notes=document.createElement("p");notes.textContent=(item.notes||"No submission notes.")+" · "+(item.original_filename||"Submission file")+" · "+Math.round((item.size_bytes||0)/1024/1024*10)/10+" MB";const download=document.createElement("button");download.className="btn outline";download.textContent="Download for QC review";download.onclick=async()=>{try{const response=await fetch(API+"/v1/files/"+item.id,{headers:{authorization:"Bearer "+token}});if(!response.ok)throw Error("Submission download denied");const url=URL.createObjectURL(await response.blob()),link=document.createElement("a");link.href=url;link.download=item.original_filename||"submission";link.click();URL.revokeObjectURL(url);}catch(err){alert(err.message);}};const actions=document.createElement("div");actions.className="actions";for(const [status,label] of [["approved","Quality Approve"],["changes_requested","Request Changes"],["rejected","Reject Submission"]]){const b=document.createElement("button");b.className=status==="approved"?"btn dark":"btn outline";b.textContent=label;b.onclick=async()=>{if(!confirm(label+" for "+item.public_project_code+"?"))return;b.disabled=true;try{await api("/v1/admin/submissions/"+item.id+"/review",{method:"POST",body:JSON.stringify({status})});loadAdmin();}catch(e){alert(e.message);b.disabled=false;}};actions.append(b);}card.append(h,meta,notes,download,actions);qcRoot.append(card);}}
   const refundRoot=$("admin-refunds");if(refundRoot){refundRoot.replaceChildren();if(!rf.eligible.length)refundRoot.textContent="No security deposits are currently eligible for refund.";for(const item of rf.eligible){const card=document.createElement("article");card.className="card";const h=document.createElement("h3");h.textContent=item.title+" · "+item.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent=item.display_name+" · "+item.public_editor_code+" · Deposit "+(item.amount_minor/100)+" "+item.currency;const approved=document.createElement("p");approved.textContent="CSA quality approved: "+item.quality_approved_at;const b=document.createElement("button");b.className="btn dark";b.textContent="Initiate Full Deposit Refund";b.onclick=async()=>{if(!confirm("Initiate full refund of "+(item.amount_minor/100)+" "+item.currency+" to the original payment method?"))return;b.disabled=true;try{const result=await api("/v1/admin/deposits/"+item.payment_id+"/refund",{method:"POST",body:"{}"});alert("Razorpay refund status: "+result.status+" · Refund ID: "+result.provider_refund_id);loadAdmin();}catch(e){alert(e.message);b.disabled=false;}};card.append(h,meta,approved,b);refundRoot.append(card);}}
- }catch(e){metrics.textContent="Admin data could not be loaded: "+e.message;}
+ }catch(e){updateEditorReviewSummary("profile",null,"error");metrics.textContent="Admin data could not be loaded: "+e.message;}
 }
 async function loadAssignments(){
  const root=$("assignments");if(!root)return;root.textContent="Loading assignments…";
