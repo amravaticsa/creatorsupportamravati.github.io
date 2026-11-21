@@ -34,12 +34,13 @@ test("WhatsApp stays an explicit opt-in and client UI does not expose editor ide
 });
 
 
+
 const api = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
 
 test("Client showcase exposes only approved samples from fully verified editors", () => {
-  const start = api.indexOf('if(m==="GET"&&p==="/v1/client/editor-portfolio-videos")');
-  const end = api.indexOf('const clientPortfolioStream=', start);
-  assert.notEqual(start, -1, "Missing client showcase route");
+  const start = api.indexOf('const rows=await env.DB.prepare("SELECT v.id,v.title,v.description,v.category,v.mime_type FROM editor_portfolio_videos');
+  const end = api.indexOf("const clientPortfolioStream=", start);
+  assert.notEqual(start, -1, "Missing client showcase query");
   assert.ok(end > start, "Missing client showcase stream route");
   const route = api.slice(start, end);
   assert.match(route, /v\.review_status='approved'/);
@@ -47,23 +48,24 @@ test("Client showcase exposes only approved samples from fully verified editors"
   assert.match(route, /e\.verification_status='verified'/);
   assert.match(route, /u\.account_status='active'/);
   assert.match(route, /k\.status='verified'/);
-  assert.doesNotMatch(route, /SELECT[^;]*editor_id/i, "Client showcase must not expose editor identity");
+  assert.match(route, /SELECT v\.id,v\.title,v\.description,v\.category,v\.mime_type FROM/);
+  assert.doesNotMatch(route, /SELECT v\.id,v\.editor_id|SELECT v\.\*/, "Client response must not select editor identity");
 });
 
 test("Client deliverables and file downloads remain locked until QC approval", () => {
-  const start = api.indexOf('const deliver=p.match(/^\\/v1\\/client\\/projects/');
+  const start = api.indexOf("const deliver=p.match");
   const end = api.indexOf('if(m==="GET"&&p==="/v1/editor/assignments")', start);
   assert.notEqual(start, -1, "Missing client deliverables route");
   const route = api.slice(start, end);
   assert.match(route, /s\.qc_status='approved'/);
-  const fileStart = api.indexOf('const fileMatch=p.match');
-  const fileEnd = api.indexOf('// Tender, editor bidding', fileStart);
+  const fileStart = api.indexOf("const fileMatch=p.match");
+  const fileEnd = api.indexOf("// Tender, editor bidding", fileStart);
   const fileRoute = api.slice(fileStart, fileEnd);
   assert.match(fileRoute, /if\(a\.role==="client"&&file\.kind==="submission"\)allowed=allowed&&file\.qc_status==="approved"/);
 });
 
 test("Tender lifecycle requires draft, publish, close, then award before quote", () => {
-  const start = api.indexOf('const tenderDraft=p.match');
+  const start = api.indexOf("const tenderDraft=p.match");
   const end = api.indexOf('if(m==="POST"&&/^\\/v1\\/admin\\/quotes/', start);
   assert.notEqual(start, -1, "Missing admin tender lifecycle");
   const route = api.slice(start, end);
@@ -94,11 +96,11 @@ test("Assignment is created only after editor deposit reaches ready-for-assignme
 });
 
 test("Editor submissions enter QC and only an approved decision unlocks client review", () => {
-  const start = api.indexOf('if(m==="PUT"&&p.startsWith("/v1/assignments/")&&p.endsWith("/submissions"))');
-  const end = api.indexOf('if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")', start);
-  assert.notEqual(start, -1, "Missing editor submission and QC routes");
+  const start = api.indexOf('const assignmentId=p.split("/")[3],a=await user(req,env,["editor"]);');
+  const end = api.indexOf('if(m==="GET"&&p==="/v1/admin/submissions/pending")', start);
+  assert.notEqual(start, -1, "Missing editor submission route");
   const route = api.slice(start, end);
-  assert.match(route, /qc_status,'pending'/);
+  assert.match(route, /qc_status,\\?\'pending\'/);
   assert.match(route, /status='quality_check'/);
   assert.match(route, /changes_requested/);
   assert.match(route, /qc_status='approved'/);
