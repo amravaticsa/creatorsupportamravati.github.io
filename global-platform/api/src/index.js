@@ -1172,7 +1172,9 @@ async function handle(req,env){
   if(!current)return bad("Client refund request not found.",404);
   if(!["requested","under_review"].includes(current.status))return bad("This refund request has already been decided.",409);
   const next=transitions[action];
-  await env.DB.prepare("UPDATE client_refund_requests SET status=?,reviewed_by=?,review_note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('requested','under_review')").bind(next,a.id,note||null,current.id).run();
+  const updated=await env.DB.prepare("UPDATE client_refund_requests SET status=?,reviewed_by=?,review_note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('requested','under_review')").bind(next,a.id,note||null,current.id).run();
+  // Compare-and-set: if another reviewer decided this request first, do not report a false success or write a misleading audit event.
+  if(!updated.meta?.changes)return bad("This refund request was updated by another reviewer. Refresh the queue and try again.",409,"refund_review_conflict");
   await log(env,a.id,"client_refund_"+next,"client_refund",current.id,{action,review_note:note||null,provider_refund_started:false});
   return out({ok:true,status:next,provider_refund_started:false});
  }
