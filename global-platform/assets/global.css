@@ -45,3 +45,14 @@ pre,code{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
   .muted,small{color:#46536a}
   input,select,textarea,.card,.panel,.stat{border-color:#778399}
 }
+
+
+/* Client project activity timeline */
+.project-timeline{list-style:none;margin:14px 0 4px;padding:0 0 0 18px;border-left:2px solid var(--border,#d8dee9)}
+.project-timeline-event{position:relative;padding:0 0 18px 12px}
+.project-timeline-event:last-child{padding-bottom:2px}
+.project-timeline-event:before{content:"";position:absolute;left:-24px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent,#2563eb);border:2px solid var(--surface,#fff)}
+.project-timeline-event strong{display:block;font-size:14px}
+.project-timeline-event time{display:block;color:var(--muted,#64748b);font-size:12px;margin-top:3px}
+.project-timeline-event p{margin:5px 0 0;font-size:13px;line-height:1.5;color:var(--muted,#475569)}
+@media(max-width:600px){.project-timeline{padding-left:15px}.project-timeline-event{padding-left:10px}.project-timeline-event:before{left:-21px}}
