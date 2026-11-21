@@ -23,7 +23,7 @@ Prefer allow-listed structured fields only:
 ## Source-specific remediation status
 
 ### csa-superadmin-isolated-staging
-The complete deployed module bundle was re-exported into the GitHub snapshot after the first export had truncated large files. Current module sizes: worker.js 122,366 characters; admin-app-source.js 91,381; admin-app-validate.js 28,054; admin-dashboard.js 26,324; global-admin-sync.js 3,945.
+The complete deployed module bundle was re-exported into the GitHub snapshot after the first export had truncated large files. Original refreshed export sizes: worker.js 122,366 characters; admin-app-source.js 91,381; admin-app-validate.js 28,054; admin-dashboard.js 26,324; global-admin-sync.js 3,945.
 
 Confirmed unsafe paths in worker.js were patched in the GitHub snapshot:
 - global_admin_sync_logs.error_code now stores fixed global_sync_failed, not exception text.
@@ -43,7 +43,7 @@ The complete worker.js snapshot (33,354 characters) had no explicit console log 
 
 ## Automated source validation
 
-GitHub Actions run: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44908906417
+GitHub Actions run: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44909035221
 - Result: success.
 - Node.js syntax checks passed for all seven JavaScript modules across the three isolated Worker snapshots.
 - Existing platform validation suite passed all 25 tests.
@@ -79,3 +79,25 @@ Read-only settings and zone-route checks were performed for the three isolated s
 These missing secret binding names are a hard pre-deployment/runtime-test blocker for Super Admin recovery email and the Super Admin-to-Global API signed authorization/pricing bridge. Obtain the correct secret values through the approved secret-management process; never put them in GitHub source, documentation, or logs.
 
 No Cloudflare settings, secrets, routes, bindings, Worker versions, or deployments were changed by this read-only check.
+
+## Isolated Worker deployment inventory — refreshed 2026-11-21
+
+A second read-only Cloudflare check inspected settings, the latest five version records, deployment allocations, and zone route targets for all three isolated Workers. Secret values were not requested or emitted.
+
+| Isolated Worker | Current deployed version | Deployment allocation | Compatibility date | Observability |
+|---|---|---:|---|---|
+| csa-superadmin-isolated-staging | 87af7852-4372-4ac7-abb0-8e9c86c75151 (v2) | 100% | 2026-11-17 | observability settings absent; logpush false |
+| csa-global-api-isolated-staging | a7aa7e33-fbb6-469a-bb26-70ad68732b41 (v2) | 100% | 2026-11-17 | observability settings absent; logpush false |
+| csa-editor-portal-isolated-staging | 62cf8f10-383a-4694-9622-4816ca46fd76 (v1) | 100% | 2026-11-20 | observability settings absent; logpush false |
+
+The zone route query returned zero routes targeting these three isolated Worker names. The current deployment inventory confirms that versions exist and are deployed within their isolated script names, but it does not make them publicly routable or prove end-to-end runtime health.
+
+### Current readiness decision
+
+- **Do not attach public routes or promote these Workers yet.**
+- **Do not enable broad log streaming yet.** Observability settings are currently absent and logpush is false. First complete the full sensitive-data logging review, then configure narrowly scoped Workers Logs/Traces and verify redaction in synthetic tests.
+- **Secret binding blockers remain:** ADMIN_SYNC_HMAC_SECRET is absent from both Super Admin and Global API isolated settings; RESEND_API_KEY and RESEND_FROM_EMAIL are absent from Super Admin isolated settings. Never place these values in source control or this document.
+- **Editor isolated Worker:** current settings expose only its three D1/R2 binding names; origin/auth configuration and its compatibility with the intended isolated host still require review before runtime testing.
+- **Rollback evidence:** previous isolated versions are retained for Super Admin (v1) and Global API (v1); the Editor isolated script currently lists only v1. Capture a known-good rollback artifact before any subsequent code/settings change.
+
+Latest successful GitHub validation run recorded for this phase: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44909035221. This is repository CI validation, not a Cloudflare Worker deployment.
