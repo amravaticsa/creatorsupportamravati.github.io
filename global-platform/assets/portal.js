@@ -785,6 +785,53 @@ async function loadAdminProjectOffers(){
   }
  }catch(e){root.textContent=e.message;}
 }
+
+function moneyINR(minor){return new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(minor||0)/100);}
+async function loadFinancialPolicy(){
+ const root=$("financial-policy-panel");if(!root)return;
+ root.hidden=false;const status=$("financial-policy-status");status.textContent="Loading secure financial policy…";
+ try{
+  const d=await api("/v1/admin/financial-policy"),p=d.policy;if(!p)throw Error("Financial policy is not available.");
+  $("financial-policy-form").elements.default_markup_percent.value=(p.default_markup_bps/100).toFixed(2);
+  $("financial-policy-form").elements.minimum_markup_percent.value=(p.minimum_markup_bps/100).toFixed(2);
+  $("financial-policy-form").elements.client_advance_percent.value=p.client_advance_percent;
+  $("financial-policy-form").elements.urgent_same_day_percent.value=(p.urgent_same_day_bps/100).toFixed(2);
+  $("financial-policy-form").elements.urgent_24h_percent.value=(p.urgent_24h_bps/100).toFixed(2);
+  $("financial-policy-form").elements.urgent_48h_percent.value=(p.urgent_48h_bps/100).toFixed(2);
+  $("financial-policy-form").elements.urgent_surcharge_enabled.checked=!!p.urgent_surcharge_enabled;
+  $("financial-policy-form").elements.admin_override_enabled.checked=!!p.admin_override_enabled;
+  $("financial-policy-form").elements.notes.value=p.notes||"";
+  status.textContent="Policy status: "+p.status.toUpperCase()+" · Revision "+p.revision+" · Last updated: "+(p.updated_at?new Date(p.updated_at).toLocaleString():"Not recorded")+(p.activated_at?" · Activated: "+new Date(p.activated_at).toLocaleString():"");
+  $("financial-policy-activate").disabled=p.status==="active";
+  $("financial-policy-activate").textContent=p.status==="active"?"Policy is active":"Activate approved policy";
+ }catch(e){root.hidden=true;status.textContent="Financial settings access unavailable: "+e.message;}
+}
+const financialForm=$("financial-policy-form");
+if(financialForm)financialForm.addEventListener("submit",async e=>{
+ e.preventDefault();const f=e.currentTarget,b=f.querySelector('button[type="submit"]'),n=name=>Number(f.elements[name].value);
+ const payload={default_markup_bps:Math.round(n("default_markup_percent")*100),minimum_markup_bps:Math.round(n("minimum_markup_percent")*100),client_advance_percent:n("client_advance_percent"),urgent_same_day_bps:Math.round(n("urgent_same_day_percent")*100),urgent_24h_bps:Math.round(n("urgent_24h_percent")*100),urgent_48h_bps:Math.round(n("urgent_48h_percent")*100),urgent_surcharge_enabled:f.elements.urgent_surcharge_enabled.checked,admin_override_enabled:f.elements.admin_override_enabled.checked,notes:f.elements.notes.value.trim()};
+ b.disabled=true;$("financial-policy-status").textContent="Saving policy draft…";
+ try{const r=await api("/v1/admin/financial-policy",{method:"PUT",body:JSON.stringify(payload)});$("financial-policy-status").textContent="Draft saved · Revision "+r.revision+". It is not active; use the separate activation step after review.";await loadFinancialPolicy();}
+ catch(err){$("financial-policy-status").textContent="Could not save: "+err.message;}
+ finally{b.disabled=false;}
+});
+const activateFinancial=document.getElementById("financial-policy-activate");
+if(activateFinancial)activateFinancial.addEventListener("click",async()=>{
+ if(!confirm("Activate this CSA financial policy? New quotation previews will use these settings. Existing quotations will retain their saved snapshots."))return;
+ activateFinancial.disabled=true;
+ try{const r=await api("/v1/admin/financial-policy/activate",{method:"POST",body:JSON.stringify({confirm:"ACTIVATE CSA FINANCIAL POLICY"})});$("financial-policy-status").textContent="Policy activated successfully · Revision "+r.revision;await loadFinancialPolicy();}
+ catch(e){$("financial-policy-status").textContent="Activation failed: "+e.message;activateFinancial.disabled=false;}
+});
+const quoteForm=$("financial-quote-preview-form");
+if(quoteForm)quoteForm.addEventListener("submit",async e=>{
+ e.preventDefault();const f=e.currentTarget,b=f.querySelector('button[type="submit"]'),amount=Number(f.elements.editor_base_amount.value),speed=f.elements.delivery_speed.value;
+ if(!Number.isFinite(amount)||amount<=0){$("financial-quote-preview-result").textContent="Enter a valid Editor base amount.";return;}
+ b.disabled=true;$("financial-quote-preview-result").textContent="Calculating…";
+ try{const r=await api("/v1/admin/financial-quote/preview",{method:"POST",body:JSON.stringify({editor_base_amount_minor:Math.round(amount*100),delivery_speed:speed})});
+ $("financial-quote-preview-result").textContent="Editor cost: "+moneyINR(r.editor_base_amount_minor)+" · CSA markup: "+moneyINR(r.csa_markup_amount_minor)+" · Urgent charge: "+moneyINR(r.urgent_surcharge_minor)+" · Client total: "+moneyINR(r.client_total_minor)+" · Advance: "+moneyINR(r.advance_amount_minor)+" · Balance: "+moneyINR(r.balance_amount_minor)+" · Policy revision "+r.policy_revision;
+ }catch(err){$("financial-quote-preview-result").textContent=err.message;}
+ finally{b.disabled=false;}
+});
 async function loadAdmin(){
  loadNotifications("admin-notifications");
  loadAdminDisputes();
