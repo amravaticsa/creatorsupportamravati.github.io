@@ -55,7 +55,7 @@ test("Tender lifecycle requires draft, publish, close, award and configured CSA 
   assert.match(api, /const tenderDraft=p\.match/);
   assert.match(api, /if\(action==="publish"\)\{if\(t\.status!=="draft"/);
   assert.match(api, /if\(action==="close"\)\{if\(t\.status!=="published"/);
-  assert.match(api, /if\(action==="award"\)\{/);
+  assert.match(api, /if\(action==="award"\)\{\s*if\(t\.status!=="closed"/);
   assert.match(api, /if\(action==="quote"\)\{/);
   assert.match(api, /pricing_policy_unconfigured/);
   assert.match(api, /minimum_margin_minor/);
@@ -111,7 +111,7 @@ test("Admin tender bid comparison shows editor context and requires confirmation
 
 
 test("Tender award is a handoff only; it does not bypass verified-editor offer and deposit gates", () => {
-  assert.match(api, /if\(action==="award"\)\{if\(t\.status!=="closed"/);
+  assert.match(api, /if\(action==="award"\)\{\s*if\(t\.status!=="closed"/);
   assert.match(api, /tender_bid_awarded/);
   assert.match(api, /next_step:"create_client_quote_and_send_managed_editor_offer"/);
   assert.match(api, /SELECT e\.user_id FROM editor_profiles e JOIN users u ON u\.id=e\.user_id WHERE e\.user_id=\? AND e\.verification_status='verified' AND u\.account_status='active'/);
