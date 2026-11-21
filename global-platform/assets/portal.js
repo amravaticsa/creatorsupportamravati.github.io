@@ -66,12 +66,15 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
 
 if(user.role==="client"){
  $("client-panel").hidden=false;
+ const projectForm=$("project-form"),budgetType=projectForm?.elements?.budget_type,budgetInput=projectForm?.elements?.budget;
+ const syncProjectBudgetRequirement=()=>{if(!budgetInput||!budgetType)return;const recommended=budgetType.value==="recommend";budgetInput.required=!recommended;budgetInput.min="1";budgetInput.placeholder=recommended?"Optional — CSA will recommend a suitable budget":"Enter your maximum or estimated budget";const label=budgetInput.closest(".field")?.querySelector("label");if(label)label.textContent=recommended?"Budget amount (optional)":"Budget amount *";};
+ budgetType?.addEventListener("change",syncProjectBudgetRequirement);syncProjectBudgetRequirement();
  loadClientProjects();loadClientQuotes();loadCsaNotifications("client");loadClientRefundRequests();const rf=$("client-refund-form");if(rf)rf.onsubmit=async e=>{e.preventDefault();await submitClientRefund(rf);};
   $("project-form").onsubmit=async e=>{
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
    const submit=form.querySelector('button[type="submit"]');if(!form.reportValidity())return;
    form.dataset.submitting="1";if(submit){submit.disabled=true;submit.textContent="Submitting to CSA…";}
-   const f=new FormData(form),major=Number(f.get("budget")),minor=Math.round(major*100),payload={title:String(f.get("title")||"").trim(),category:f.get("category"),brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{
+   const f=new FormData(form),budgetText=String(f.get("budget")||"").trim(),minor=budgetText?Math.round(Number(budgetText)*100):null,payload={title:String(f.get("title")||"").trim(),category:f.get("category"),brief:String(f.get("brief")||"").trim(),video_count:Number(f.get("video_count"))||null,raw_footage_minutes:Number(f.get("raw_footage_minutes"))||null,final_duration_minutes:Number(f.get("final_duration_minutes"))||null,resolution:f.get("resolution"),aspect_ratio:f.get("aspect_ratio"),budget_amount_minor:minor,budget_currency:f.get("currency"),budget_type:f.get("budget_type"),preferred_deadline:f.get("preferred_deadline"),priority:f.get("priority"),revisions_included:Number(f.get("revisions_included")),requirements:{
       communication_language:String(f.get("communication_language")||"").trim(),
       source_language:String(f.get("source_language")||"").trim(),
       output_language:String(f.get("output_language")||"").trim(),
