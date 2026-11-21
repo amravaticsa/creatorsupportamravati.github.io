@@ -86,6 +86,53 @@ async function uploadKycDocument(credential){
  const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error?.message||"KYC document upload failed.");
  return d;
 }
+async function loadRejectedPortfolioVideos(credential){
+ const panel=$("rejected-portfolio-panel"),root=$("rejected-portfolio-list"),message=$("rejected-portfolio-status");
+ if(!panel||!root)return;
+ panel.hidden=false;root.textContent="Rejected portfolio videos check ho rahe hain…";
+ try{
+  const r=await fetch(API+"/v1/editor/portfolio-videos/rejected",{headers:{authorization:"Bearer "+credential}});
+  const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error?.message||"Rejected video records load nahi ho paaye.");
+  root.replaceChildren();
+  if(!Array.isArray(d.videos)||!d.videos.length){root.textContent="Abhi koi rejected portfolio video nahi hai.";return;}
+  for(const item of d.videos){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h4");title.textContent=item.title+" · "+item.category;
+   const reason=document.createElement("p");reason.textContent="Admin review reason: "+(item.review_note||"Please contact CSA Admin for clarification.");
+   const fileLabel=document.createElement("label");fileLabel.textContent="Corrected video file (MP4/MOV, max 80 MB) *";
+   const file=document.createElement("input");file.type="file";file.accept="video/mp4,video/quicktime";
+   const titleLabel=document.createElement("label");titleLabel.textContent="Video title *";
+   const titleInput=document.createElement("input");titleInput.maxLength=120;titleInput.value=item.title||"";
+   const descLabel=document.createElement("label");descLabel.textContent="Video description *";
+   const descInput=document.createElement("textarea");descInput.maxLength=1200;descInput.value=item.description||"";
+   const categoryLabel=document.createElement("label");categoryLabel.textContent="Video category *";
+   const category=document.createElement("select");
+   for(const value of ["Reels / Shorts","YouTube Video","Wedding Film","Podcast","Advertisement / Commercial","Corporate Video","Motion Graphics / VFX","Other"]){const o=document.createElement("option");o.value=value;o.textContent=value;category.append(o);}
+   category.value=item.category||"Other";
+   const rightsLabel=document.createElement("label");rightsLabel.style.cssText="display:flex;gap:10px;align-items:flex-start";
+   const rights=document.createElement("input");rights.type="checkbox";
+   const rightsText=document.createElement("span");rightsText.textContent="I confirm that I own this corrected work or have all permissions required to upload and showcase it.";
+   rightsLabel.append(rights,rightsText);
+   const submit=document.createElement("button");submit.className="btn dark";submit.textContent="Submit corrected video for review";
+   const feedback=document.createElement("p");feedback.className="muted";feedback.setAttribute("role","status");
+   submit.onclick=async()=>{
+    const f=file.files&&file.files[0];
+    if(!f){feedback.textContent="Corrected video file select karein.";return;}
+    if(!["video/mp4","video/quicktime"].includes(f.type)){feedback.textContent="Sirf MP4 ya MOV file accepted hai.";return;}
+    if(f.size<1||f.size>80*1024*1024){feedback.textContent="Video size 80 MB se kam hona chahiye.";return;}
+    if(!titleInput.value.trim()||!descInput.value.trim()||!category.value||!rights.checked){feedback.textContent="Title, description, category aur rights confirmation complete karein.";return;}
+    submit.disabled=true;feedback.textContent="Corrected video securely upload ho raha hai…";
+    try{
+     const response=await fetch(API+"/v1/editor/portfolio-videos/"+encodeURIComponent(item.id)+"/replacement",{method:"PUT",headers:{"authorization":"Bearer "+credential,"content-type":f.type,"x-csa-video-title":titleInput.value.trim(),"x-csa-video-description":descInput.value.trim(),"x-csa-video-category":category.value,"x-csa-video-rights-confirmed":"true","x-csa-terms-version":PORTFOLIO_TERMS_VERSION},body:f});
+     const result=await response.json();if(!response.ok||!result.ok)throw Error(result.error?.message||"Replacement upload failed.");
+     feedback.textContent="Corrected video submitted. Status: Pending Admin Review. Client Showcase mein approval se pehle nahi dikhega.";
+     await loadRejectedPortfolioVideos(credential);
+    }catch(err){feedback.textContent=err.message;submit.disabled=false;}
+   };
+   card.append(title,reason,fileLabel,file,titleLabel,titleInput,descLabel,descInput,categoryLabel,category,rightsLabel,submit,feedback);root.append(card);
+  }
+ }catch(err){root.textContent=err.message;}
+}
 async function uploadPortfolioVideos(credential){
  const entries=[...document.querySelectorAll(".portfolio-video-entry")];
  for(let i=0;i<entries.length;i++){const e=entries[i],f=e.querySelector(".portfolio-video-file").files[0];status.textContent="Uploading portfolio video "+(i+1)+" of "+entries.length+"…";
@@ -145,6 +192,7 @@ async function onGoogleCredential(response){
    sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");
    if(data.existing_editor){
     renderKycReviewStatus(data);
+    await loadRejectedPortfolioVideos(response.credential);
     if(String(data.verification_status||"").toLowerCase()==="rejected"){
      const panel=$("profile-correction-panel"),message=$("profile-correction-status"),submit=$("profile-correction-submit"),ep=data.editor_profile||{};
      const set=(id,value)=>{const el=$(id);if(el&&value!==null&&value!==undefined)el.value=value;};
