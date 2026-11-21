@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS csa_pricing_policies (
   margin_bps INTEGER CHECK(margin_bps BETWEEN 0 AND 10000),
   minimum_margin_minor INTEGER NOT NULL DEFAULT 0 CHECK(minimum_margin_minor>=0),
   status TEXT NOT NULL DEFAULT 'unconfigured' CHECK(status IN ('unconfigured','active','inactive')),
+  client_advance_bps INTEGER CHECK(client_advance_bps BETWEEN 1 AND 10000),
   updated_by TEXT,
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
