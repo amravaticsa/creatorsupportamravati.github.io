@@ -372,3 +372,17 @@ All ten D1 databases are referenced by at least one deployed Worker binding. Thi
 **Decision:** No database was deleted, renamed, detached, or modified. Do not free a slot by deleting any of these databases. The safe route is to request a D1 database limit increase from Cloudflare, or obtain an explicitly approved consolidation plan with schema/data backup, application cutover, and rollback. Consolidation is not authorized by this audit.
 
 The production schema bootstrap migration remains committed but unapplied. Production Super Admin D1 creation remains blocked until capacity is available. No Workers, bindings, routes, secrets, D1 rows/schemas, R2 buckets/objects, DNS, or Access settings were changed in this re-audit.
+
+
+### Cloudflare D1 limit resolution guidance — 2026-11-21
+
+Cloudflare's current D1 limits documentation (updated Oct 30, 2026) states:
+- Workers Free: 10 D1 databases per account.
+- Workers Paid: up to 1,000,000 D1 databases per account; the first 100,000 are included, with additional databases priced at $0.10/database/month. Query and storage charges are separate.
+- Cloudflare also provides a Limit Increase Request Form for eligible account-limit adjustments.
+
+Official reference: https://developers.cloudflare.com/d1/platform/limits/
+
+The account's API create attempt returned error 7406 at exactly 10 databases, consistent with the Free-tier database count. The least disruptive path is for the account owner to review the Cloudflare Workers plan and billing, then decide whether to upgrade to Workers Paid or submit the official limit-increase request if eligible. No plan or billing change was made by this audit.
+
+**Owner action required:** approve any paid-plan upgrade or submit the limit-increase form from the Cloudflare dashboard. Once the account limit is increased and verified, create the production D1 database and continue the already-prepared schema bootstrap. Do not delete any currently bound D1 database to work around the limit.
