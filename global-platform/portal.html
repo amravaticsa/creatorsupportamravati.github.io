@@ -59,6 +59,7 @@
  <div class="field full"><button class="btn dark" type="submit">Submit Video Editing Application</button><p id="video-editing-message" class="muted" role="status"></p></div>
 </form>
 <h2>CSA Notifications</h2><p class="muted">Offer, assignment and delivery updates for your projects.</p><div id="client-notifications" aria-live="polite"></div><h2>Your projects with CSA</h2><div id="client-projects"></div>
+<h2>My CSA Quotations</h2><p class="muted">View the quotation, advance and balance shared by CSA for your project.</p><div id="client-financial-quotes" aria-live="polite"></div>
 <h2>My Complaints & Resolution History</h2><p class="muted">Raise a complaint from the relevant project card. Track CSA responses here.</p><div id="client-disputes" aria-live="polite"></div>
 <h2>Rate your completed project</h2>
 <p class="muted">Only projects marked Completed by CSA can be rated. One verified review is allowed for the latest Editor assignment on each project.</p>
@@ -86,6 +87,9 @@
   <div class="field"><label>Delivery speed</label><select name="delivery_speed"><option value="standard">Standard</option><option value="48h">Within 48 hours</option><option value="24h">Within 24 hours</option><option value="same_day">Same day</option></select></div>
   <div class="field full"><button class="btn outline" type="submit">Preview Client Price</button><p id="financial-quote-preview-result" class="muted" role="status"></p></div>
  </form>
+<h3>Quotation, Editor Payout & CSA Profit Ledger</h3>
+<p class="muted">Present client quotations, accrue Editor payouts after quality approval, record manual payment references and reconcile actual project profit. No bank transfer is initiated here.</p>
+<div id="financial-ledger" aria-live="polite">Finance ledger will load after authorized sign-in.</div>
 </section>
 <h2>CSA Operations Dashboard</h2><div id="admin-metrics" class="stats"></div><h3>New project tenders</h3><p class="muted">Use “Find best-matched Editors” inside each project. CSA ranking considers verified KYC, profile approval, specialization, language, approved portfolio, delivery reliability, client ratings and current workload. Ranking is advisory; Admin retains final offer and assignment control.</p><div id="admin-projects"></div><h3>Editor Review Workbench</h3><p class="muted">A consolidated overview of three separate review queues. Each decision remains in its own authorized workflow; private identity documents are visible only to authorized CSA admins.</p><div id="admin-editor-review-summary" class="stats" aria-live="polite"><div class="stat"><small>KYC documents</small><strong>Loading…</strong></div><div class="stat"><small>Profile approvals</small><strong>Loading…</strong></div><div class="stat"><small>Portfolio videos</small><strong>Loading…</strong></div></div><h4>Editor Performance & Reliability</h4>
 <p class="muted">Performance is calculated from actual CSA assignments, submissions, due dates, QC decisions, revision requests and disputes. No unverified or manually invented ratings are used.</p>
