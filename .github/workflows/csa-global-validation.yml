@@ -12,6 +12,13 @@ on:
       - "global-platform/**"
 
 jobs:
+  schema-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate schema-only SQLite snapshots
+        run: python3 global-platform/scripts/verify-schema-snapshots.py
+
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -36,8 +43,6 @@ jobs:
           node --check global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js
           # Guard against reintroducing known raw exception-to-log patterns.
           ! grep -R -n -E 'String\(e&&e\.message|String\(logError&&logError\.message|console\.(log|warn|error|info|debug)\([^)]*\.stack' global-platform/workers/source-snapshots/csa-superadmin-isolated-staging global-platform/workers/source-snapshots/csa-global-api-isolated-staging global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging
-      - name: Validate schema-only SQLite snapshots
-        run: python3 global-platform/scripts/verify-schema-snapshots.py
       - name: Check required platform files
         run: |
           test -s global-platform/index.html
