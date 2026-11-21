@@ -72,6 +72,7 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
 if(user.role==="client"){
  $("client-panel").hidden=false;
  loadClientProjects();
+ loadClientFeedbackEligible();
   $("project-form").onsubmit=async e=>{
    e.preventDefault();const form=e.target;if(form.dataset.submitting==="1")return;
    const submit=form.querySelector('button[type="submit"]');if(!form.reportValidity())return;
