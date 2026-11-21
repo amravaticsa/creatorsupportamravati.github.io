@@ -47,7 +47,9 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
- if((m==="GET"&&(/^\/v1\/admin\/editors\/(verified|pending|kyc\/pending)$/.test(p)||/^\/v1\/admin\/editors\/[\w-]+\/kyc-preview$/.test(p)))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials|kyc-review)$/.test(p)))return "content.manage";
+ if(m==="GET"&&p==="/v1/admin/editors/pending")return "content.manage";
+ if(m==="GET"&&p==="/v1/admin/editors/verified")return ["projects.manage","content.manage"];
+ if((m==="GET"&&(/^\/v1\/admin\/editors\/kyc\/pending$/.test(p)||/^\/v1\/admin\/editors\/[\w-]+\/kyc-preview$/.test(p)))||(m==="POST"&&/^\/v1\/admin\/editors\/[\w-]+\/(verify|credentials|kyc-review)$/.test(p)))return "content.manage";
  if(m==="GET"&&(p==="/v1/admin/editor-portfolio-videos"||/^\/v1\/admin\/editor-portfolio-videos\/[\w-]+\/preview$/.test(p)))return "content.manage";
  if(m==="GET"&&p==="/v1/client/editor-portfolio-videos")return null;
  if(m==="GET"&&/^\/v1\/client\/editor-portfolio-videos\/[\w-]+\/stream$/.test(p))return null;
