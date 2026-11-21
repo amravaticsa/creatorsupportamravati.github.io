@@ -1149,12 +1149,11 @@ async function handle(req,env){
   if(!payment||!["client_advance","client_balance"].includes(payment.payment_type))return bad("Eligible CSA client payment not found.",404);
   if(payment.status!=="succeeded"&&payment.status!=="partially_refunded")return bad("Only successful payments can be submitted for refund.",409);
   if(String(payment.currency).toUpperCase()!==currency)return bad("Refund currency must match the original payment.",409);
-  const reserved=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status NOT IN ('rejected','failed','cancelled')").bind(paymentId).first();
-  const remaining=Number(payment.amount_minor)-Number(reserved?.total||0);
-  if(amount>remaining)return bad("Refund amount exceeds the remaining refundable balance.",409,"refund_amount_exceeded");
   const id=uid("crf");
   try{
-   await env.DB.prepare("INSERT INTO client_refund_requests(id,payment_id,client_id,project_id,amount_minor,currency,reason,status,idempotency_key,requested_by) VALUES(?,?,?,?,?,?,?,'requested',?,?)").bind(id,payment.id,a.id,payment.project_id,amount,currency,reason,key,a.id).run();
+   // The refundable-balance test and insert are one SQL statement, preventing concurrent requests from reserving more than the paid amount.
+   const inserted=await env.DB.prepare("INSERT INTO client_refund_requests(id,payment_id,client_id,project_id,amount_minor,currency,reason,status,idempotency_key,requested_by) SELECT ?,p.id,?,p.project_id,?,?,?,'requested',?,? FROM payments p WHERE p.id=? AND p.user_id=? AND p.payment_type IN ('client_advance','client_balance') AND p.status IN ('succeeded','partially_refunded') AND UPPER(p.currency)=? AND ? <= p.amount_minor-COALESCE((SELECT SUM(r.amount_minor) FROM client_refund_requests r WHERE r.payment_id=p.id AND r.status NOT IN ('rejected','failed','cancelled')),0) RETURNING id").bind(id,a.id,amount,currency,reason,key,a.id,paymentId,a.id,currency,amount).first();
+   if(!inserted)return bad("Refund amount exceeds the remaining refundable balance or payment is no longer eligible.",409,"refund_amount_exceeded");
   }catch(e){if(String(e.message||"").includes("UNIQUE")){const duplicate=await env.DB.prepare("SELECT id,payment_id,client_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();if(duplicate){if(duplicate.client_id!==a.id||duplicate.payment_id!==paymentId)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:duplicate,replayed:true});}}throw e;}
   await log(env,a.id,"client_refund_requested","client_refund",id,{payment_id:paymentId,amount_minor:amount,currency});
   return out({ok:true,refund:{id,payment_id:paymentId,amount_minor:amount,currency,status:"requested"}},201);
