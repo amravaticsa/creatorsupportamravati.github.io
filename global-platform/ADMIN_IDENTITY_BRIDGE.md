@@ -72,3 +72,10 @@ Status: design specification only. No bridge endpoint or credentials are deploye
   - Department access mapping no longer grants a Global department set to `super_admin`.
 - The stale `super_admin` authorization row was also explicitly changed to `revoked`, and its eight Global department grants were removed. The independent Super Admin account remains active in the Super Admin system. Do not treat the end-to-end lifecycle as fully tested until a fresh sync and role-specific tests are performed.
 - Production remains untouched.
+
+
+## Environment routing hardening (2026-11-21)
+- The Super Admin sync helper now selects the Global API endpoint from the Worker `ENVIRONMENT` binding: staging uses the staging Global API and production uses the production Global API.
+- The same change is deployed to the staging Super Admin Worker and committed to the staging source branch.
+- No production Worker or production D1 data was changed. Production Super Admin Worker and shared-secret configuration are still not provisioned.
+- End-to-end sync has not yet been authenticated and exercised. The route requires an active Super Admin session; do not use a database-only assertion as proof of a successful signed sync.
