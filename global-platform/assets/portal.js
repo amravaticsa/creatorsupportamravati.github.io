@@ -342,7 +342,25 @@ async function loadClientFeedbackEligible(){
   }
  }catch(e){root.textContent=e.message;}
 }
-async function loadClientProjects(){
+async function loadNotifications(containerId){
+ const root=$(containerId);if(!root)return;root.textContent="Loading notifications…";
+ try{
+  const d=await api("/v1/notifications");root.replaceChildren();
+  const items=Array.isArray(d.notifications)?d.notifications:[];
+  if(!items.length){root.textContent="You are all caught up. No notifications yet.";return;}
+  const count=document.createElement("p");count.className="muted";count.textContent=(d.unread_count||0)+" unread notification(s)";root.append(count);
+  for(const n of items){
+   const card=document.createElement("article");card.className="card";
+   const title=document.createElement("h4");const titles={editor_offer_received:"New project offer",editor_offer_accepted:"Editor accepted an offer",editor_terms_accepted:"Project agreement accepted",editor_deposit_verified:"Security deposit verified",client_editor_assigned:"Editor assigned to your project",editor_project_assigned:"New project assigned",client_work_submitted:"Work submitted for quality review"};title.textContent=titles[n.template_key]||String(n.template_key||"CSA update").replaceAll("_"," ");
+   const message=document.createElement("p");message.textContent=n.payload?.message||n.payload?.title||"There is an update to your CSA project.";
+   const meta=document.createElement("p");meta.className="muted";meta.textContent=new Date(n.created_at).toLocaleString()+" · "+(n.status==="read"?"Read":"Unread");
+   card.append(title,message,meta);
+   if(n.status!=="read"){const b=document.createElement("button");b.className="btn outline";b.textContent="Mark as read";b.onclick=async()=>{b.disabled=true;try{await api("/v1/notifications/"+encodeURIComponent(n.id)+"/read",{method:"POST",body:"{}"});await loadNotifications(containerId);}catch(e){message.textContent=e.message;b.disabled=false;}};card.append(b);}
+   root.append(card);
+  }
+ }catch(e){root.textContent="Notifications unavailable: "+e.message;}
+}
+async function loadClientProjects(){\n loadNotifications("client-notifications");
  const root=$("client-projects");if(!root)return;root.textContent="Loading your applications…";
  const statusInfo={
   submitted:{label:"Application received",step:1,detail:"Your application has been received by CSA and is awaiting review."},
@@ -658,7 +676,7 @@ async function loadAdminProjectOffers(){
   }
  }catch(e){root.textContent=e.message;}
 }
-async function loadAdmin(){
+async function loadAdmin(){\n loadNotifications("admin-notifications");
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
  loadAdminKycReviews();
@@ -763,7 +781,7 @@ async function loadEditorRefunds(){
  const root=$("editor-refunds");if(!root)return;root.textContent="Loading deposit refund status…";
  try{const d=await api("/v1/editor/deposit-refunds");root.replaceChildren();if(!d.refunds.length){root.textContent="No deposit refund requests yet. Your deposit will become eligible after CSA quality approval.";return;}for(const r of d.refunds){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=r.title+" · "+r.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent="Refund amount: "+(r.amount_minor/100)+" "+r.currency+" · Status: "+r.status;const ref=document.createElement("p");ref.textContent=r.provider_refund_id?"Razorpay Refund ID: "+r.provider_refund_id:"Razorpay refund reference will appear once available.";c.append(h,meta,ref);root.append(c);}}catch(e){root.textContent=e.message;}
 }
-async function loadOffers(){
+async function loadOffers(){\n loadNotifications("editor-notifications");
  const root=$("offers");root.textContent="Loading invitations…";
  try{
   const d=await api("/v1/editor/offers");root.replaceChildren();
