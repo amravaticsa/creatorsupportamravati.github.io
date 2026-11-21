@@ -64,6 +64,29 @@
 <p class="muted">Only projects marked Completed by CSA can be rated. One verified review is allowed for the latest Editor assignment on each project.</p>
 <div id="client-feedback-eligible" aria-live="polite">Checking completed projects…</div><h2>Your large-file upload history</h2><p class="muted">Resume interrupted footage uploads by selecting the exact same file.</p><div id="client-upload-history"></div></section>
 <section id="admin-panel" hidden><h2>CSA Notifications</h2><p class="muted">Important offer, agreement, deposit and project events.</p><div id="admin-notifications" aria-live="polite"></div><h2>Dispute & Complaint Management</h2><p class="muted">Review Client and Editor complaints. Refund and reassignment options are recommendations only; financial or assignment actions remain separate approvals.</p><div class="field"><label for="admin-dispute-filter">Complaint queue</label><select id="admin-dispute-filter"><option value="open">Open</option><option value="under_review">Under review</option><option value="resolved">Resolved</option><option value="rejected">Rejected</option><option value="all">All complaints</option></select></div><div id="admin-disputes" aria-live="polite"></div>
+<h2>CSA Financial Control & Pricing</h2>
+<p class="muted">Finance Admin policy controls. Saving creates a draft; activation is a separate, audited action. Live payment and refund execution remain separate workflows.</p>
+<section id="financial-policy-panel" class="panel" hidden>
+ <p id="financial-policy-status" class="muted" role="status">Loading policy…</p>
+ <form id="financial-policy-form" class="form">
+  <div class="field"><label>CSA default markup (%)</label><input name="default_markup_percent" type="number" min="0" max="100" step="0.01" required></div>
+  <div class="field"><label>Minimum markup (%)</label><input name="minimum_markup_percent" type="number" min="0" max="100" step="0.01" required></div>
+  <div class="field"><label>Client advance (%)</label><input name="client_advance_percent" type="number" min="0" max="100" step="1" required></div>
+  <div class="field"><label>Same-day surcharge (%)</label><input name="urgent_same_day_percent" type="number" min="0" max="100" step="0.01" required></div>
+  <div class="field"><label>24-hour surcharge (%)</label><input name="urgent_24h_percent" type="number" min="0" max="100" step="0.01" required></div>
+  <div class="field"><label>48-hour surcharge (%)</label><input name="urgent_48h_percent" type="number" min="0" max="100" step="0.01" required></div>
+  <div class="field"><label><input name="urgent_surcharge_enabled" type="checkbox"> Enable urgent delivery surcharge</label></div>
+  <div class="field"><label><input name="admin_override_enabled" type="checkbox"> Allow approved Admin overrides</label></div>
+  <div class="field full"><label>Policy notes</label><textarea name="notes" rows="2" maxlength="1000" placeholder="Internal policy note / approval reference"></textarea></div>
+  <div class="field full"><button class="btn dark" type="submit">Save as Draft</button> <button id="financial-policy-activate" class="btn outline" type="button">Activate approved policy</button></div>
+ </form>
+ <h3>Quotation Calculator Preview</h3>
+ <form id="financial-quote-preview-form" class="form">
+  <div class="field"><label>Editor base cost (₹)</label><input name="editor_base_amount" type="number" min="1" step="0.01" required placeholder="e.g. 5000"></div>
+  <div class="field"><label>Delivery speed</label><select name="delivery_speed"><option value="standard">Standard</option><option value="48h">Within 48 hours</option><option value="24h">Within 24 hours</option><option value="same_day">Same day</option></select></div>
+  <div class="field full"><button class="btn outline" type="submit">Preview Client Price</button><p id="financial-quote-preview-result" class="muted" role="status"></p></div>
+ </form>
+</section>
 <h2>CSA Operations Dashboard</h2><div id="admin-metrics" class="stats"></div><h3>New project tenders</h3><p class="muted">Use “Find best-matched Editors” inside each project. CSA ranking considers verified KYC, profile approval, specialization, language, approved portfolio, delivery reliability, client ratings and current workload. Ranking is advisory; Admin retains final offer and assignment control.</p><div id="admin-projects"></div><h3>Editor Review Workbench</h3><p class="muted">A consolidated overview of three separate review queues. Each decision remains in its own authorized workflow; private identity documents are visible only to authorized CSA admins.</p><div id="admin-editor-review-summary" class="stats" aria-live="polite"><div class="stat"><small>KYC documents</small><strong>Loading…</strong></div><div class="stat"><small>Profile approvals</small><strong>Loading…</strong></div><div class="stat"><small>Portfolio videos</small><strong>Loading…</strong></div></div><h4>Editor Performance & Reliability</h4>
 <p class="muted">Performance is calculated from actual CSA assignments, submissions, due dates, QC decisions, revision requests and disputes. No unverified or manually invented ratings are used.</p>
 <div id="admin-editor-performance" aria-live="polite">Loading editor performance…</div>
