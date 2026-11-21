@@ -348,3 +348,27 @@ To prepare the next step without touching production or staging data, a schema-o
 **Blocking prerequisite:** free a D1 database slot only after reviewing ownership and dependencies of an existing database, or request an account limit increase. Do not delete any existing D1 database just to make room. Once a safe slot is available, create `csa-superadmin-production`, apply the reviewed migration, seed the first Super Admin using the secure enrollment flow (never copy staging credentials), then configure a separate production Worker and test it before any route change.
 
 The failed create attempt made no changes to existing D1 databases, Workers, bindings, routes, secrets, DNS, Access, or R2 resources.
+
+
+### D1 capacity and dependency re-audit — 2026-11-21
+
+The account currently has 10 of 10 D1 database slots occupied. A fresh read-only inventory matched all ten database UUIDs to active Worker D1 bindings:
+
+| D1 database | Referenced by |
+|---|---|
+| `csa-global-legacy-video-isolated-staging` | `csa-global-api-isolated-staging` |
+| `csa-video-isolated-staging` | `csa-editor-portal-isolated-staging` |
+| `csa-editor-superadmin-isolated-staging` | `csa-editor-portal-isolated-staging` |
+| `csa-superadmin-isolated-staging` | `csa-superadmin-isolated-staging` |
+| `csa-video-workflow-staging` | `csa-editor-portal-staging`, `csa-rush-payment-api-staging`, `csa-video-rush-api-staging`, `csa-video-workflow-api-staging` |
+| `csa-video-rush-staging` | `csa-rush-admin-staging`, `csa-rush-payment-api-staging`, `csa-video-rush-api-staging`, `csa-video-workflow-api-staging` |
+| `csa-superadmin-staging` | `csa-superadmin-api-staging`, `csa-editor-portal-staging`, `csa-rush-admin-staging`, `csa-video-rush-api-staging` |
+| `csa-global-platform-staging` | `csa-global-api-staging`, `csa-global-api-isolated-staging` |
+| `csa-global-platform` | `csa-global-api` |
+| `csa-orders` | `csa-editor-portal`, `csa-global-api`, `csa-payment-api`, `csa-video-api` |
+
+All ten D1 databases are referenced by at least one deployed Worker binding. This is a binding-level dependency check; it does not prove every application is currently receiving traffic, but it is sufficient to rule out deleting any database as an obviously unused resource.
+
+**Decision:** No database was deleted, renamed, detached, or modified. Do not free a slot by deleting any of these databases. The safe route is to request a D1 database limit increase from Cloudflare, or obtain an explicitly approved consolidation plan with schema/data backup, application cutover, and rollback. Consolidation is not authorized by this audit.
+
+The production schema bootstrap migration remains committed but unapplied. Production Super Admin D1 creation remains blocked until capacity is available. No Workers, bindings, routes, secrets, D1 rows/schemas, R2 buckets/objects, DNS, or Access settings were changed in this re-audit.
