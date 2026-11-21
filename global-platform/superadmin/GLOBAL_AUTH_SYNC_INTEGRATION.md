@@ -321,3 +321,13 @@ A read-only account inventory was performed before creating or routing a separat
 - No Worker, route, custom domain, binding, D1 database, R2 bucket, Access policy, secret, or data was created or changed during this readiness inventory.
 
 **Decision:** Do not create or route a production Super Admin Worker yet. There is no verified production Super Admin D1 database to bind it to. Cloning the active Worker while pointing it at the current staging D1 would merely create another Worker against staging data; pointing it at an unrelated D1 would risk corrupting another application. The next safe prerequisite is to inspect the schemas and application ownership of `csa-global-platform` and `csa-orders`, then identify or deliberately provision the correct production Super Admin database and seed/migration plan. Do not copy staging admin accounts or secrets into production without an explicit controlled migration plan.
+
+
+### D1 ownership/schema check — 2026-11-21
+
+Read-only `sqlite_master` inspection confirms:
+- `csa-global-platform` is the Global marketplace/workflow database. It contains `users`, `projects`, `project_offers`, `payments`, `global_admin_authorizations`, editor KYC/profile tables and related workflow tables. It is not a Super Admin identity database: it does not contain `admin_accounts`, `admin_sessions`, or the Super Admin employee/attendance tables.
+- `csa-orders` is a legacy video-order database. It contains `orders`, `payments`, `video_editing_orders`, editor assignment/file/session tables. It is not the Super Admin identity database.
+- `csa-superadmin-staging` contains the Super Admin identity/session/permission tables (`admin_accounts`, `admin_sessions`, `admin_permissions`) plus internal CSA modules (employees, attendance, clients, invoices, tasks, etc.). It is currently the only listed database with this Super Admin schema.
+- Therefore, neither existing non-staging D1 database is a safe replacement for the Super Admin Worker’s `DB` binding. A separate production Super Admin D1 database and a reviewed schema/data bootstrap or migration are prerequisites. Do not point the Super Admin Worker at `csa-global-platform` or `csa-orders`.
+- Inspection used SELECT-only schema queries. No rows were read or changed, and no D1 migration or write was performed.
