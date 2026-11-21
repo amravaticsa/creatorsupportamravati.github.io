@@ -163,3 +163,12 @@ python3 global-platform/scripts/verify-schema-snapshots.py
 ```
 
 This harness is a local SQLite smoke test only. A disposable Cloudflare D1 migration test remains a separate mandatory release gate.
+
+
+## CI integration for schema validation (2026-11-21)
+
+Updated `.github/workflows/csa-global-validation.yml` to run `python3 global-platform/scripts/verify-schema-snapshots.py` on the existing staging/global-platform validation workflow. This makes the local SQLite schema smoke test part of the automated staging checks whenever relevant files change.
+
+Workflow update commit: `e6fdf7e5f83edb0550353465dadd37e624c36960`.
+
+The workflow definition is committed, but this session has not received a GitHub Actions run result. Therefore CI execution is **pending/unverified**, not reported as passing. The check is validation-only and contains no deployment step.
