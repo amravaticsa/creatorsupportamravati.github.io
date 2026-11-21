@@ -47,6 +47,8 @@ jobs:
           node --check global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js
           # Guard against reintroducing known raw exception-to-log patterns.
           ! grep -R -n -E 'String\(e&&e\.message|String\(logError&&logError\.message|console\.(log|warn|error|info|debug)\([^)]*\.stack' global-platform/workers/source-snapshots/csa-superadmin-isolated-staging global-platform/workers/source-snapshots/csa-global-api-isolated-staging global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging
+      - name: Check client and editor navigation entry points
+        run: bash global-platform/testing/check-client-navigation.sh
       - name: Check required platform files
         run: |
           test -s global-platform/index.html
