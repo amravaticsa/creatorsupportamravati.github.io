@@ -141,6 +141,36 @@ async function handle(req,env){
   await env.DB.batch(statements);
   return out({ok:true,synced:records.length,revoked_if_absent:true},200);
  }
+ if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){
+  // Dedicated Super Admin bridge. Never accepts Global Admin JWT/session roles.
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin pricing bridge is not configured.",503,"pricing_bridge_unavailable");
+  const raw=await req.text();
+  if(raw.length>8192)return bad("Pricing request is too large.",413,"pricing_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
+  const seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid pricing bridge authentication headers.",401,"pricing_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
+  const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const canonical="POST\\n/internal/superadmin/pricing-policy\\n"+ts+"\\n"+nonce+"\\n"+bodyHash;
+  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  if(!constantTime(expected,sig))return bad("Pricing bridge signature is invalid.",401,"pricing_signature_invalid");
+  let b;try{b=JSON.parse(raw)}catch{return bad("Invalid pricing request JSON.");}
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}
+  catch{return bad("Pricing bridge nonce was already used.",409,"pricing_replay");}
+  if(b.action==="list"){
+   const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_at FROM csa_pricing_policies ORDER BY currency").all();
+   return out({ok:true,policies:r.results||[]});
+  }
+  if(b.action==="upsert"){
+   const currency=txt(b.currency,3).toUpperCase(),bps=b.margin_bps,min=amt(b.minimum_margin_minor??0),advance=b.client_advance_bps===undefined||b.client_advance_bps===null||b.client_advance_bps===""?null:Number(b.client_advance_bps),actor=txt(b.super_admin_id,100);
+   if(!/^[A-Z]{3}$/.test(currency)||!Number.isInteger(bps)||bps<0||bps>10000||min===null||(advance!==null&&(!Number.isInteger(advance)||advance<1||advance>10000))||!actor)return bad("Valid currency, margin, minimum margin, advance percentage and Super Admin identity are required.");
+   await env.DB.prepare("INSERT INTO csa_pricing_policies(currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_by) VALUES(?,?,?,?,'active',?) ON CONFLICT(currency) DO UPDATE SET margin_bps=excluded.margin_bps,minimum_margin_minor=excluded.minimum_margin_minor,client_advance_bps=excluded.client_advance_bps,status='active',updated_by=excluded.updated_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(currency,bps,min,advance,actor).run();
+   await log(env,null,"superadmin_pricing_policy_updated","pricing_policy",currency,{super_admin_id:actor,margin_bps:bps,minimum_margin_minor:min,client_advance_bps:advance});
+   const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_at FROM csa_pricing_policies WHERE currency=?").bind(currency).first();
+   return out({ok:true,policy:r});
+  }
+  return bad("Unsupported pricing action.");
+ }
  if(m==="GET"&&p==="/health")return out({ok:true,service:"CSA Global API",status:"healthy",google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
  if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
  if(m==="POST"&&p==="/v1/auth/editor-password"){
