@@ -172,3 +172,12 @@ Updated `.github/workflows/csa-global-validation.yml` to run `python3 global-pla
 Workflow update commit: `e6fdf7e5f83edb0550353465dadd37e624c36960`.
 
 The workflow definition is committed, but this session has not received a GitHub Actions run result. Therefore CI execution is **pending/unverified**, not reported as passing. The check is validation-only and contains no deployment step.
+
+
+### CI follow-up: independent schema job (2026-11-21)
+
+The first workflow run for commit `516814578e9dc7a7aad2882c1868e20be3e36487` completed with overall failure before the schema step. The existing JavaScript syntax-check step failed on the large generated `admin-app-source.js` snapshot; the schema step was consequently skipped. The run logs show the existing API test suite itself passed (25/25). This is not evidence that either schema snapshot failed.
+
+To prevent unrelated Worker snapshot syntax checks from blocking database validation, the schema smoke test has now been moved into its own independent GitHub Actions job, `schema-snapshot`. The job will run in parallel with the existing `validate` job. Its result must be checked separately; no passing result is assumed yet.
+
+Workflow correction commit: `58cff5becba3ff90fdf707b8cd4ffcf4002d056c`.
