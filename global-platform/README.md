@@ -159,3 +159,17 @@ Not yet completed: client refund initiation/reconciliation, payment receipt UI, 
 - The isolated staging databases contain table structures but currently no application data. This does not prove that the corresponding Workers are correctly bound, migrated for their intended purpose, or safe to activate.
 - Next safe step: reconcile every Worker D1 binding and route against the intended database, export and verify backups for any proposed retirement candidate, then obtain explicit owner approval before deleting any database. Do not use a production database as a staging substitute.
 - The row-count audit used read-only `SELECT COUNT(*)` queries. No rows or schema were changed. Production payment settings, DNS, routes and databases were not modified.
+
+
+## Worker-to-D1 and hostname routing audit (2026-11-21, follow-up)
+
+A read-only inventory of deployed Workers, their actual `/settings` bindings, and the zone's custom Worker routes found the following release blockers:
+
+- The custom route `superadmin.creatorsupportamravati.in/*` currently targets `csa-superadmin-api-staging`. Its `ENVIRONMENT` binding is explicitly `staging`, and its D1 binding points to `csa-superadmin-staging`. This is a production hostname routed to a staging Worker. Do not treat the production Super Admin hostname as production-ready.
+- The production-hostname Editor Worker `csa-editor-portal` (route `editor.creatorsupportamravati.in/*`, and production Super Admin Editor Management subroutes) has `CSA_SUPERADMIN_DB` bound to the staging Super Admin D1 database `99bc81fc-e97e-488b-a380-eb0237ff8ffc`; its video DB and R2 bucket are production resources. This is a cross-environment binding and must be corrected only after a production Super Admin database is provisioned, migrated, and populated with the required authorized identities.
+- `csa-editor-portal-staging` also uses the same staging Super Admin D1 database, as expected for staging. The production and staging Editor Workers therefore currently share the same Super Admin identity/administration database.
+- The account's deployed Worker inventory contains `csa-superadmin-api-staging` and `csa-superadmin-isolated-staging`, but no dedicated production `csa-superadmin-api` Worker. The isolated Super Admin Worker binds to its own empty isolated D1 and is not a safe production substitute.
+- `csa-global-api` is correctly marked `ENVIRONMENT=production` and binds to the production Global D1 and production Orders D1/R2 resources. `csa-global-api-staging` is marked staging and binds to staging Global D1, staging video workflow D1/R2 and staging media R2.
+- `csa-global-api-isolated-staging` is not a valid isolated Global Platform environment yet: its primary `DB` binding still points to the shared `csa-global-platform-staging` D1. It is currently not routed and its workers.dev subdomain remains disabled. Do not enable or route it.
+
+No Worker routes or bindings were changed during this audit. Do not simply repoint the production Super Admin route to the isolated Worker: that Worker has an empty isolated identity database and lacks a verified production identity setup. Required remediation: provision/authorize a dedicated production Super Admin data store, deploy a production Super Admin Worker with production-only bindings and secrets, migrate/verify its schema and authorized accounts, then test authentication and Editor Management routes before changing production routing. Keep all production route/binding remediation behind explicit owner approval and a verified rollback plan.
