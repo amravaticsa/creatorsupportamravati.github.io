@@ -135,3 +135,15 @@ Limitations:
 - Global staging D1 confirms one active `editor_admin` authorization. The historical `super_admin` row remains revoked; active `super_admin` authorization count is zero. Department grants exist only for the active editor-admin source record; none exist for the revoked Super Admin record.
 - This proves the scheduled sender → signed receiver path is executing successfully in staging and the role-exclusion state remains enforced in the resulting authorization data. It does not prove every role's protected API routes by authenticated HTTP tests.
 - Manual Retry Sync Now has not been invoked through a logged-in Super Admin browser session. No test invitation or new account was created for this verification. Production remains untouched.
+
+
+## Admin route-permission audit — 2026-11-21
+- A static route-map audit found that the Global API fail-closed permission resolver did not map the pending-editor queue or verified-editor list. Those admin routes were therefore denied to every synchronized admin role, despite being present in the admin UI.
+- Fixed and deployed to `csa-global-api-staging` only:
+  - `GET /v1/admin/editors/pending` → `content.manage` (Editor Admin).
+  - `GET /v1/admin/editors/verified` → `projects.manage` OR `content.manage` (Project Admin or Editor Admin), because verified-editor selection is needed for project matching and editor operations.
+  - KYC queue, preview, review and credential issuance remain under `content.manage`.
+- GitHub staging source commit: `511ba617f6ad42f283a5e44908263a7dcb349902`.
+- Cloudflare staging deployment ID: `f7d2595ec74b488490a82e2c4f9bd3b5`; deployed entry point `index.js`; startup time 1 ms. The deployed module was patched in place to preserve its existing staging-only code, rather than replacing it with a non-identical repository copy.
+- Post-deploy verification confirmed both new route mappings in deployed source and preserved D1, R2, OAuth, origin and staging environment bindings.
+- This is static permission/deployment verification. Authenticated HTTP tests for each role remain pending; no role assignments, production resources or client records were changed.
