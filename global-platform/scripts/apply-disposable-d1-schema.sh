@@ -43,10 +43,17 @@ case "$SCHEMA" in
   *) echo "ERROR: --schema must be superadmin or rush" >&2; exit 2 ;;
 esac
 
-case "$SCHEMA:$TARGET" in
-  superadmin:csa-superadmin-migration-test-*) ;;
-  rush:csa-rush-migration-test-*) ;;
-  *) echo "ERROR: target name does not match the dedicated disposable prefix for this schema" >&2; exit 2 ;;
+case "$SCHEMA" in
+  superadmin)
+    [[ "$TARGET" =~ ^csa-superadmin-migration-test-[A-Za-z0-9][A-Za-z0-9-]*$ ]] || {
+      echo "ERROR: target name does not match the dedicated disposable prefix for this schema" >&2; exit 2;
+    }
+    ;;
+  rush)
+    [[ "$TARGET" =~ ^csa-rush-migration-test-[A-Za-z0-9][A-Za-z0-9-]*$ ]] || {
+      echo "ERROR: target name does not match the dedicated disposable prefix for this schema" >&2; exit 2;
+    }
+    ;;
 esac
 
 case "$TARGET" in
