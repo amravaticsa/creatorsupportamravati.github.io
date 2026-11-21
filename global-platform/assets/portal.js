@@ -360,7 +360,8 @@ async function loadNotifications(containerId){
   }
  }catch(e){root.textContent="Notifications unavailable: "+e.message;}
 }
-async function loadClientProjects(){\n loadNotifications("client-notifications");
+async function loadClientProjects(){
+ loadNotifications("client-notifications");
  const root=$("client-projects");if(!root)return;root.textContent="Loading your applications…";
  const statusInfo={
   submitted:{label:"Application received",step:1,detail:"Your application has been received by CSA and is awaiting review."},
@@ -676,7 +677,8 @@ async function loadAdminProjectOffers(){
   }
  }catch(e){root.textContent=e.message;}
 }
-async function loadAdmin(){\n loadNotifications("admin-notifications");
+async function loadAdmin(){
+ loadNotifications("admin-notifications");
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
  loadAdminKycReviews();
@@ -781,7 +783,8 @@ async function loadEditorRefunds(){
  const root=$("editor-refunds");if(!root)return;root.textContent="Loading deposit refund status…";
  try{const d=await api("/v1/editor/deposit-refunds");root.replaceChildren();if(!d.refunds.length){root.textContent="No deposit refund requests yet. Your deposit will become eligible after CSA quality approval.";return;}for(const r of d.refunds){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=r.title+" · "+r.public_project_code;const meta=document.createElement("p");meta.className="muted";meta.textContent="Refund amount: "+(r.amount_minor/100)+" "+r.currency+" · Status: "+r.status;const ref=document.createElement("p");ref.textContent=r.provider_refund_id?"Razorpay Refund ID: "+r.provider_refund_id:"Razorpay refund reference will appear once available.";c.append(h,meta,ref);root.append(c);}}catch(e){root.textContent=e.message;}
 }
-async function loadOffers(){\n loadNotifications("editor-notifications");
+async function loadOffers(){
+ loadNotifications("editor-notifications");
  const root=$("offers");root.textContent="Loading invitations…";
  try{
   const d=await api("/v1/editor/offers");root.replaceChildren();
