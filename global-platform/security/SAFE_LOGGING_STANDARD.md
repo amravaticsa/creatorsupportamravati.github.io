@@ -166,3 +166,34 @@ A read-only source/settings review was completed for `csa-editor-portal-isolated
 7. Only after those tests pass, capture the current v1 artifact as rollback evidence and request separate approval for an isolated Worker-only deployment. Do not add public zone routes or promote to production as part of this work.
 
 **Execution status:** Audit and plan only. No code was changed in Cloudflare, no Worker version was uploaded, no production hostname was altered, and no public route was added.
+
+
+## Editor Portal host-policy implementation — 2026-11-21
+
+A source-only patch was added to the isolated Editor Portal snapshot at `global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js`.
+
+### Host policy now represented in the snapshot
+
+- `ENVIRONMENT=staging` maps the Editor UI to `editor-staging.creatorsupportamravati.in` and the Editor Management UI/API to `superadmin-editor-staging.creatorsupportamravati.in`.
+- `ENVIRONMENT=production` retains the existing production hostnames only.
+- Host matching is exact and role-specific; no suffix or wildcard matching is used.
+- Missing or unknown `ENVIRONMENT` fails closed with HTTP 503. The health endpoint reports `environment: "unconfigured"` and HTTP 503 until a supported environment is present.
+- Both the HTML route gates and the corresponding admin/editor API gates use the same environment-aware policy.
+- The existing same-origin Origin check remains unchanged.
+
+### Automated tests
+
+Added `global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/tests/host-policy.test.mjs` and included it in `.github/workflows/csa-global-validation.yml`.
+
+Coverage includes staging-only hosts, production-only hosts, missing/unknown environment, exact hostname matching, and role separation.
+
+Validation run: [GitHub Actions #44918464290](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44918464290) — successful. Staging Pages workflow: [#44918464334](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44918464334) — successful.
+
+### Remaining runtime blockers — do not expose the isolated Worker yet
+
+1. The isolated Editor Portal settings inventory did not include an `ENVIRONMENT` variable. Set the non-secret text variable to `staging` on `csa-editor-portal-isolated-staging` before expecting health to return 200. This has not been changed by this commit.
+2. The Super Admin session cookie is currently issued as `HttpOnly; Secure; SameSite=Strict; Path=/` with no `Domain` attribute. It is therefore host-only. A login on `superadmin.creatorsupportamravati.in` will not automatically authenticate a browser on `superadmin-editor-staging.creatorsupportamravati.in`. Do not broaden the production cookie to `.creatorsupportamravati.in` just to make staging work.
+3. Before admin UI end-to-end testing, provision a dedicated isolated Super Admin login/session origin or implement a reviewed same-origin authentication proxy that validates against the isolated Super Admin database. The admin session must be minted and checked against the same isolated database.
+4. DNS, routes, Worker settings, bindings, secrets, and deployments remain unchanged. No isolated Worker deployment or public route was made.
+
+**Execution status:** Source snapshot and CI test changes only. Passing CI and Pages deployment do not mean the isolated Cloudflare Worker is deployed or reachable.
