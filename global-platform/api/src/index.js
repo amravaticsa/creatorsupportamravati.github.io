@@ -32,7 +32,8 @@ function adminPermissionFor(req){
  const p=new URL(req.url).pathname.replace(/\/$/,""),m=req.method;
  if(/^\/v1\/files\/[\w-]+$/.test(p))return null;
  if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/offers/ready"].includes(p))return "projects.manage";
- if(m==="GET"&&["/v1/admin/tenders","/v1/admin/pricing-policy"].includes(p))return "projects.manage";
+ if(m==="GET"&&p==="/v1/admin/tenders")return "projects.manage";
+ if(m==="GET"&&p==="/v1/admin/pricing-policy")return "__deny__";
  if(m==="GET"&&p==="/v1/admin/tenders/bids")return "projects.manage";
  if(m==="POST"&&/^\/v1\/admin\/quotes\/[\w-]+\/send$/.test(p))return "projects.manage";
  if(m==="POST"&&(/^\/v1\/admin\/projects\/[\w-]+\/tender$/.test(p)||/^\/v1\/admin\/tenders\/[\w-]+\/(publish|close|award|quote)$/.test(p)||p==="/v1/admin/pricing-policy"))return "projects.manage";
