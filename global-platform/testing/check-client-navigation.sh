@@ -11,7 +11,7 @@ test -s "$client_login"
 test -s "$editor_register"
 test -s "$editor_login"
 
-grep -Fq '<a href="login.html">Continue to Client Portal</a>' "$client_page" || {
+grep -Eq '<a[^>]*href="login.html"[^>]*>Continue to Client Portal</a>' "$client_page" || {
   echo "FAIL: client project page must direct clients to Client Login."
   exit 1
 }
