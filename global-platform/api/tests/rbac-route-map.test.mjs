@@ -66,6 +66,8 @@ test("Editor Admin can manage editor KYC and agreements but not project or finan
 test("Finance Admin has explicit refund-write permission, separate from finance read", () => {
   assert.equal(permits("finance_admin", "GET", "/v1/admin/deposits/refunds/eligible"), true);
   assert.equal(permits("finance_admin", "POST", "/v1/admin/deposits/pay_1/refund"), true);
+  assert.equal(permits("finance_admin", "GET", "/v1/admin/client-refunds"), true);
+  assert.equal(permits("finance_admin", "PATCH", "/v1/admin/client-refunds/crf_1"), true);
   assert.equal(permits("finance_admin", "POST", "/v1/admin/projects/prj_1/offers"), false);
   assert.equal(can("project_admin", "finance.refunds"), false);
 });
@@ -74,6 +76,12 @@ test("Support Admin is limited to upload diagnostics and incident operations", (
   assert.equal(permits("support_admin", "GET", "/v1/admin/multipart-uploads"), true);
   assert.equal(permits("support_admin", "GET", "/v1/admin/multipart-cleanup-runs"), true);
   assert.equal(permits("support_admin", "POST", "/v1/admin/multipart-uploads/up_1/incidents"), true);
+  assert.equal(permits("support_admin", "GET", "/v1/notifications"), true);
+  assert.equal(permits("support_admin", "GET", "/v1/notifications/preferences"), true);
+  assert.equal(permits("support_admin", "PUT", "/v1/notifications/preferences"), true);
+  assert.equal(permits("support_admin", "POST", "/v1/admin/notifications"), true);
+  assert.equal(permits("support_admin", "GET", "/v1/admin/client-refunds"), false);
+  assert.equal(permits("support_admin", "PATCH", "/v1/admin/client-refunds/crf_1"), false);
   assert.equal(permits("support_admin", "POST", "/v1/admin/deposits/pay_1/refund"), false);
   assert.equal(permits("support_admin", "POST", "/v1/admin/projects/prj_1/offers"), false);
 });
