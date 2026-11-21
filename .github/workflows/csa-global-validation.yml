@@ -28,7 +28,7 @@ jobs:
           node --check global-platform/superadmin/global-admin-sync.js
           # Syntax-check every exported isolated Worker module (snapshot-only; no deployment).
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
-          node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js
+          node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-validate.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-dashboard.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js
