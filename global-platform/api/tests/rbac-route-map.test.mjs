@@ -92,3 +92,19 @@ test("pricing policy remains explicitly locked to the separate Super Admin bound
   assert.match(source, /Only Super Admin can (manage|change) CSA pricing policy/);
   assert.equal(rolePermissions.super_admin, undefined);
 });
+
+
+test("Super Admin pricing bridge is signed, replay-protected and staging-only", () => {
+  assert.equal(required("GET", "/v1/admin/pricing-policy"), "__deny__");
+  assert.equal(required("POST", "/v1/admin/pricing-policy"), "__deny__");
+  assert.match(source, /\/internal\/superadmin\/pricing-policy/);
+  assert.match(source, /env\.ENVIRONMENT!=="staging"/);
+  assert.match(source, /x-csa-sync-signature/);
+  assert.match(source, /pricing_signature_invalid/);
+  assert.match(source, /admin_sync_nonces/);
+  assert.match(source, /pricing_replay/);
+  assert.match(source, /superadmin_pricing_policy_updated/);
+  assert.match(source, /margin_bps/);
+  assert.match(source, /minimum_margin_minor/);
+  assert.match(source, /client_advance_bps/);
+});
