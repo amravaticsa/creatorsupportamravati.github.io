@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
-const dir = new URL("../migrations/", import.meta.url);
+const dir = new URL("../../migrations/", import.meta.url);
 const names = (await readdir(dir)).filter((name) => /^\d{4}_.+\.sql$/.test(name)).sort();
 assert.ok(names.length > 0, "No numbered SQL migrations found");
 
