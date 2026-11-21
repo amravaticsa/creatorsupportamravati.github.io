@@ -34,14 +34,15 @@ function mask(s){return clean(s,3000).replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]
 async function audit(env,editorId,orderId,event,details={}){await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editor_audit (id,editor_id,order_id,event_type,details_json) VALUES (?,?,?,?,?)").bind(id(),editorId||null,orderId||null,event,JSON.stringify(details)).run()}
 async function move(env,o,status,note,actor){if(o.order_status===status)return;await env.CSA_VIDEO_DB.batch([env.CSA_VIDEO_DB.prepare("UPDATE video_editing_orders SET order_status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,o.id),env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_status_history (id,order_id,old_status,new_status,note,changed_by) VALUES (?,?,?,?,?,?)").bind(id(),o.id,o.order_status,status,note,actor)])}
 export default {async fetch(req,env){
- const u=new URL(req.url),p=u.pathname,host=u.hostname;
+ const u=new URL(req.url),p=u.pathname,host=u.hostname,portalConfig=resolvePortalHosts(env);
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{"access-control-allow-origin":u.origin,"access-control-allow-methods":"GET,POST,PATCH,OPTIONS","access-control-allow-headers":"Content-Type,Authorization","cache-control":"no-store"}});
  if(req.headers.get("Origin")&&req.headers.get("Origin")!==u.origin)return json({error:"Origin not allowed"},403);
- if(p==="/health")return json({ok:true,service:"CSA Editor Portal",environment:"production"});
+ if(p==="/health")return json({ok:!!portalConfig,service:"CSA Editor Portal",environment:portalConfig?.environment||"unconfigured"},portalConfig?200:503);
+ if(!portalConfig)return json({error:"Portal environment is not configured"},503);
  if(isPortalHost(host,"admin",env)&&p==="/editor-management"){if(!await adminUser(req,env))return new Response("Super Admin authentication required",{status:401});return html(ADMIN_HTML)}
  if(isPortalHost(host,"editor",env)&&(p==="/"||p==="/editor"))return html(EDITOR_HTML);
  if(!p.startsWith("/editor-api/"))return json({error:"Not found"},404);
- if(host==="superadmin.creatorsupportamravati.in"){
+ if(isPortalHost(host,"admin",env)){
   const a=await adminUser(req,env);if(!a)return json({error:"Super Admin authentication required"},401);
   if(p==="/editor-api/admin/editors"&&req.method==="GET"){const r=await env.CSA_VIDEO_DB.prepare("SELECT id,user_id,display_name,status,created_at,last_login_at FROM video_editors ORDER BY created_at DESC").all();return json({editors:r.results||[]})}
   if(p==="/editor-api/admin/editors"&&req.method==="POST"){const b=await body(req),name=clean(b.name,100),user=clean(b.user_id,40).toLowerCase(),password=String(b.password||"");if(name.length<2||!/^[a-z0-9._-]{3,40}$/.test(user)||password.length<12||password.length>128)return json({error:"Enter a valid name, User ID (3–40 characters) and password (12–128 characters)."},400);const salt=b64(rand(16)),hash=await pwHash(password,salt),editorId=id();try{await env.CSA_VIDEO_DB.prepare("INSERT INTO video_editors (id,user_id,display_name,password_salt,password_hash) VALUES (?,?,?,?,?)").bind(editorId,user,name,salt,hash).run()}catch{return json({error:"That Editor User ID is already in use."},409)}await audit(env,null,null,"editor.created",{editorId,user,by:a.user_id});return json({ok:true,editor:{id:editorId,user_id:user,display_name:name,status:"active"}},201)}
