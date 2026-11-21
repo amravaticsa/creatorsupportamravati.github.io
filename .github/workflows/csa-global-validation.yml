@@ -22,7 +22,7 @@ jobs:
       - name: Check Worker and browser JavaScript syntax
         run: |
           node --check global-platform/api/src/index.js
-          node --test global-platform/api/tests/rbac-route-map.test.mjs
+          node --test global-platform/api/tests/*.test.mjs
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
           node --check global-platform/superadmin/global-admin-sync.js
