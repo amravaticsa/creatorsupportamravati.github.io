@@ -9,7 +9,7 @@ Status: preparation only — no production resources changed.
 ### Super Admin staging D1
 - Database: `csa-superadmin-staging`
 - ID: `99bc81fc-e97e-488b-a380-eb0237ff8ffc`
-- Contains 34 application tables (plus Cloudflare's internal `_cf_KV` table).
+- Contains 33 application tables (plus Cloudflare's internal `_cf_KV` table).
 - Core identity/access tables inspected: `admin_accounts`, `admin_permissions`, `admin_sessions`, `admin_enrollment_tokens`, and `csa_admin_module_access`.
 - `admin_accounts` contains identity, role, status, password-hash and phone-verification fields.
 - `admin_sessions` stores session-token hashes and expiry/revocation metadata.
@@ -150,3 +150,16 @@ The first GitHub write attempt created placeholder-only files because the D1 que
 The snapshots preserve the full SQL text of the source objects, including constraints, foreign keys, partial indexes, and trigger bodies. They exclude SQLite internal autoindexes and Cloudflare internal objects. The D1 export API was also exercised with `no_data: true`; the export completed, but the committed migration artifacts were reconstructed from the bounded `sqlite_master` DDL extraction so the exact source SQL could be stored and reviewed in Git.
 
 **Important:** this is a completeness/count verification, not an execution test. No disposable D1 was available, and no schema was applied to any existing D1. Before calling these deployable migrations, execute each file on a genuinely disposable database and compare `sqlite_master` object counts, foreign-key checks, and representative trigger behavior. The earlier note that migration files had not yet been generated is superseded by this section; validation on a disposable target remains outstanding.
+
+
+## Local schema validation harness (2026-11-21)
+
+Added `global-platform/scripts/verify-schema-snapshots.py`. It creates temporary in-memory SQLite databases, applies each schema-only file, checks expected table/index/trigger counts, required core tables, `PRAGMA foreign_key_check`, and `PRAGMA integrity_check`. It does not connect to Cloudflare or modify any remote database.
+
+Run from the repository root with:
+
+```sh
+python3 global-platform/scripts/verify-schema-snapshots.py
+```
+
+This harness is a local SQLite smoke test only. A disposable Cloudflare D1 migration test remains a separate mandatory release gate.
