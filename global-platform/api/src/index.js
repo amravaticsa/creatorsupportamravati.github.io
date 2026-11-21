@@ -48,6 +48,7 @@ function adminPermissionFor(req){
  if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
  if(m==="GET"&&p==="/v1/notifications")return "support.manage";
+ if(m==="POST"&&/^\/v1\/notifications\/[\w-]+\/read$/.test(p))return "support.manage";
  if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences")return "support.manage";
  if(m==="POST"&&p==="/v1/admin/notifications")return "support.manage";
  if(m==="GET"&&p==="/v1/admin/client-refunds")return "finance.read";
@@ -1154,7 +1155,7 @@ async function handle(req,env){
   const id=uid("crf");
   try{
    await env.DB.prepare("INSERT INTO client_refund_requests(id,payment_id,client_id,project_id,amount_minor,currency,reason,status,idempotency_key,requested_by) VALUES(?,?,?,?,?,?,?,'requested',?,?)").bind(id,payment.id,a.id,payment.project_id,amount,currency,reason,key,a.id).run();
-  }catch(e){if(String(e.message||"").includes("UNIQUE")){const duplicate=await env.DB.prepare("SELECT id,payment_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();if(duplicate)return out({ok:true,refund:duplicate,replayed:true});}throw e;}
+  }catch(e){if(String(e.message||"").includes("UNIQUE")){const duplicate=await env.DB.prepare("SELECT id,payment_id,client_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();if(duplicate){if(duplicate.client_id!==a.id||duplicate.payment_id!==paymentId)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:duplicate,replayed:true});}}throw e;}
   await log(env,a.id,"client_refund_requested","client_refund",id,{payment_id:paymentId,amount_minor:amount,currency});
   return out({ok:true,refund:{id,payment_id:paymentId,amount_minor:amount,currency,status:"requested"}},201);
  }
