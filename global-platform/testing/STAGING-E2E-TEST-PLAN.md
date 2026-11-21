@@ -16,8 +16,10 @@ Status: **Prepared; interactive end-to-end execution is not yet complete.**
 
 ## Current verified baseline
 
-- The latest staging Pages deployment completed successfully (workflow run 44920126054).
+- The latest staging Pages deployment completed successfully (workflow run 44921983519, commit `a4f7651faac5caa79df63b4b82e56f573caee31a`).
 - The deployment smoke test passed for the six core HTML routes, two portal JavaScript assets, and the staging API health endpoint.
+- The same deployment's read-only authorization-boundary step passed: unauthenticated requests to the client projects/refunds, editor tenders/assignments, admin tenders, pending editor KYC and client-refund endpoints all returned HTTP 401 or 403.
+- GitHub Actions job `Deploy only to csa-global-staging Pages` completed successfully; both frontend/API smoke checks and the API authorization-boundary step are green.
 - The latest API validation run completed successfully (workflow run 44920027417): JavaScript/source tests, required-file checks, schema snapshot validation and disposable-D1 safety-guard tests passed.
 - These are deployment and source/CI checks. They are **not** proof that a signed-in user can complete the business workflows below.
 - The browser-level tests require dedicated test identities and interactive Google sign-in; no user credentials or OTPs are stored in this plan.
