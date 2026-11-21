@@ -159,3 +159,18 @@ Limitations:
 ## Pricing policy boundary (staging)
 
 The Global API pricing-policy routes are intentionally fail-closed for all synchronized Global Admin roles (`GET` and `POST /v1/admin/pricing-policy` resolve to `__deny__`). The handler also retains its explicit Super Admin-only guard. Do not add `super_admin` to `GLOBAL_ROLE_PERMISSIONS`, do not grant `projects.manage` as a workaround, and do not expose pricing controls in the Super Admin dashboard until a dedicated HMAC-authenticated Super Admin-to-Global API bridge is implemented with timestamp, nonce/replay protection, audit logging, and end-to-end tests. The Global staging `csa_pricing_policies` table currently has no policy rows; no pricing values were created or changed by this security hardening. Production remains untouched.
+## Super Admin pricing control bridge (staging)
+
+- The Global API exposes `POST /internal/superadmin/pricing-policy` only for signed server-to-server requests. It checks the staging environment, a 60-second timestamp window, a SHA-256 body digest, HMAC-SHA256 signature, a one-time nonce in `admin_sync_nonces`, and strict currency / basis-point / minor-unit validation.
+- The Super Admin Worker exposes `/api/pricing-policy` and a separate `/pricing-policy` page. Both require a valid active Super Admin session; the dashboard navigation item is hidden for non-Super-Admin roles.
+- Supported operations: read configured country policies and recent audit entries; create/update a country's margin, minimum margin, and client advance percentage. Each successful update writes a Global audit entry and a Super Admin audit entry.
+- The Global Admin pricing routes remain fail-closed and the synchronized Global role map still excludes `super_admin`.
+- Both Worker changes are deployed to staging only. Production is unchanged.
+
+### Deployment verification and remaining prerequisite
+
+- Global API staging bridge deployment: `78115c6f4ebd4f7480d78221aeb1c54f`.
+- Super Admin staging dashboard/API deployment: `52ebc0c3e4384d8495785ec19dd1a9a7`.
+- The Super Admin Worker has an `ADMIN_SYNC_HMAC_SECRET` secret binding, but the Global API staging Worker currently has no matching secret binding. Therefore the Global bridge intentionally returns `503 pricing_bridge_unavailable` until the same newly generated secret is configured on both staging Workers. The existing secret is write-only and was not read or copied. Do not paste secrets into chat. Set/rotate the same random value in Cloudflare Worker > Settings > Variables and Secrets for both staging Workers under the exact binding name `ADMIN_SYNC_HMAC_SECRET`. Re-check both bindings before using Save.
+- No pricing policy rows have been created or modified. The dashboard is installed but end-to-end Save/Load is pending the matching staging secret.
+- Never add this secret to production as part of this staging task. Production remains untouched.
