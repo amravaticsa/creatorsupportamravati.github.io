@@ -31,9 +31,11 @@ jobs:
               else if (item.isFile() && item.name.toLowerCase().endsWith('.html')) {
                 let html = fs.readFileSync(full, 'utf8');
                 if (html.includes('/assets/js/role-menu.js')) continue;
-                html = /<\\/body\\s*>/i.test(html)
-                  ? html.replace(/<\\/body\\s*>/i, tag + '\\n</body>')
-                  : html + '\\n' + tag;
+                const lower = html.toLowerCase();
+                const index = lower.lastIndexOf('</body>');
+                html = index >= 0
+                  ? html.slice(0, index) + tag + String.fromCharCode(10) + html.slice(index)
+                  : html + String.fromCharCode(10) + tag;
                 fs.writeFileSync(full, html);
                 changed++;
               }
