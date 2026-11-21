@@ -173,3 +173,16 @@ A read-only inventory of deployed Workers, their actual `/settings` bindings, an
 - `csa-global-api-isolated-staging` is not a valid isolated Global Platform environment yet: its primary `DB` binding still points to the shared `csa-global-platform-staging` D1. It is currently not routed and its workers.dev subdomain remains disabled. Do not enable or route it.
 
 No Worker routes or bindings were changed during this audit. Do not simply repoint the production Super Admin route to the isolated Worker: that Worker has an empty isolated identity database and lacks a verified production identity setup. Required remediation: provision/authorize a dedicated production Super Admin data store, deploy a production Super Admin Worker with production-only bindings and secrets, migrate/verify its schema and authorized accounts, then test authentication and Editor Management routes before changing production routing. Keep all production route/binding remediation behind explicit owner approval and a verified rollback plan.
+
+
+## Rush Approval Worker routing and database audit (2026-11-21)
+
+A read-only check of the deployed Rush Admin Worker, its D1 bindings, the matching custom routes, and application table counts found:
+
+- Both production-hostname routes `superadmin.creatorsupportamravati.in/rush-approvals*` and `superadmin.creatorsupportamravati.in/rush-api/*` currently target `csa-rush-admin-staging`.
+- `csa-rush-admin-staging` is bound to `CSA_RUSH_DB` = `csa-video-rush-staging` (D1 ID `198a0604-af4d-4671-8053-5df245ea754c`) and `CSA_SUPERADMIN_DB` = `csa-superadmin-staging` (D1 ID `99bc81fc-e97e-488b-a380-eb0237ff8ffc`). These are staging databases.
+- The Rush Worker settings expose no explicit `ENVIRONMENT` plain-text binding. Do not infer production readiness from the production hostname.
+- The Rush D1 currently has three application tables (`rush_delivery_audit`, `rush_delivery_quotes`, and `video_editing_orders`); read-only row counts returned zero for all three. This means there is no Rush workflow data in this D1 at audit time; it does not establish that the workflow is fully migrated or end-to-end functional.
+- No dedicated production Rush Admin Worker or production Rush D1 was verified in this audit. The production-hostname Rush routes must be considered staging-to-production routing blockers until a production data store and Worker are provisioned and validated.
+- Do not repoint these routes to another Worker or change D1 bindings until the production Rush schema, identity integration, authorization rules, and rollback plan are verified. Keep production routing changes behind explicit owner approval.
+- This audit was read-only: no route, Worker binding, D1 schema, or row was changed. No HTTP end-to-end runtime test was claimed.
