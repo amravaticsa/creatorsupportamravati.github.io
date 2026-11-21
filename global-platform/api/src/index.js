@@ -23,7 +23,6 @@ async function claims(req,env){
  return c;
 }
 const GLOBAL_ROLE_PERMISSIONS={
- super_admin:["projects.manage","content.manage","finance.read","finance.refunds","support.manage"],
  project_admin:["projects.manage"],
  editor_admin:["content.manage"],
  finance_admin:["finance.read","finance.refunds"],
@@ -120,7 +119,7 @@ async function handle(req,env){
   const seenIds=new Set(),seenEmails=new Set(),records=[];
   for(const item of snapshot){
    const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20);
-   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["super_admin","project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
+   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
    if(seenIds.has(sourceId)||seenEmails.has(email))return bad("Snapshot contains duplicate admin identities.");
    seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status});
   }
@@ -131,9 +130,7 @@ async function handle(req,env){
   for(const a of records){
    statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status) VALUES(?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status));
    statements.push(env.DB.prepare("DELETE FROM global_admin_department_access WHERE source_admin_id=?").bind(a.sourceId));
-   const departmentIds=a.role==="super_admin"
-    ? ["dept-content-video","dept-design-creative","dept-digital-marketing","dept-finance-accounts","dept-hr-admin","dept-operations-events","dept-sales-client","dept-web-tech"]
-    : ({editor_admin:["dept-content-video","dept-hr-admin"],project_admin:["dept-operations-events"],finance_admin:["dept-finance-accounts"],support_admin:["dept-sales-client"]})[a.role]||[];
+   const departmentIds=({editor_admin:["dept-content-video","dept-hr-admin"],project_admin:["dept-operations-events"],finance_admin:["dept-finance-accounts"],support_admin:["dept-sales-client"]})[a.role]||[];
    if(a.status==="active")for(const departmentId of departmentIds)statements.push(env.DB.prepare("INSERT INTO global_admin_department_access(id,source_admin_id,department_id,access_level,granted_by) VALUES(?,?,?,'manage','superadmin_role_sync')").bind(uid("deptaccess"),a.sourceId,departmentId));
   }
   statements.push(env.DB.prepare("DELETE FROM admin_sync_nonces WHERE expires_at<?").bind(nowSeconds));
