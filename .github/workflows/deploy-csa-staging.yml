@@ -70,7 +70,7 @@ jobs:
               process.exit(1);
             }
             if (health.d1_connected === undefined) {
-              console.log("Staging API reports healthy. This deployed health response omits d1_connected; healthy status is produced only after the API's read-only D1 SELECT succeeds.");
+              console.log("Staging API reports healthy. This deployed health response omits d1_connected; healthy status is produced only after the read-only D1 SELECT succeeds.");
             } else {
               console.log("Staging frontend responds and API reports healthy D1 connectivity.");
             }
