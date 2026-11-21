@@ -10,7 +10,7 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · Account status: "+(user.account_status||user.status||"not provided by login response");
 function endSession(message="Session expired. Please sign in again."){$("account-status").textContent=message;try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");}
 $("logout").onclick=()=>endSession("You have been signed out.");
-const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
+const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadMyEditorPerformance(),loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
 async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
  const report=state=>{try{onStatus(state);}catch{}};
@@ -456,7 +456,8 @@ async function loadPortfolioVideoReviews(){
    const actions=document.createElement("div");actions.className="actions";
    for(const [status,label] of [["approved","Approve for Showcase"],["rejected","Reject Video"]]){
     const b=document.createElement("button");b.className=status==="approved"?"btn dark":"btn outline";b.textContent=label;
-    b.onclick=async()=>{if(status==="rejected"&&!note.value.trim()){alert("Video reject karne ke liye clear reason likhna mandatory hai.");note.focus();return;}if(!confirm(label+"?"))return;b.disabled=true;try{await api("/v1/admin/editor-portfolio-videos/"+encodeURIComponent(item.id)+"/review",{method:"POST",body:JSON.stringify({status,note:note.value.trim()})});if(player.src)URL.revokeObjectURL(player.src);await loadPortfolioVideoReviews();loadAdminKycReviews();}catch(err){alert(err.message);b.disabled=false;}};
+    b.onclick=async()=>{if(status==="rejected"&&!note.value.trim()){alert("Video reject karne ke liye clear reason likhna mandatory hai.");note.focus();return;}if(!confirm(label+"?"))return;b.disabled=true;try{await api("/v1/admin/editor-portfolio-videos/"+encodeURIComponent(item.id)+"/review",{method:"POST",body:JSON.stringify({status,note:note.value.trim()})});if(player.src)URL.revokeObjectURL(player.src);await loadEditorPerformance();
+ loadPortfolioVideoReviews();loadAdminKycReviews();}catch(err){alert(err.message);b.disabled=false;}};
     actions.append(b);
    }
    card.append(h,meta,desc,consent,preview,player,note,actions);root.append(card);
@@ -522,6 +523,48 @@ async function openEditorReviewProfile(editorId){
   for(const event of data.review_history||[]){const row=document.createElement("p");const action=event.action==="editor_kyc_reviewed"?"KYC":event.action==="editor_verification_updated"?"Profile":event.action==="editor_portfolio_video_reviewed"?"Portfolio":event.action;row.textContent=action+" · "+(event.review_status||"recorded")+" · "+(event.actor_email||"CSA Admin")+" · "+(event.created_at||"")+" · "+(event.review_note||"No note");history.append(row);}
   root.append(history);
  }catch(err){root.textContent="Editor detail could not be loaded: "+err.message;}
+}
+function renderPerformanceMetrics(root,record,adminMode=false){
+ root.replaceChildren();
+ const metrics=[
+  ["Assigned projects",record.assigned_total],
+  ["Completed projects",record.completed_total],
+  ["Active projects",record.active_total],
+  ["Overdue active projects",record.overdue_active],
+  ["On-time completions",record.on_time_completions],
+  ["Work submissions",record.submissions_total],
+  ["QC changes requested",record.qc_changes_requested],
+  ["Client revision requests",record.revision_requests],
+  ["Project disputes",record.disputes],
+  ["Cancelled / reassigned",record.cancelled_or_reassigned]
+ ];
+ if(adminMode){
+  const title=document.createElement("h4");title.textContent=(record.display_name||"Editor")+" · "+(record.public_editor_code||"CSA Editor");root.append(title);
+  const meta=document.createElement("p");meta.className="muted";meta.textContent=(record.email||"")+" · Account: "+(record.account_status||"unknown")+" · Profile: "+(record.verification_status||"unknown");root.append(meta);
+ }
+ const grid=document.createElement("div");grid.className="stats";
+ for(const [label,value] of metrics){
+  const card=document.createElement("div");card.className="stat";
+  const small=document.createElement("small");small.textContent=label;
+  const strong=document.createElement("strong");strong.textContent=Number(value||0).toLocaleString();
+  card.append(small,strong);grid.append(card);
+ }
+ root.append(grid);
+ const note=document.createElement("p");note.className="muted";
+ note.textContent="Client ratings: Not collected yet. On-time completion count is based on recorded project completion history and assignment due dates; where completion history is missing, no on-time result is assumed.";
+ root.append(note);
+}
+async function loadEditorPerformance(){
+ const root=$("admin-editor-performance");if(!root)return;root.textContent="Loading editor performance records…";
+ try{
+  const d=await api("/v1/admin/editor-performance");root.replaceChildren();
+  if(!Array.isArray(d.editors)||!d.editors.length){root.textContent="No editor performance records available yet.";return;}
+  for(const record of d.editors){const card=document.createElement("article");card.className="card";renderPerformanceMetrics(card,record,true);root.append(card);}
+ }catch(e){root.textContent=e.message;}
+}
+async function loadMyEditorPerformance(){
+ const root=$("editor-performance");if(!root)return;root.textContent="Loading your performance…";
+ try{const d=await api("/v1/editor/performance");renderPerformanceMetrics(root,d.performance||{});}catch(e){root.textContent=e.message;}
 }
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
