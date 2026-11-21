@@ -531,6 +531,16 @@ async function handle(req,env){
   let object;
   try{object=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).complete(parts.map(x=>({partNumber:Number(x.part_number),etag:x.etag})));}
   catch(e){await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();return bad("Storage completion outcome is uncertain. Contact CSA before retrying this upload.",502,"multipart_completion_unknown");}
+  // Verify the completed R2 object itself before writing a trusted file/submission record.
+  let storedObject;
+  try{storedObject=await env.MEDIA.head(session.r2_object_key);}catch(e){
+   await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();
+   return bad("Upload completed but storage verification failed. Contact CSA before retrying.",502,"multipart_storage_verification_unknown");
+  }
+  if(!storedObject||Number(storedObject.size)!==Number(session.total_size_bytes)){
+   await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();
+   return bad("Stored file size could not be verified. Contact CSA before retrying.",502,"multipart_storage_size_mismatch");
+  }
   try{
    if(session.purpose==="project_file"){
     await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(uid("file"),session.project_id,a.id,session.r2_object_key,session.original_filename,session.mime_type,session.total_size_bytes).run();
