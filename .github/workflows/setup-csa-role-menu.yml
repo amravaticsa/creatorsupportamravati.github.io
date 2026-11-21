@@ -1,0 +1,55 @@
+name: Install CSA role menu on all pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/setup-csa-role-menu.yml'
+permissions:
+  contents: write
+jobs:
+  inject-role-menu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Inject shared account menu into every HTML page
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const root = process.cwd();
+          const tag = '<script src="/assets/js/role-menu.js?v=20261121"></script>';
+          let changed = 0;
+          function walk(dir) {
+            for (const item of fs.readdirSync(dir, {withFileTypes:true})) {
+              if (item.name === '.git' || item.name === 'node_modules') continue;
+              const full = path.join(dir, item.name);
+              if (item.isDirectory()) walk(full);
+              else if (item.isFile() && item.name.toLowerCase().endsWith('.html')) {
+                let html = fs.readFileSync(full, 'utf8');
+                if (html.includes('/assets/js/role-menu.js')) continue;
+                html = /<\\/body\\s*>/i.test(html)
+                  ? html.replace(/<\\/body\\s*>/i, tag + '\\n</body>')
+                  : html + '\\n' + tag;
+                fs.writeFileSync(full, html);
+                changed++;
+              }
+            }
+          }
+          walk(root);
+          console.log('Updated HTML pages:', changed);
+          NODE
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.html'
+          if git diff --cached --quiet; then
+            echo "No HTML changes required."
+            exit 0
+          fi
+          git commit -m "Add shared CSA account menu to all HTML pages"
+          git push origin HEAD:main
