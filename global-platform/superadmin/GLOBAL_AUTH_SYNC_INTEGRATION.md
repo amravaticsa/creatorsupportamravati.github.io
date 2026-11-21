@@ -171,7 +171,7 @@ The Global API pricing-policy routes are intentionally fail-closed for all synch
 
 - Global API staging bridge deployment: `78115c6f4ebd4f7480d78221aeb1c54f`.
 - Super Admin staging dashboard/API deployment: `52ebc0c3e4384d8495785ec19dd1a9a7`.
-- The Super Admin Worker has an `ADMIN_SYNC_HMAC_SECRET` secret binding, but the Global API staging Worker currently has no matching secret binding. Therefore the Global bridge intentionally returns `503 pricing_bridge_unavailable` until the same newly generated secret is configured on both staging Workers. The existing secret is write-only and was not read or copied. Do not paste secrets into chat. Set/rotate the same random value in Cloudflare Worker > Settings > Variables and Secrets for both staging Workers under the exact binding name `ADMIN_SYNC_HMAC_SECRET`. Re-check both bindings before using Save.
+- Cloudflare metadata currently shows an `ADMIN_SYNC_HMAC_SECRET` secret binding on both `csa-superadmin-api-staging` and `csa-global-api-staging`. Secret values are write-only and were not read; matching binding names do not prove matching values. The signed bridge handshake and authenticated Save/Load remain unverified. Do not paste secrets into chat or rotate them as part of this task.
 - No pricing policy rows have been created or modified. The dashboard is installed but end-to-end Save/Load is pending the matching staging secret.
 - Never add this secret to production as part of this staging task. Production remains untouched.
 
@@ -180,3 +180,12 @@ The Global API pricing-policy routes are intentionally fail-closed for all synch
 - Updated `global-platform/migrations/0023_tenders_pricing_quotes.sql` so a fresh staging database defines `client_advance_bps` with a 1–10000 basis-point CHECK constraint, matching the currently inspected Global staging D1 schema.
 - Extended `global-platform/api/tests/rbac-route-map.test.mjs` to assert the CSA margin, minimum margin, client advance and unconfigured-by-default constraints.
 - This was a source migration/test update only; no D1 migration was run and no pricing data was changed.
+
+
+### Admin hostname and environment isolation audit (2026-11-21)
+
+- Cloudflare custom-domain metadata currently maps both `admin.creatorsupportamravati.in` and `superadmin.creatorsupportamravati.in` to the Worker script `csa-superadmin-api-staging`. The Worker's environment binding is `ENVIRONMENT=staging`; its custom-domain metadata reports the default Worker environment as `production`. The hostname guard in the Worker intentionally permits non-Super-Admin roles on the `admin` host and only the `super_admin` role on the `superadmin` host.
+- This is a deployment-isolation concern: the script named `staging` is attached to the official admin hostnames. No hostname, route, Worker, Access policy, or database binding was changed during this audit. Do not create a production Worker, move custom domains, or repoint routes without an explicit migration plan and a verified replacement.
+- The Cloudflare execution environment blocks outbound requests to the admin hostname with a tool-level 403, so it cannot be used to prove live route behavior. The connected browser showed an authenticated Super Admin dashboard, but its rendered navigation did not include the Pricing Policy item even though the deployed HTML contains the item and the served-app source contains a Super-Admin visibility condition. A browser refresh / authenticated route check is still required; this discrepancy is not yet diagnosed.
+- The Super Admin Worker contains authenticated `GET /pricing-policy` and `GET/POST /api/pricing-policy` handlers, guarded by an active Super Admin session. Do not treat source presence as proof of successful HMAC Load/Save. Global D1 currently has zero configured pricing-policy rows; no live pricing data was created or modified.
+- Before the next Worker deployment, establish separate staging and production admin Workers / hostnames and validate Cloudflare Access coverage, D1 bindings, and role routing. Keep the existing official hostname mapping unchanged until the replacement is tested.
