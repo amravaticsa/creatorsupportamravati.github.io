@@ -389,6 +389,29 @@ async function loadClientProjects(){
    const detail=document.createElement("p");detail.textContent=info.detail;
    const progress=document.createElement("div");progress.className="client-progress";progress.setAttribute("aria-label","Application progress");
    ["Application received","CSA review","Team & planning","Production","Quality & delivery"].forEach((name,index)=>{const item=document.createElement("span");item.className="client-progress-step"+(index+1<=info.step?" is-done":"");item.textContent=name;progress.append(item);});
+   const timeline=document.createElement("section");timeline.className="panel";timeline.setAttribute("aria-label","Project activity timeline");
+   const timelineTitle=document.createElement("h4");timelineTitle.textContent="Project Activity Timeline";
+   const timelineList=document.createElement("ol");timelineList.className="project-timeline";
+   timeline.append(timelineTitle,timelineList);
+   try{
+    const td=await api("/v1/client/projects/"+encodeURIComponent(p.id)+"/timeline");
+    const labels={application_received:"Application received",status_changed:"Project status updated",editor_offer_created:"Editor offer issued",editor_offer_accepted:"Editor accepted offer",editor_assigned:"Editor assigned",payment_update:"Payment update",work_submitted:"Work submitted for quality review",revision_update:"Revision update"};
+    for(const ev of (td.events||[])){
+     const li=document.createElement("li");li.className="project-timeline-event";
+     const name=document.createElement("strong");name.textContent=labels[ev.event_type]||"Project update";
+     const date=document.createElement("time");date.dateTime=ev.created_at||"";date.textContent=ev.created_at?new Date(ev.created_at).toLocaleString():"Time unavailable";
+     const description=document.createElement("p");
+     if(ev.event_type==="status_changed")description.textContent=(ev.old_status?String(ev.old_status).replaceAll("_"," ")+" → ":"")+" "+String(ev.new_status||"updated").replaceAll("_"," ");
+     else if(ev.event_type==="editor_assigned")description.textContent="Assigned to "+(ev.editor_name||"CSA Editor")+(ev.due_at?" · Due "+new Date(ev.due_at).toLocaleString():"");
+     else if(ev.event_type==="payment_update")description.textContent=String(ev.payment_type||"payment").replaceAll("_"," ")+" · "+String(ev.status||"updated").replaceAll("_"," ")+(ev.amount_minor!=null?" · "+(Number(ev.amount_minor)/100)+" "+(ev.currency||""):"");
+     else if(ev.event_type==="work_submitted")description.textContent="Version "+ev.version_number+" · Quality review: "+String(ev.status||"pending").replaceAll("_"," ");
+     else if(ev.event_type==="revision_update")description.textContent="Revision request: "+String(ev.status||"open").replaceAll("_"," ");
+     else if(ev.event_type==="editor_offer_created")description.textContent="Editor matching offer · Current offer status: "+String(ev.status||"offered").replaceAll("_"," ");
+     else description.textContent=ev.event_type==="application_received"?"Your request entered CSA on this date.":"Your project record was updated.";
+     li.append(name,date,description);timelineList.append(li);
+    }
+    if(!timelineList.children.length){const empty=document.createElement("p");empty.textContent="No additional activity has been recorded yet.";timeline.append(empty);}
+   }catch(e){const msg=document.createElement("p");msg.className="muted";msg.textContent="Activity timeline is temporarily unavailable.";timeline.append(msg);}
    const section=document.createElement("section");section.className="panel";
    const heading=document.createElement("h4");heading.textContent="Your submitted application";
    const brief=document.createElement("p");brief.textContent=p.brief||"No additional brief supplied.";
