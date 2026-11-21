@@ -13,6 +13,43 @@ $("logout").onclick=()=>endSession("You have been signed out.");
 const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadClientFeedbackEligible(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadMyEditorPerformance(),loadEditorAvailability(),loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
 
+function buildDisputeForm(projectId,role,host){
+ const details=document.createElement("details");details.className="dispute-form";
+ const summary=document.createElement("summary");summary.textContent="Report a problem / Raise a complaint";
+ const form=document.createElement("form");form.className="form";
+ const category=document.createElement("select");category.required=true;category.setAttribute("aria-label","Complaint category");
+ for(const [v,label] of [["","Select complaint category"],["scope","Work scope / requirements"],["quality","Work quality"],["deadline","Missed deadline"],["payment","Payment"],["deposit","Security deposit"],["conduct","Communication / conduct"],["other","Other"]]){const o=document.createElement("option");o.value=v;o.textContent=label;category.append(o);}
+ const severity=document.createElement("select");severity.setAttribute("aria-label","Complaint urgency");
+ for(const [v,label] of [["normal","Normal priority"],["high","High priority"],["low","Low priority"]]){const o=document.createElement("option");o.value=v;o.textContent=label;severity.append(o);}
+ const description=document.createElement("textarea");description.required=true;description.minLength=20;description.maxLength=4000;description.rows=4;description.placeholder="Explain what happened, important dates and what outcome you are seeking (20–4,000 characters).";
+ const send=document.createElement("button");send.type="submit";send.className="btn dark";send.textContent="Submit complaint";
+ const status=document.createElement("p");status.className="muted";status.setAttribute("role","status");
+ form.append(category,severity,description,send,status);details.append(summary,form);host.append(details);
+ form.addEventListener("submit",async e=>{e.preventDefault();if(description.value.trim().length<20){status.textContent="Please add more detail.";return;}send.disabled=true;status.textContent="Submitting securely…";try{await api("/v1/"+role+"/projects/"+encodeURIComponent(projectId)+"/disputes",{method:"POST",body:JSON.stringify({dispute_type:category.value,severity:severity.value,description:description.value.trim()})});status.textContent="Complaint submitted. CSA has been notified.";form.reset();details.open=false;loadMyDisputes(role,role==="client"?"client-disputes":"editor-disputes");}catch(err){status.textContent=err.message;}finally{send.disabled=false;}});
+}
+async function loadMyDisputes(role,rootId){
+ const root=$(rootId);if(!root)return;root.textContent="Loading complaints…";
+ try{const d=await api("/v1/"+role+"/disputes"),items=Array.isArray(d.disputes)?d.disputes:[],events=Array.isArray(d.events)?d.events:[];root.replaceChildren();if(!items.length){root.textContent="No complaints have been submitted.";return;}
+ for(const item of items){const card=document.createElement("article");card.className="card dispute-card";const title=document.createElement("h3");title.textContent=(item.public_project_code||"Project")+" · "+item.dispute_type;const meta=document.createElement("p");meta.className="muted";meta.textContent="Status: "+item.status.replace("_"," ")+" · Priority: "+item.severity+" · Submitted: "+new Date(item.created_at).toLocaleString();const desc=document.createElement("p");desc.textContent=item.description;card.append(title,meta,desc);
+ if(item.resolution_notes){const resolution=document.createElement("p");resolution.textContent="CSA response: "+item.resolution_notes;card.append(resolution);}
+ const history=events.filter(x=>x.dispute_id===item.id);for(const ev of history){if(!ev.public_note)continue;const line=document.createElement("p");line.className="muted dispute-event";line.textContent=(ev.actor_role==="admin"?"CSA · ":"")+ev.public_note+" · "+new Date(ev.created_at).toLocaleString();card.append(line);}
+ root.append(card);}
+ }catch(e){root.textContent="Complaints could not be loaded: "+e.message;}
+}
+async function loadAdminDisputes(){
+ const root=$("admin-disputes");if(!root)return;root.textContent="Loading complaint queue…";
+ try{const filter=$("admin-dispute-filter")?.value||"open",d=await api("/v1/admin/disputes"+(filter==="all"?"":"?status="+encodeURIComponent(filter))),items=Array.isArray(d.disputes)?d.disputes:[],events=Array.isArray(d.events)?d.events:[];root.replaceChildren();if(!items.length){root.textContent="No complaints in this queue.";return;}
+ for(const item of items){const card=document.createElement("article");card.className="card dispute-card";const title=document.createElement("h3");title.textContent=item.public_project_code+" · "+item.title;const meta=document.createElement("p");meta.className="muted";meta.textContent="From: "+item.opener_role+" ("+item.opener_email+") · "+item.dispute_type+" · "+item.severity+" priority · "+item.status;const due=document.createElement("p");due.className="muted";due.textContent="Response target: "+(item.response_due_at?new Date(item.response_due_at).toLocaleString():"Not set")+" · Received: "+new Date(item.created_at).toLocaleString();const desc=document.createElement("p");desc.textContent=item.description;card.append(title,meta,due,desc);
+ const history=events.filter(x=>x.dispute_id===item.id);for(const ev of history){const line=document.createElement("p");line.className="muted dispute-event";line.textContent=ev.actor_role+" · "+(ev.to_status||ev.event_type)+" · "+(ev.public_note||"")+" · "+new Date(ev.created_at).toLocaleString();card.append(line);}
+ if(item.admin_private_notes){const priv=document.createElement("p");priv.className="muted";priv.textContent="Previous internal note: "+item.admin_private_notes;card.append(priv);}
+ if(!["resolved","rejected"].includes(item.status)){const form=document.createElement("form");form.className="form dispute-decision";const status=document.createElement("select");status.setAttribute("aria-label","Complaint decision");for(const [v,l] of [["under_review","Move to under review"],["resolved","Resolve complaint"],["rejected","Reject complaint"]]){const o=document.createElement("option");o.value=v;o.textContent=l;status.append(o);}const resolution=document.createElement("select");resolution.setAttribute("aria-label","Resolution recommendation");for(const [v,l] of [["","Select resolution type"],["refund_review","Refund review (not automatic)"],["reassignment_review","Reassignment review (not automatic)"],["revision","Additional revision"],["other","Other / guidance"]]){const o=document.createElement("option");o.value=v;o.textContent=l;resolution.append(o);}const pub=document.createElement("textarea");pub.rows=2;pub.maxLength=3000;pub.placeholder="Client/Editor-visible response or decision reason";const internal=document.createElement("textarea");internal.rows=2;internal.maxLength=3000;internal.placeholder="Internal CSA note (not visible to Client/Editor)";const save=document.createElement("button");save.type="submit";save.className="btn dark";save.textContent="Save complaint decision";const msg=document.createElement("p");msg.className="muted";msg.setAttribute("role","status");form.append(status,resolution,pub,internal,save,msg);card.append(form);
+ form.addEventListener("submit",async e=>{e.preventDefault();if(status.value==="resolved"&&!resolution.value){msg.textContent="Select a resolution type.";return;}save.disabled=true;msg.textContent="Saving decision…";try{await api("/v1/admin/disputes/"+encodeURIComponent(item.id)+"/decision",{method:"POST",body:JSON.stringify({status:status.value,resolution_type:resolution.value,public_note:pub.value.trim(),private_note:internal.value.trim()})});msg.textContent="Decision saved and requester notified.";await loadAdminDisputes();}catch(err){msg.textContent=err.message;save.disabled=false;}});
+ }
+ root.append(card);}
+ }catch(e){root.textContent="Complaint queue could not be loaded: "+e.message;}
+}
+
+
 async function renderProjectMessages(projectId,role,host){
  const details=document.createElement("details");details.className="project-messages panel";
  const summary=document.createElement("summary");summary.textContent="Project messages · Client & CSA Support";
@@ -406,6 +443,7 @@ async function loadNotifications(containerId){
 }
 async function loadClientProjects(){
  loadNotifications("client-notifications");
+ loadMyDisputes("client","client-disputes");
  const root=$("client-projects");if(!root)return;root.textContent="Loading your applications…";
  const statusInfo={
   submitted:{label:"Application received",step:1,detail:"Your application has been received by CSA and is awaiting review."},
@@ -515,11 +553,13 @@ async function loadClientProjects(){
     }
    }catch{}
    await renderProjectMessages(p.id,"client",c);
+   buildDisputeForm(p.id,"client",c);
    root.append(c);
   }
  }catch(e){root.textContent=e.message;}
 }
 const editorReviewCounts={kyc:null,profile:null,portfolio:null};
+$("admin-dispute-filter")?.addEventListener("change",loadAdminDisputes);
 async function loadEditorReviewHistory(){
  const root=$("admin-editor-review-history");if(!root)return;root.textContent="Loading editor review history…";
  try{
@@ -747,6 +787,7 @@ async function loadAdminProjectOffers(){
 }
 async function loadAdmin(){
  loadNotifications("admin-notifications");
+ loadAdminDisputes();
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
  loadAdminKycReviews();
@@ -845,8 +886,9 @@ async function loadAdmin(){
  }catch(e){updateEditorReviewSummary("profile",null,"error");metrics.textContent="Admin data could not be loaded: "+e.message;}
 }
 async function loadAssignments(){
+ loadMyDisputes("editor","editor-disputes");
  const root=$("assignments");if(!root)return;root.textContent="Loading assignments…";
- try{const d=await api("/v1/editor/assignments");root.replaceChildren();if(!d.assignments.length){root.textContent="No active assignments yet.";return;}for(const a of d.assignments){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=a.title+" · "+a.public_project_code;const p=document.createElement("p");p.textContent=a.brief;const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+a.due_at+" · Status: "+a.status;try{const sourceFiles=await api("/v1/projects/"+a.project_id+"/files");for(const sf of sourceFiles.files){const dl=document.createElement("button");dl.className="btn outline";dl.textContent="Download source: "+sf.original_filename;dl.onclick=async()=>{const r=await fetch(API+"/v1/files/"+sf.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Source download denied");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=sf.original_filename;a.click();URL.revokeObjectURL(url);};c.append(dl);}}catch{}const file=document.createElement("input");file.type="file";file.accept="video/*,audio/*,image/*,application/pdf,application/zip";const note=document.createElement("input");note.placeholder="Submission notes (optional)";const b=document.createElement("button");b.className="btn dark";b.textContent="Submit work to CSA";b.onclick=async()=>{const f=file.files[0];if(!f){alert("Select a file first.");return;}if(f.size>5*1024*1024*1024){alert("Upload limit is 5 GB per file.");return;}try{if(f.size>90*1024*1024){b.disabled=true;b.textContent="Uploading…";await multipartUpload(f,{purpose:"submission",assignment_id:a.id,notes:note.value},(sent,total,part,count)=>{b.textContent="Uploading "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},null,state=>{if(state.type==="retry")b.textContent="Retrying · "+state.attempt+"/3 · "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")b.textContent="Verifying upload…";});}else{const r=await fetch(API+"/v1/assignments/"+a.id+"/submissions",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":f.type||"application/octet-stream","x-file-name":f.name,"x-submission-notes":note.value},body:f});const result=await r.json();if(!r.ok)throw Error(result.error?.message||"Upload failed");}alert("Work submitted to CSA for quality review.");loadAssignments();}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent="Submit work to CSA";}};c.append(h,p,meta,file,note,b);root.append(c);}}catch(e){root.textContent=e.message;}
+ try{const d=await api("/v1/editor/assignments");root.replaceChildren();if(!d.assignments.length){root.textContent="No active assignments yet.";return;}for(const a of d.assignments){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=a.title+" · "+a.public_project_code;const p=document.createElement("p");p.textContent=a.brief;const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+a.due_at+" · Status: "+a.status;try{const sourceFiles=await api("/v1/projects/"+a.project_id+"/files");for(const sf of sourceFiles.files){const dl=document.createElement("button");dl.className="btn outline";dl.textContent="Download source: "+sf.original_filename;dl.onclick=async()=>{const r=await fetch(API+"/v1/files/"+sf.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Source download denied");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=sf.original_filename;a.click();URL.revokeObjectURL(url);};c.append(dl);}}catch{}const file=document.createElement("input");file.type="file";file.accept="video/*,audio/*,image/*,application/pdf,application/zip";const note=document.createElement("input");note.placeholder="Submission notes (optional)";const b=document.createElement("button");b.className="btn dark";b.textContent="Submit work to CSA";b.onclick=async()=>{const f=file.files[0];if(!f){alert("Select a file first.");return;}if(f.size>5*1024*1024*1024){alert("Upload limit is 5 GB per file.");return;}try{if(f.size>90*1024*1024){b.disabled=true;b.textContent="Uploading…";await multipartUpload(f,{purpose:"submission",assignment_id:a.id,notes:note.value},(sent,total,part,count)=>{b.textContent="Uploading "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},null,state=>{if(state.type==="retry")b.textContent="Retrying · "+state.attempt+"/3 · "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")b.textContent="Verifying upload…";});}else{const r=await fetch(API+"/v1/assignments/"+a.id+"/submissions",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":f.type||"application/octet-stream","x-file-name":f.name,"x-submission-notes":note.value},body:f});const result=await r.json();if(!r.ok)throw Error(result.error?.message||"Upload failed");}alert("Work submitted to CSA for quality review.");loadAssignments();}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent="Submit work to CSA";}};c.append(h,p,meta,file,note,b);buildDisputeForm(a.project_id,"editor",c);root.append(c);}}catch(e){root.textContent=e.message;}
 }
 async function loadEditorRefunds(){
  const root=$("editor-refunds");if(!root)return;root.textContent="Loading deposit refund status…";
