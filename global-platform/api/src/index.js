@@ -159,7 +159,8 @@ async function handle(req,env){
   catch{return bad("Pricing bridge nonce was already used.",409,"pricing_replay");}
   if(b.action==="list"){
    const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_at FROM csa_pricing_policies ORDER BY currency").all();
-   return out({ok:true,policies:r.results||[]});
+   const history=await env.DB.prepare("SELECT id,action,entity_id,metadata_json,created_at FROM audit_logs WHERE entity_type='pricing_policy' ORDER BY created_at DESC LIMIT 50").all();
+   return out({ok:true,policies:r.results||[],history:history.results||[]});
   }
   if(b.action==="upsert"){
    const currency=txt(b.currency,3).toUpperCase(),bps=b.margin_bps,min=amt(b.minimum_margin_minor??0),advance=b.client_advance_bps===undefined||b.client_advance_bps===null||b.client_advance_bps===""?null:Number(b.client_advance_bps),actor=txt(b.super_admin_id,100);
