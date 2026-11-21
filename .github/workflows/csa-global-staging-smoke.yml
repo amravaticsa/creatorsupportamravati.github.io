@@ -42,3 +42,27 @@ jobs:
               console.log("PASS: CSA Global staging API is reachable, reports staging mode, confirms D1 connectivity, and verifies required platform tables.");
             });
           ' <<< "$response"
+
+      - name: Verify public authentication configuration
+        env:
+          CONFIG_URL: https://csa-global-api-staging.creatorsupportamravati.workers.dev/v1/config
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --max-time 20 "$CONFIG_URL")"
+          node -e '
+            let body = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", chunk => body += chunk);
+            process.stdin.on("end", () => {
+              const data = JSON.parse(body);
+              if (data.ok !== true || data.environment !== "staging") {
+                console.error("Authentication config endpoint did not identify the staging environment.");
+                process.exit(1);
+              }
+              if (typeof data.google_client_id !== "string" || !/^[0-9]+-[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(data.google_client_id)) {
+                console.error("Google OAuth client ID is missing or malformed in staging configuration.");
+                process.exit(1);
+              }
+              console.log("PASS: Staging Google OAuth client configuration is present (value intentionally not printed).");
+            });
+          ' <<< "$response"
