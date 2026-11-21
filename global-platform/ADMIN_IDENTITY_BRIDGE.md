@@ -87,3 +87,14 @@ Status: **partially deployed to staging; end-to-end authenticated sync still pen
 - The handler catches and logs failures; it does not yet persist a last-success timestamp or expose a durable failure indicator in the dashboard.
 - This is a staging-only verification. It is not evidence that a signed sync has completed successfully, because Worker-to-Worker runtime execution and the authenticated user lifecycle have not yet been tested end-to-end.
 - Recommended next improvement: persist sync outcome and last-success time in the Super Admin D1 audit/operations data, then surface it in the dashboard without exposing HMAC material.
+
+
+## Sync monitoring deployment (2026-11-21)
+- Staging Super Admin Worker now records lifecycle, scheduled, and manual sync attempts in `global_admin_sync_logs`; the table and descending timestamp index were applied to staging D1.
+- Super Admin-only status endpoint: `GET /api/admins/global-sync-status` (latest attempt + 20-entry history).
+- Super Admin-only manual retry endpoint: `POST /api/admins/sync-global`.
+- Central Control now includes Global Admin Sync Health, recent attempt history, and Retry Sync Now.
+- The existing `*/15 * * * *` Cron Trigger and `scheduled()` handler remain configured. Scheduled runs now write outcomes to the log.
+- Deployment version: `df89c857e4334b828f47c67fa67c2f70` (staging Super Admin Worker).
+- Cloudflare accepted the complete five-module Worker bundle; existing D1, R2, Access, and secret bindings and the 15-minute schedule were re-checked after deployment.
+- A real authenticated manual sync has not yet been performed. The monitoring table will show its first result only after the next scheduled invocation or a Super Admin manual retry. Production remains untouched.
