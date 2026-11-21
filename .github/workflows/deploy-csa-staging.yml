@@ -101,3 +101,6 @@ jobs:
               console.log("Staging frontend responds and API reports healthy D1 connectivity.");
             }
           '
+
+      - name: Verify staging API authorization boundaries (read-only)
+        run: bash global-platform/testing/staging-auth-boundary-smoke.sh
