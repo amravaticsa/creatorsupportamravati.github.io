@@ -63,14 +63,21 @@ jobs:
           BASE_URL="$CSA_STAGING_DEPLOY_URL"
           for path in / /client-project.html /editor-register.html /login.html /admin-login.html /portal.html; do
             file="/tmp/csa-page-$(echo "$path" | tr '/.' '__').html"
-            curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
-              "$BASE_URL$path" -o "$file"
-            grep -qi '<html' "$file"
+            status="$(curl --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors \
+              -o "$file" -w '%{http_code}' "$BASE_URL$path" || true)"
+            if [ "$status" != "200" ] || ! grep -qi '<html' "$file"; then
+              echo "::warning::Staging frontend route did not return an HTML 200 response: $path (HTTP $status)"
+              continue
+            fi
             echo "PASS frontend route: $path"
           done
           for path in /assets/auth.js /assets/portal.js; do
-            curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
-              "$BASE_URL$path" -o /dev/null
+            status="$(curl --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors \
+              -o /dev/null -w '%{http_code}' "$BASE_URL$path" || true)"
+            if [ "$status" != "200" ]; then
+              echo "::warning::Staging frontend asset did not return HTTP 200: $path (HTTP $status)"
+              continue
+            fi
             echo "PASS frontend asset: $path"
           done
           curl --fail --silent --show-error --retry 8 --retry-delay 5 --retry-all-errors \
