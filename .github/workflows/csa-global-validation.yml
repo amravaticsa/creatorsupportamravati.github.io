@@ -18,6 +18,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate schema-only SQLite snapshots
         run: python3 global-platform/scripts/verify-schema-snapshots.py
+      - name: Validate guarded disposable D1 helper (syntax and dry-run only)
+        run: |
+          bash -n global-platform/scripts/apply-disposable-d1-schema.sh
+          bash global-platform/scripts/apply-disposable-d1-schema.sh --schema superadmin --target csa-superadmin-migration-test-ci
+          bash global-platform/scripts/apply-disposable-d1-schema.sh --schema rush --target csa-rush-migration-test-ci
 
   validate:
     runs-on: ubuntu-latest
