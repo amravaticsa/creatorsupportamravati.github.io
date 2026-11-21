@@ -112,3 +112,21 @@ queues: Content & Video Production (intake), Operations & Events (tender and
 assignment), and Finance & Accounts (payment). Department Admins receive only
 the queues granted by their synchronized role; Super Admin receives all
 existing departments. Editor profiles route to HR & Administration for KYC.
+
+
+## Tender, editor bidding and client quotation (Staging phase 1)
+
+Migration `0023_tenders_pricing_quotes.sql` is applied to the isolated Staging D1 database. It adds:
+- One tender record per central application, with draft, published, closed and awarded states.
+- Verified editor bidding with currency validation, delivery estimates and proposal notes.
+- Super Admin-only pricing policy per currency. The policy is intentionally unconfigured until the business owner chooses the markup and minimum amount.
+- Client quotation drafts with a stored cost/markup calculation, a seven-day validity window, send status and client accept/decline audit events.
+
+Portal sections are available for Admin tender creation and management, Editor tender discovery and bids, Super Admin pricing policy, and Client quotation decisions.
+
+Important release boundaries:
+- A tender bid award does not itself assign the editor. CSA must still send the managed editor offer through the existing approval/deposit workflow.
+- A client quotation acceptance is recorded, but client advance/balance checkout, payment receipts and refund handling are not implemented in this phase. No client payment is taken.
+- No margin percentage is preselected or activated. Quote generation returns a fail-closed response until Super Admin configures the applicable currency.
+- No production Worker, database, R2 bucket, Pages project, DNS, main website or live payment credential was changed.
+- The new Worker API version is staging-only. UI deployment and API deployment must both be checked independently.
