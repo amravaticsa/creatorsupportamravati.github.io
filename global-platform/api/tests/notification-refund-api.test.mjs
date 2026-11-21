@@ -35,7 +35,7 @@ test("client refunds require own successful client payments and an idempotency k
 
 test("finance queue and review actions are separate least-privilege routes", () => {
   assert.match(source, /p==="\/v1\/admin\/client-refunds"\)return "finance\.read"/);
-  assert.match(source, /\/v1\/admin\/client-refunds\/\[\\w-\]\+\$\/\.test\(p\)\)return "finance\.refunds"/);
+  assert.ok(source.includes(String.raw`if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";`));
   assert.match(source, /provider_refund_started:false/);
   assert.match(source, /A rejection reason is required/);
 });
