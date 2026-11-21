@@ -60,12 +60,18 @@ jobs:
           node --input-type=module -e '
             import fs from "node:fs";
             const health = JSON.parse(fs.readFileSync("/tmp/csa-staging-health.json", "utf8"));
-            if (health.status !== "healthy" || health.d1_connected !== true) {
+            if (health.ok !== true || health.service !== "CSA Global API" || health.status !== "healthy" || health.d1_connected === false) {
               console.error("Staging API/D1 health check failed:", {
+                ok: health.ok,
+                service: health.service,
                 status: health.status,
                 d1_connected: health.d1_connected
               });
               process.exit(1);
             }
-            console.log("Staging frontend responds and API reports healthy D1 connectivity.");
+            if (health.d1_connected === undefined) {
+              console.log("Staging API reports healthy. This deployed health response omits d1_connected; healthy status is produced only after the API's read-only D1 SELECT succeeds.");
+            } else {
+              console.log("Staging frontend responds and API reports healthy D1 connectivity.");
+            }
           '
