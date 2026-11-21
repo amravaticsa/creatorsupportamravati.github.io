@@ -260,3 +260,23 @@ Cloudflare's route inventory shows the existing `superadmin.creatorsupportamrava
 - Do not announce the staging URL for general use until these interactive checks pass.
 
 No production route pattern, production Editor Portal target, DNS record, Access policy, or production database binding was intentionally changed in this implementation. The existing Super Admin catch-all route observation above must be treated as a shared-script dependency, not as proof of production/staging Worker isolation.
+
+### Staging data-isolation recheck — 2026-11-21
+
+A deeper binding audit found an important shared-resource issue that must be resolved before any staging write test:
+
+- `csa-superadmin-api-staging` uses D1 `csa-superadmin-staging` (database `99bc81fc-e97e-488b-a380-eb0237ff8ffc`), which is a staging database.
+- Its `ATTENDANCE_MEDIA` R2 binding is currently `csa-attendance-evidence` (without the staging suffix). This is not the isolated staging bucket. Do not run attendance-media upload/delete tests through this Worker until the official Super Admin hostname is moved to a separate production Worker and this staging Worker can safely be rebound to `csa-attendance-evidence-staging`.
+- `csa-editor-portal-staging` uses staging D1 `csa-video-workflow-staging` (`69f070a4-b71f-4448-973f-31993715b781`) and R2 `csa-video-editing-staging`; its `CSA_SUPERADMIN_DB` points to `csa-superadmin-staging`.
+- Cloudflare inventory also contains pre-existing `csa-superadmin-isolated-staging` and `csa-editor-portal-isolated-staging` Workers with separate D1/R2 resources. The isolated Super Admin Worker already has the staging hostname in its Super-Admin-only host guard and uses `csa-attendance-evidence-staging`; however, the isolated Editor Worker still has the old admin host and production-looking origin/health strings. These workers are not currently the active custom-domain/route targets.
+- The official Super Admin catch-all route still targets `csa-superadmin-api-staging`. Consequently, changing that Worker’s attendance bucket or other shared bindings now could affect official admin traffic. No binding was changed in this recheck.
+
+#### Safe next migration sequence
+
+1. Inventory and compare all modules, non-secret bindings, secret binding names, Access settings, and D1/R2 resources for the active and pre-existing isolated Workers.
+2. Create or verify a production-only Super Admin Worker with production D1/R2 and required secrets, and validate it independently before moving the official catch-all route.
+3. Only after the production route is confirmed on the production Worker, rebind the staging Super Admin Worker to staging-only R2 (`csa-attendance-evidence-staging`) and test staging uploads.
+4. Decide whether to retain the current staging Editor Worker or migrate to the pre-existing isolated Editor Worker after its host guards and origins are corrected.
+5. Complete authenticated browser login, Editor Management/API, unauthenticated denial, and staging data-write tests. Until then, the staging hostname remains test-only and is not approved for general use.
+
+No Worker bindings, Access rules, custom domains, or routes were changed during this recheck.
