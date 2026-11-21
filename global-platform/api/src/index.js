@@ -47,6 +47,11 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/departments")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
+ if(m==="GET"&&p==="/v1/notifications")return "support.manage";
+ if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences")return "support.manage";
+ if(m==="POST"&&p==="/v1/admin/notifications")return "support.manage";
+ if(m==="GET"&&p==="/v1/admin/client-refunds")return "finance.read";
+ if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/editors/pending")return "content.manage";
@@ -1092,6 +1097,84 @@ async function handle(req,env){
   const pr=await env.DB.prepare("SELECT id,status FROM projects WHERE id=?").bind(of[1]).first();if(!pr||!["submitted","under_review","approved","matching"].includes(pr.status))return bad("Project is not ready for matching.",409);
   const oid=uid("off");await env.DB.prepare("INSERT INTO project_offers(id,project_id,editor_id,offer_message,proposed_fee_minor,fee_currency,delivery_days,deposit_amount_minor,deposit_currency,offer_expires_at,status) VALUES(?,?,?,?,?,?,?,?,?,?,'offered')").bind(oid,pr.id,ed.user_id,txt(b.offer_message,2000)||null,fee,cur,b.delivery_days,dep,dc,txt(b.offer_expires_at,40)||null).run();
   await env.DB.prepare("UPDATE projects SET status='matching',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pr.id).run();await log(env,a.id,"project_offer_created","offer",oid,{project_id:pr.id,editor_id:ed.user_id});return out({ok:true,offer_id:oid,status:"offered"},201);
+ }
+
+ // In-app notifications and channel preferences. Email/WhatsApp are preference-only until providers are configured.
+ if(m==="GET"&&p==="/v1/notifications"){
+  const a=await user(req,env,["client","admin"]),r=await env.DB.prepare("SELECT id,channel,template_key,payload_json,status,created_at FROM notifications WHERE user_id=? AND channel='in_app' ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  const notifications=(r.results||[]).map(n=>{let payload={};try{payload=JSON.parse(n.payload_json||"{}");}catch{}return {id:n.id,title:txt(payload.title,180),body:txt(payload.body,4000),message:txt(payload.body,4000),created_at:n.created_at,read_at:n.status==="read"?n.created_at:null,status:n.status};});
+  return out({ok:true,notifications});
+ }
+ if(m==="POST"&&/^\/v1\/notifications\/[\w-]+\/read$/.test(p)){
+  const a=await user(req,env,["client","admin"]),id=p.split("/")[3],r=await env.DB.prepare("UPDATE notifications SET status='read' WHERE id=? AND user_id=? AND channel='in_app' AND status!='read'").bind(id,a.id).run();
+  if(!r.meta?.changes){const exists=await env.DB.prepare("SELECT id FROM notifications WHERE id=? AND user_id=? AND channel='in_app'").bind(id,a.id).first();if(!exists)return bad("Notification not found.",404);}
+  return out({ok:true,read:true});
+ }
+ if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences"){
+  const a=await user(req,env,["client","admin"]);
+  await env.DB.prepare("INSERT OR IGNORE INTO notification_preferences(user_id) VALUES(?)").bind(a.id).run();
+  if(m==="GET"){
+   const preferences=await env.DB.prepare("SELECT in_app_enabled,email_enabled,whatsapp_enabled,updated_at FROM notification_preferences WHERE user_id=?").bind(a.id).first();
+   return out({ok:true,preferences});
+  }
+  const b=await req.json(),keys=["in_app_enabled","email_enabled","whatsapp_enabled"];
+  if(keys.some(k=>typeof b[k]!=="boolean"))return bad("All notification preference values must be true or false.");
+  await env.DB.prepare("UPDATE notification_preferences SET in_app_enabled=?,email_enabled=?,whatsapp_enabled=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=?").bind(b.in_app_enabled?1:0,b.email_enabled?1:0,b.whatsapp_enabled?1:0,a.id).run();
+  await log(env,a.id,"notification_preferences_updated","notification_preferences",a.id,{whatsapp_opt_in:b.whatsapp_enabled});
+  return out({ok:true,saved:true,preferences:{in_app_enabled:b.in_app_enabled?1:0,email_enabled:b.email_enabled?1:0,whatsapp_enabled:b.whatsapp_enabled?1:0}});
+ }
+ if(m==="POST"&&p==="/v1/admin/notifications"){
+  const a=await user(req,env,["admin"]),b=await req.json(),recipient=txt(b.user_id,100),type=txt(b.type,60)||"admin_notice",title=txt(b.title,180),body=txt(b.body,4000);
+  if(!recipient||!title||!body)return bad("Recipient, title and message are required.");
+  const target=await env.DB.prepare("SELECT id,role,account_status FROM users WHERE id=?").bind(recipient).first();
+  if(!target||target.account_status!=="active"||!["client","editor"].includes(target.role))return bad("Active client or editor recipient not found.",404);
+  const pref=await env.DB.prepare("SELECT in_app_enabled FROM notification_preferences WHERE user_id=?").bind(recipient).first();
+  if(pref&&Number(pref.in_app_enabled)===0)return bad("Recipient has disabled in-app notifications.",409,"notifications_disabled");
+  const id=uid("ntf");
+  await env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status,sent_at) VALUES(?,?,'in_app',?,?,'sent',strftime('%Y-%m-%dT%H:%M:%fZ','now'))").bind(id,recipient,type,JSON.stringify({title,body,source:"csa_admin"})).run();
+  await log(env,a.id,"in_app_notification_sent","notification",id,{recipient_user_id:recipient,type});
+  return out({ok:true,notification_id:id,channel:"in_app",status:"sent"},201);
+ }
+ if(m==="GET"&&p==="/v1/client/refunds"){
+  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,created_at,updated_at,processed_at FROM client_refund_requests WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  return out({ok:true,refunds:r.results||[]});
+ }
+ if(m==="POST"&&p==="/v1/client/refunds"){
+  const a=await user(req,env,["client"]),b=await req.json(),paymentId=txt(b.payment_id,100),amount=amt(b.amount_minor),currency=txt(b.currency,3).toUpperCase(),reason=txt(b.reason,2000),key=txt(req.headers.get("Idempotency-Key")||b.idempotency_key,120);
+  if(!paymentId||!amount||amount<1||!/^[A-Z]{3}$/.test(currency)||reason.length<5||!key||!/^[A-Za-z0-9._:-]{8,120}$/.test(key))return bad("Payment, positive amount, currency, reason and a valid Idempotency-Key are required.");
+  const prior=await env.DB.prepare("SELECT id,payment_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();
+  if(prior){if(prior.payment_id!==paymentId||prior.client_id&&prior.client_id!==a.id)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:prior,replayed:true});}
+  const payment=await env.DB.prepare("SELECT id,user_id,project_id,amount_minor,currency,payment_type,status FROM payments WHERE id=? AND user_id=?").bind(paymentId,a.id).first();
+  if(!payment||!["client_advance","client_balance"].includes(payment.payment_type))return bad("Eligible CSA client payment not found.",404);
+  if(payment.status!=="succeeded"&&payment.status!=="partially_refunded")return bad("Only successful payments can be submitted for refund.",409);
+  if(String(payment.currency).toUpperCase()!==currency)return bad("Refund currency must match the original payment.",409);
+  const reserved=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status NOT IN ('rejected','failed','cancelled')").bind(paymentId).first();
+  const remaining=Number(payment.amount_minor)-Number(reserved?.total||0);
+  if(amount>remaining)return bad("Refund amount exceeds the remaining refundable balance.",409,"refund_amount_exceeded");
+  const id=uid("crf");
+  try{
+   await env.DB.prepare("INSERT INTO client_refund_requests(id,payment_id,client_id,project_id,amount_minor,currency,reason,status,idempotency_key,requested_by) VALUES(?,?,?,?,?,?,?,'requested',?,?)").bind(id,payment.id,a.id,payment.project_id,amount,currency,reason,key,a.id).run();
+  }catch(e){if(String(e.message||"").includes("UNIQUE")){const duplicate=await env.DB.prepare("SELECT id,payment_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();if(duplicate)return out({ok:true,refund:duplicate,replayed:true});}throw e;}
+  await log(env,a.id,"client_refund_requested","client_refund",id,{payment_id:paymentId,amount_minor:amount,currency});
+  return out({ok:true,refund:{id,payment_id:paymentId,amount_minor:amount,currency,status:"requested"}},201);
+ }
+ if(m==="GET"&&p==="/v1/admin/client-refunds"){
+  const a=await user(req,env,["admin"]),r=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.created_at,r.updated_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 ELSE 2 END,r.created_at ASC LIMIT 200").all();
+  return out({ok:true,refunds:r.results||[]});
+ }
+ const clientRefundReview=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)$/);
+ if(m==="PATCH"&&clientRefundReview){
+  const a=await user(req,env,["admin"]),b=await req.json(),action=txt(b.action,30),note=txt(b.review_note,1000);
+  const transitions={under_review:"under_review",approve:"approved",reject:"rejected"};
+  if(!Object.prototype.hasOwnProperty.call(transitions,action))return bad("Action must be under_review, approve or reject.");
+  if(action==="reject"&&note.length<3)return bad("A rejection reason is required.");
+  const current=await env.DB.prepare("SELECT id,status FROM client_refund_requests WHERE id=?").bind(clientRefundReview[1]).first();
+  if(!current)return bad("Client refund request not found.",404);
+  if(!["requested","under_review"].includes(current.status))return bad("This refund request has already been decided.",409);
+  const next=transitions[action];
+  await env.DB.prepare("UPDATE client_refund_requests SET status=?,reviewed_by=?,review_note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('requested','under_review')").bind(next,a.id,note||null,current.id).run();
+  await log(env,a.id,"client_refund_"+next,"client_refund",current.id,{action,review_note:note||null,provider_refund_started:false});
+  return out({ok:true,status:next,provider_refund_started:false});
  }
  return bad("Route not found.",404,"not_found");
 }
