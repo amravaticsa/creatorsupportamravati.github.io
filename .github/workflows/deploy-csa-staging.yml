@@ -46,12 +46,21 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
-        run: npx --yes wrangler@3.90.0 pages deploy global-platform --project-name=csa-global-staging --branch=staging
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@3.90.0 pages deploy global-platform --project-name=csa-global-staging --branch=staging 2>&1 | tee /tmp/csa-pages-deploy.log
+          DEPLOY_URL="$(grep -Eo 'https://[a-z0-9-]+\.csa-global-staging\.pages\.dev' /tmp/csa-pages-deploy.log | tail -n 1)"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error::Could not extract the immutable staging deployment URL from Wrangler output."
+            exit 1
+          fi
+          echo "CSA_STAGING_DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "Captured staging deployment URL: $DEPLOY_URL"
 
       - name: Smoke-test deployed staging frontend and API health
         run: |
           set -euo pipefail
-          BASE_URL="https://staging.csa-global-staging.pages.dev"
+          BASE_URL="$CSA_STAGING_DEPLOY_URL"
           for path in / /client-project.html /editor-register.html /login.html /admin-login.html /portal.html; do
             file="/tmp/csa-page-$(echo "$path" | tr '/.' '__').html"
             curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
