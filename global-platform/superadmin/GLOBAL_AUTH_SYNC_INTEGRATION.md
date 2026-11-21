@@ -227,3 +227,36 @@ The Global API pricing-policy routes are intentionally fail-closed for all synch
   3. Change only the two `superadmin-staging` route targets to `csa-editor-portal-staging`. Preserve all official `superadmin` host routes and the two production Editor Portal route targets unchanged.
   4. Verify Cloudflare Access remains enforced for the whole staging hostname and test both Editor Management routes with a valid Super Admin session; verify unauthenticated requests return 401 and that staging data bindings are used.
 - No Worker source, Worker deployment, route, Access policy, DNS record, database, or production resource was modified in this follow-up audit. The staging hostname must remain unavailable for normal use until all four corrections and authenticated route tests pass.
+
+### Staging hostname implementation — 2026-11-21
+
+The following staging implementation has now been applied and read back from Cloudflare:
+
+- Super Admin Worker `csa-superadmin-api-staging`:
+  - `portalRoleAllowed()` now accepts both `superadmin.creatorsupportamravati.in` and `superadmin-staging.creatorsupportamravati.in` for the `super_admin` role only.
+  - The existing `admin.creatorsupportamravati.in` non-Super-Admin rule is unchanged.
+  - Existing module files were retained during upload. Existing secret bindings were retained using Cloudflare `keep_bindings`; secret values were not read.
+  - The `ENVIRONMENT` binding remains `staging`; D1 `DB` remains the staging database.
+- Editor Portal Worker `csa-editor-portal-staging`:
+  - `ADMIN_ORIGIN` now uses `https://superadmin-staging.creatorsupportamravati.in`.
+  - The `/editor-management` host guard and admin `/editor-api/*` host guard now accept the staging hostname.
+  - Staging D1 and R2 bindings remain attached (`CSA_VIDEO_DB` → staging database; `CSA_VIDEO_BUCKET` → `csa-video-editing-staging`; `CSA_SUPERADMIN_DB` → staging Super Admin database).
+- Exactly these two staging routes were retargeted and verified:
+  - `superadmin-staging.creatorsupportamravati.in/editor-management*` → `csa-editor-portal-staging`
+  - `superadmin-staging.creatorsupportamravati.in/editor-api/*` → `csa-editor-portal-staging`
+- Cloudflare Access read-back confirms the `CSA Super Admin Isolated Staging` self-hosted application still covers the exact staging hostname, has a 1-hour session, and has an allow-only policy for the configured Super Admin identity. No bypass/public policy is configured.
+- The staging Worker sources and all Super Admin module files are now tracked under `global-platform/workers/staging/` on the GitHub `staging` branch.
+
+#### Important production route observation
+
+Cloudflare's route inventory shows the existing `superadmin.creatorsupportamravati.in/*` catch-all route points to `csa-superadmin-api-staging`. This route was not edited, but it means the staging-named Super Admin Worker script is also serving the official Super Admin hostname. The deployed change preserves the existing production-host role condition and only adds the isolated staging hostname condition; nevertheless, the two hostnames are not yet isolated at the Worker-script level. Before future Super Admin code changes, create and verify a separate production Worker/script and migrate the official catch-all route only in a separately reviewed change. Do not move that route as part of this staging task.
+
+#### Remaining validation before normal use
+
+- Authenticated browser test of Super Admin login on the staging hostname using the configured Super Admin identity.
+- Confirm `/editor-management` renders with that session and the admin `/editor-api/*` calls succeed.
+- Confirm unauthenticated requests are denied by Cloudflare Access (or return the expected authentication response after Access) and no editor or admin data leaks.
+- Confirm staging data changes remain confined to staging D1/R2.
+- Do not announce the staging URL for general use until these interactive checks pass.
+
+No production route pattern, production Editor Portal target, DNS record, Access policy, or production database binding was intentionally changed in this implementation. The existing Super Admin catch-all route observation above must be treated as a shared-script dependency, not as proof of production/staging Worker isolation.
