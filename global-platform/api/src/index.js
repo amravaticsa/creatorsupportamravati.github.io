@@ -36,7 +36,8 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/pricing-policy")return "__deny__";
  if(m==="GET"&&p==="/v1/admin/tenders/bids")return "projects.manage";
  if(m==="POST"&&/^\/v1\/admin\/quotes\/[\w-]+\/send$/.test(p))return "projects.manage";
- if(m==="POST"&&(/^\/v1\/admin\/projects\/[\w-]+\/tender$/.test(p)||/^\/v1\/admin\/tenders\/[\w-]+\/(publish|close|award|quote)$/.test(p)||p==="/v1/admin/pricing-policy"))return "projects.manage";
+ if(m==="POST"&&(/^\/v1\/admin\/projects\/[\w-]+\/tender$/.test(p)||/^\/v1\/admin\/tenders\/[\w-]+\/(publish|close|award|quote)$/.test(p)))return "projects.manage";
+ if(m==="POST"&&p==="/v1/admin/pricing-policy")return "__deny__";
  if(m==="GET"&&p==="/v1/client/quotes")return null;
  if(m==="POST"&&/^\/v1\/client\/quotes\/[\w-]+\/(decision|checkout)$/.test(p))return null;
  if(m==="POST"&&p==="/v1/client/payments/razorpay/verify")return null;
