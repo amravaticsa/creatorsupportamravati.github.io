@@ -331,3 +331,20 @@ Read-only `sqlite_master` inspection confirms:
 - `csa-superadmin-staging` contains the Super Admin identity/session/permission tables (`admin_accounts`, `admin_sessions`, `admin_permissions`) plus internal CSA modules (employees, attendance, clients, invoices, tasks, etc.). It is currently the only listed database with this Super Admin schema.
 - Therefore, neither existing non-staging D1 database is a safe replacement for the Super Admin Worker’s `DB` binding. A separate production Super Admin D1 database and a reviewed schema/data bootstrap or migration are prerequisites. Do not point the Super Admin Worker at `csa-global-platform` or `csa-orders`.
 - Inspection used SELECT-only schema queries. No rows were read or changed, and no D1 migration or write was performed.
+
+
+### Production schema bootstrap preparation — 2026-11-21
+
+A production D1 database creation was attempted with the name `csa-superadmin-production` and APAC primary-location hint. Cloudflare rejected the create request with account limit error `7406` — the account is at its 10-database limit. No database was created, and no existing database was deleted or modified.
+
+To prepare the next step without touching production or staging data, a schema-only bootstrap migration was generated from the current Super Admin staging D1 schema and committed to GitHub:
+
+- File: `global-platform/migrations/superadmin/0001_superadmin_schema_bootstrap.sql`
+- Commit: `454fac8d5842d1c78150b78bb2239cdbe61855b6`
+- Contains 75 schema objects (tables, indexes, triggers/views where present).
+- Contains no rows, credentials, password hashes, enrollment tokens, sessions, or personal data.
+- This is a draft bootstrap based on the current staging schema, not yet applied or certified as the production schema. It must be reviewed against the deployed Worker code and tested in a disposable database before production use.
+
+**Blocking prerequisite:** free a D1 database slot only after reviewing ownership and dependencies of an existing database, or request an account limit increase. Do not delete any existing D1 database just to make room. Once a safe slot is available, create `csa-superadmin-production`, apply the reviewed migration, seed the first Super Admin using the secure enrollment flow (never copy staging credentials), then configure a separate production Worker and test it before any route change.
+
+The failed create attempt made no changes to existing D1 databases, Workers, bindings, routes, secrets, DNS, Access, or R2 resources.
