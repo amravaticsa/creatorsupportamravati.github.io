@@ -197,3 +197,37 @@ Validation run: [GitHub Actions #44918464290](https://github.com/amravaticsa/cre
 4. DNS, routes, Worker settings, bindings, secrets, and deployments remain unchanged. No isolated Worker deployment or public route was made.
 
 **Execution status:** Source snapshot and CI test changes only. Passing CI and Pages deployment do not mean the isolated Cloudflare Worker is deployed or reachable.
+
+
+## Isolated Editor Management authentication topology — 2026-11-21
+
+A source-level authentication host policy and automated tests were added to the isolated Super Admin Worker snapshot.
+
+### Intended same-origin arrangement (design only; not routed)
+
+Use the dedicated hostname `superadmin-editor-staging.creatorsupportamravati.in` as a shared browser origin with path-separated Worker routing:
+
+- `/` and `/admin-app.js` → `csa-superadmin-isolated-staging` (serves the Super Admin login/dashboard shell).
+- `/api/*` → `csa-superadmin-isolated-staging` (password + email OTP login, session issuance, and Super Admin APIs).
+- `/editor-management*` and `/editor-api/*` → `csa-editor-portal-isolated-staging` (Editor Management UI and editor-management APIs).
+
+This lets the existing `HttpOnly; Secure; SameSite=Strict; Path=/` host-only `csa_admin_session` cookie be issued by the Super Admin login response on the dedicated staging hostname and then be presented to the Editor Portal on that exact same hostname. The Editor Portal validates the hashed session against its isolated `CSA_SUPERADMIN_DB` binding. No cookie Domain broadening is required.
+
+### Source change and tests
+
+- The isolated Super Admin source snapshot now permits `superadmin-editor-staging.creatorsupportamravati.in` for the `super_admin` role only when `ENVIRONMENT=staging`.
+- The existing production and prior staging host policy remains unchanged.
+- Added tests for exact hostname matching, role restriction, and staging-only environment gating.
+- CI now runs the isolated Super Admin host-policy test suite.
+
+### Mandatory routing and runtime gates
+
+- This is a proposed path-routing topology, not an applied Cloudflare route configuration.
+- Before any route writes, verify Cloudflare route specificity and confirm the dedicated hostname DNS record and TLS coverage.
+- Verify the isolated Super Admin Worker serves `/`, `/admin-app.js`, and `/api/*` as expected; verify the Editor Portal owns only its two path groups on that host.
+- Set `ENVIRONMENT=staging` on both isolated Workers; the Editor Portal currently lacks this setting.
+- Confirm both Workers use the same isolated Super Admin D1 database for session issuance and validation.
+- Resolve missing isolated Super Admin email and HMAC secrets before OTP or unrelated admin features are runtime-tested.
+- Keep production routes, cookies, databases, and active staging Worker routes unchanged.
+
+**Execution status:** GitHub source snapshot, tests, and CI workflow only. No Cloudflare settings, DNS records, routes, Worker versions, bindings, secrets, or deployments were changed.
