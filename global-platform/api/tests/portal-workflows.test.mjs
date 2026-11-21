@@ -24,7 +24,7 @@ test("Admin portal exposes notification send and finance review controls", () =>
   assert.match(portal, /api\("\/v1\/admin\/client-refunds"/);
   assert.match(portal, /action,review_note/);
   assert.match(portal, /Approve for processing/);
-  assert.match(portal, /does not trigger a Razorpay refund/);
+  assert.match(html, /does not trigger a Razorpay refund/);
 });
 
 test("WhatsApp stays an explicit opt-in and client UI does not expose editor identities", () => {
