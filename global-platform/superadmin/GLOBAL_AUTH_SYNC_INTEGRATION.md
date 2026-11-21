@@ -406,3 +406,24 @@ Findings:
 **Recommended next implementation gate:** enable structured Workers Logs and Traces for isolated staging Workers first, using conservative sampling and redaction. Validate that logs do not include credentials, session cookies, authorization headers, personal identity documents, uploaded media contents, or payment secrets. Then enable equivalent observability on production-facing Workers in a separate approved change after reviewing retention, privacy, and cost.
 
 **Safety note:** `csa-superadmin-api-staging` still serves the official production catch-all route. No observability settings were changed during this audit. No Worker was redeployed and no routes, bindings, secrets, databases, or buckets were changed.
+
+
+### Isolated staging observability and log-safety review — 2026-11-21
+
+Read-only inspection covered:
+- `csa-superadmin-isolated-staging`
+- `csa-editor-portal-isolated-staging`
+- `csa-global-api-isolated-staging`
+
+All three currently return no explicit observability configuration in the Worker settings response. No configuration was changed.
+
+**Source review findings relevant to enabling telemetry:**
+1. The isolated Super Admin Worker contains `console.error("CSA recovery email failed", e)` and `console.error("Employee recovery email failed", err)`. These error objects originate from external email delivery and must be reviewed/redacted before persisted logs are enabled.
+2. The isolated Super Admin Worker also logs an attendance capture failure error object. Ensure no request metadata, upload identifiers, or personal information can be embedded in the exception before enabling persisted logs.
+3. The isolated Global API has two cleanup log events. The warning currently includes `String(error?.message || error)`; this should be normalized to a bounded error code rather than arbitrary exception text. Its cleanup completion log is aggregate-only and is lower risk.
+4. The isolated Editor Portal source has no explicit `console.log/info/warn/error` statements found by the targeted scan. This is a good first candidate for a low-risk telemetry pilot, subject to runtime validation.
+5. The Global API already writes structured business audit events to D1. Those records are separate from Workers platform telemetry; enabling one does not replace the other.
+
+**Implementation decision:** do not enable persisted logs/traces yet. First sanitize the two Super Admin email/recovery error logs and attendance failure log, and the Global API cleanup warning. Then enable observability on the isolated Editor Portal as a pilot, validate that requests and error cases produce no credentials, cookies, authorization headers, KYC/identity document details, payment secrets, or personal data, and only then roll out to the other isolated Workers.
+
+**No changes made:** no Worker settings, source code, deployments, routes, bindings, secrets, databases, R2 buckets, or Access policies were modified. This was a read-only source and configuration review.
