@@ -106,3 +106,13 @@ The deployed Cloudflare Worker bundles were readable, but the assumed GitHub sou
 5. Run synthetic failure tests and inspect both Worker logs and D1 error/audit tables.
 6. Confirm no secrets, personal data, document metadata, arbitrary exception text, or stack traces persist.
 7. Record deployment version and rollback bundle before any wider rollout.
+
+
+## Source baseline established — 2026-11-21
+
+Cloudflare deployed module bundles have now been exported into:
+`global-platform/workers/source-snapshots/`
+
+The snapshot contains all modules for the isolated Super Admin Worker, plus the single entry modules for isolated Global API and Editor Portal. This resolves the immediate source-recovery blocker for review and patch preparation. The snapshots are explicitly labeled as deployed-bundle exports, not assumed original source-of-truth.
+
+No Worker code was deployed or modified in Cloudflare during this export. Next step is to patch the snapshot files, run syntax validation and regression checks, then deploy only isolated staging Workers after route/binding parity is confirmed.
