@@ -119,3 +119,22 @@ A read-only `sqlite_master` inventory was run against the two identified staging
 - Before provisioning, capture a complete schema export/DDL artifact for each source database, verify object counts and SQL hashes, and test the migration against a disposable target.
 - Preserve triggers, indexes, CHECK constraints, foreign keys, and table creation order. Do not copy sessions, OTP challenges, enrollment tokens, or password/token hashes as part of production bootstrap.
 - This is a schema inventory only, not proof that Worker code is compatible with a fresh production database.
+
+
+## Schema-only SQL snapshots committed (2026-11-21)
+
+Generated schema-only SQL files directly from each staging database's `sqlite_master` metadata. The extraction excluded Cloudflare internal objects and SQLite internal autoindexes; it includes application table DDL, explicit indexes, and triggers.
+
+- `migrations/2026-11-21-superadmin-schema.sql`: 33 tables, 36 explicit indexes, 6 triggers (75 SQL objects).
+- `migrations/2026-11-21-rush-schema.sql`: 3 tables, 4 explicit indexes (7 SQL objects).
+
+These files contain schema only. No application rows or credential/session/token values were exported. Source staging databases were queried read-only; no source schema/data changed.
+
+**Validation status:** snapshot extraction and object counts verified against `sqlite_master`. The SQL has not yet been applied to a disposable D1 target, and has not been tested as a production migration. It must not be applied to production until:
+1. A disposable target database is available.
+2. The SQL executes successfully there with foreign keys enabled.
+3. Table/index/trigger counts and foreign-key checks match the source.
+4. Worker code and expected binding names are reviewed for compatibility.
+5. Production target database capacity and backup/rollback plan are confirmed.
+
+No production database, Worker binding, route, payment configuration, or live account setting was changed.
