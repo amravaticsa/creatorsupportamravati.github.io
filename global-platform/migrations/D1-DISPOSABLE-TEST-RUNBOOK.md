@@ -106,3 +106,29 @@ Do not automatically delete the disposable database at the end of the test. Reta
 ## Current result
 
 **Not run.** No disposable D1 slot has been confirmed available. No Cloudflare D1 resource, source database, Worker binding, route, or production setting was changed while preparing this runbook.
+
+
+## Guarded apply helper (2026-11-21)
+
+Added `scripts/apply-disposable-d1-schema.sh` to reduce the chance of accidentally applying a snapshot to the wrong database.
+
+- Default behavior is dry-run; it prints the target, snapshot path, SHA-256, and planned Wrangler command without making a Cloudflare request.
+- It accepts only schema-specific target name prefixes: `csa-superadmin-migration-test-*` or `csa-rush-migration-test-*`.
+- It rejects known staging/production names.
+- Actual apply requires both `--target-confirmed-disposable` and the exact confirmation phrase `CSA-DISPOSABLE-D1-TEST`.
+- It never creates or deletes a database.
+
+Example dry runs:
+
+```sh
+bash global-platform/scripts/apply-disposable-d1-schema.sh --schema superadmin --target csa-superadmin-migration-test-ci
+bash global-platform/scripts/apply-disposable-d1-schema.sh --schema rush --target csa-rush-migration-test-ci
+```
+
+Execution example (only after account-owner approval, capacity confirmation, and independent verification that the target is empty and not Worker-bound):
+
+```sh
+bash global-platform/scripts/apply-disposable-d1-schema.sh --schema superadmin --target csa-superadmin-migration-test-YYYYMMDD --apply --target-confirmed-disposable --confirm CSA-DISPOSABLE-D1-TEST
+```
+
+The CI workflow now syntax-checks this helper and exercises its dry-run path only. CI never performs a remote D1 write. The helper's apply path has not been executed in this project.
