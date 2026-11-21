@@ -1,0 +1,38 @@
+name: CSA Global staging API smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-api-health:
+    name: Read-only staging API health check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check staging API health endpoint
+        env:
+          API_URL: https://csa-global-api-staging.creatorsupportamravati.workers.dev/health
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --max-time 20 "$API_URL")"
+          printf '%s\n' "$response"
+          node -e '
+            let body = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", chunk => body += chunk);
+            process.stdin.on("end", () => {
+              const data = JSON.parse(body);
+              if (data.ok !== true || data.status !== "healthy" || data.service !== "CSA Global API") {
+                console.error("Staging API health response did not meet the expected contract.");
+                process.exit(1);
+              }
+              if (data.mode !== "staging") {
+                console.error("Safety check failed: API did not identify itself as staging.");
+                process.exit(1);
+              }
+              console.log("PASS: CSA Global staging API is reachable and reports healthy staging mode.");
+            });
+          ' <<< "$response"
