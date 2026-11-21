@@ -42,6 +42,36 @@ function validatePortfolioVideos(){
  for(const e of entries){const f=e.querySelector(".portfolio-video-file").files[0];if(!f)return "Please select every portfolio video.";if(!["video/mp4","video/quicktime"].includes(f.type))return "Only MP4 and MOV videos are accepted.";if(f.size>80*1024*1024)return "Each portfolio video must be 80 MB or smaller.";if(!e.querySelector(".portfolio-video-title").value.trim()||!e.querySelector(".portfolio-video-description").value.trim()||!e.querySelector(".portfolio-video-category").value)return "Complete the title, description and category for every video.";if(!e.querySelector(".portfolio-video-rights").checked)return "Confirm the ownership or permissions for every video.";}
  if(!$("portfolio-terms-accepted").checked)return "Please accept the Portfolio Video Terms & Conditions.";return "";
 }
+function renderKycReviewStatus(data,stage){
+ const panel=$("kyc-review-status"),message=$("kyc-review-status-text"),note=$("kyc-review-note"),upload=$("kyc-upload-fields");
+ if(!panel||!message||!upload)return;
+ panel.hidden=false;note.hidden=true;note.textContent="";
+ const statusValue=String(data?.kyc_status||"").toLowerCase();
+ const reviewNote=String(data?.kyc_review_note||"").trim();
+ if(stage==="submitted"){
+  message.textContent="KYC document received by CSA. Status: Pending review. Please wait for the verification decision.";
+  upload.hidden=true;
+  return;
+ }
+ if(["pending","in_review"].includes(statusValue)){
+  message.textContent="Your identity document is already with CSA for review. A duplicate upload is not needed while this review is in progress.";
+  upload.hidden=true;
+ }else if(statusValue==="verified"){
+  message.textContent="Your identity verification is complete. CSA profile and portfolio approval are separate review steps.";
+  upload.hidden=true;
+ }else if(statusValue==="rejected"){
+  message.textContent="CSA could not verify the submitted document. Review the reason below, then upload a corrected document to request another review.";
+  upload.hidden=false;
+  if(reviewNote){note.hidden=false;note.textContent="CSA review note: "+reviewNote;}
+ }else if(["not_submitted","missing"].includes(statusValue)){
+  message.textContent="KYC document is not yet submitted. Complete the identity document section below.";
+  upload.hidden=false;
+ }else{
+  message.textContent="CSA returned an unrecognized KYC status. For your security, resubmission is paused until CSA confirms the correct next step.";
+  upload.hidden=true;
+  if(reviewNote){note.hidden=false;note.textContent="CSA review note: "+reviewNote;}
+ }
+}
 function validateKycDocument(){
  const file=$("kyc-document-file")?.files?.[0],type=$("kyc-document-type")?.value;
  if(!type||!file)return "Select your government ID type and upload one KYC document.";
@@ -116,14 +146,15 @@ async function onGoogleCredential(response){
    // Google is registration/KYC identity only for editors; it never creates an Editor Panel session.
    sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");
    if(data.existing_editor){
-    if(["pending","in_review"].includes(data.kyc_status)){status.textContent="Your KYC document is already under CSA review. Please wait for the verification result.";return;}
-    if(data.kyc_status==="verified"){status.textContent="Your KYC is already verified. CSA will continue the editor profile and portfolio review."+(data.kyc_review_note?" Previous review note: "+data.kyc_review_note:"");return;}
-    const kycError=validateKycDocument();if(kycError){status.textContent=kycError+(data.kyc_review_note?" Previous rejection reason: "+data.kyc_review_note:"");return;}
-    await uploadKycDocument(response.credential);status.textContent="Your replacement KYC document has been securely resubmitted. CSA review is pending.";
+    renderKycReviewStatus(data);
+    if(["pending","in_review","verified"].includes(String(data.kyc_status||"").toLowerCase())){status.textContent="KYC status checked. See the review status panel for the next step.";return;}
+    if(!["rejected","not_submitted","missing"].includes(String(data.kyc_status||"").toLowerCase())){status.textContent="CSA could not confirm a safe KYC resubmission state. Please contact CSA before uploading again.";return;}
+    const kycError=validateKycDocument();if(kycError){status.textContent=kycError;return;}
+    await uploadKycDocument(response.credential);renderKycReviewStatus({kyc_status:"pending"},"submitted");status.textContent="Your replacement KYC document has been securely resubmitted. CSA review is pending.";
    }else{
     const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();
     if(portfolioError||kycError){status.textContent=portfolioError||kycError;return;}
-    await uploadKycDocument(response.credential);await uploadPortfolioVideos(response.credential);
+    await uploadKycDocument(response.credential);renderKycReviewStatus({kyc_status:"pending"},"submitted");await uploadPortfolioVideos(response.credential);
     status.textContent="Registration, KYC document and portfolio samples submitted securely. CSA team KYC, profile aur video review karegi. Approval ke baad CSA aapko Editor User ID aur temporary Password degi. Google se Dashboard login nahi hoga.";
    }
   }else{sessionStorage.setItem("csa_global_token",response.credential);sessionStorage.setItem("csa_global_user",JSON.stringify({id:data.user_id,role:data.role,status:data.status,email:data.email}));location.href="portal.html";}
