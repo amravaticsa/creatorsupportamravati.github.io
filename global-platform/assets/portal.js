@@ -295,7 +295,7 @@ async function loadClientProjects(){
   for(const p of d.projects){
    const c=document.createElement("article");c.className="card";
    const h=document.createElement("h3");h.textContent=p.title+" · "+p.public_project_code;
-   const info=statusInfo[p.status]||statusInfo.submitted;
+   const info=statusInfo[p.status]||{label:"Status: "+String(p.status||"update pending").replaceAll("_"," "),step:0,detail:"CSA is updating this application status. Contact CSA support if you need clarification."};
    const badge=document.createElement("span");badge.className="tag blue";badge.textContent=info.label;
    const meta=document.createElement("p");meta.className="muted";meta.textContent=p.category+" · "+(p.budget_amount_minor!=null?(Number(p.budget_amount_minor)/100)+" "+p.budget_currency:"Quotation pending")+" · Deadline: "+(p.preferred_deadline||"To be confirmed");
    const payment=document.createElement("p");payment.className="muted";const payLabels={quotation_pending:"Payment: Awaiting CSA quotation",created:"Payment: Payment link not generated",pending:"Payment: Pending",succeeded:"Payment: Paid",failed:"Payment: Failed",refunded:"Payment: Refunded",partially_refunded:"Payment: Partially refunded",reversed:"Payment: Reversed"};payment.textContent=payLabels[p.payment_status]||("Payment: "+p.payment_status);
