@@ -1142,8 +1142,8 @@ async function handle(req,env){
  if(m==="POST"&&p==="/v1/client/refunds"){
   const a=await user(req,env,["client"]),b=await req.json(),paymentId=txt(b.payment_id,100),amount=amt(b.amount_minor),currency=txt(b.currency,3).toUpperCase(),reason=txt(b.reason,2000),key=txt(req.headers.get("Idempotency-Key")||b.idempotency_key,120);
   if(!paymentId||!amount||amount<1||!/^[A-Z]{3}$/.test(currency)||reason.length<5||!key||!/^[A-Za-z0-9._:-]{8,120}$/.test(key))return bad("Payment, positive amount, currency, reason and a valid Idempotency-Key are required.");
-  const prior=await env.DB.prepare("SELECT id,payment_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();
-  if(prior){if(prior.payment_id!==paymentId||prior.client_id&&prior.client_id!==a.id)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:prior,replayed:true});}
+  const prior=await env.DB.prepare("SELECT id,payment_id,client_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();
+  if(prior){if(prior.payment_id!==paymentId||prior.client_id!==a.id)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:prior,replayed:true});}
   const payment=await env.DB.prepare("SELECT id,user_id,project_id,amount_minor,currency,payment_type,status FROM payments WHERE id=? AND user_id=?").bind(paymentId,a.id).first();
   if(!payment||!["client_advance","client_balance"].includes(payment.payment_type))return bad("Eligible CSA client payment not found.",404);
   if(payment.status!=="succeeded"&&payment.status!=="partially_refunded")return bad("Only successful payments can be submitted for refund.",409);
