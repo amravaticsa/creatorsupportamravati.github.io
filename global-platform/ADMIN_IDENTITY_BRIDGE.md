@@ -1,6 +1,6 @@
 # CSA Super Admin ↔ Global Admin Identity Bridge
 
-Status: design specification only. No bridge endpoint or credentials are deployed. The GitHub staging API source has the allowlist replacement, but the currently deployed Cloudflare Worker `csa-global-api-staging` was inspected and still runs the old `ADMIN_EMAILS` gate. Do not treat the deployed staging API as updated until a controlled deployment is completed and verified.
+Status: **partially deployed to staging; end-to-end authenticated sync still pending.** The staging Global API receiver and Super Admin sender are deployed, and both staging Workers have an `ADMIN_SYNC_HMAC_SECRET` binding. The sender excludes `super_admin`; the receiver rejects that role. Production remains unprovisioned and untouched.
 
 ## Trust boundary
 - The Super Admin Worker is the source of truth for administrator identity, role and status.
@@ -47,19 +47,19 @@ Status: design specification only. No bridge endpoint or credentials are deploye
 5. Only after all tests and security review, prepare production backup, production migrations, production worker config and a separate approved production rollout.
 
 
-## Verified deployment gap (2026-11-19)
+## Historical deployment gap (2026-11-19 — superseded by staging deployment)
 - GitHub `staging` source `global-platform/api/src/index.js` checks `global_admin_authorizations` and rejects uninvited admin sign-ins.
 - The deployed Cloudflare Worker `csa-global-api-staging` was separately inspected and still checks `ADMIN_EMAILS` and can insert a Global admin identity from that allowlist.
 - Therefore the source change is not live. The staging API must be updated only after the authenticated sync receiver is implemented and tested, then deployed as a complete Worker version. Until then, the old runtime remains a known staging-only security gap; do not use it for admin onboarding.
 - Super Admin Worker currently has no Service binding in its deployed settings. No binding was added and no Worker was redeployed during this investigation.
 
 
-## Receiver implementation prepared (not deployed)
+## Receiver implementation and staging deployment (2026-11-21)
 - `global-platform/api/src/index.js` now contains a staging-only `POST /internal/admin-authorizations/sync` receiver in GitHub source.
 - The receiver requires `ADMIN_SYNC_HMAC_SECRET`, a 60-second timestamp window, a unique nonce, and an HMAC-SHA256 signature over method, exact path, timestamp, nonce and SHA-256 request-body digest. It rejects oversized/invalid/duplicate snapshots and unknown roles.
 - Snapshot application revokes all previously synchronized authorizations, then upserts the supplied authoritative snapshot in a single D1 batch. Admin API authorization also checks the active registry on each request, so a suspended/revoked admin is blocked even if their Google token remains valid.
 - Migration `0012_admin_sync_nonces.sql` creates the replay-protection nonce store. It has been applied and verified on CSA Global Staging D1 only.
-- The receiver is not deployed. `ADMIN_SYNC_HMAC_SECRET` has not been created or installed. The Super Admin sender/lifecycle hooks are not implemented. No sync records have been inserted. Production remains untouched.
+- The receiver and sender are now deployed on staging Workers, and the HMAC secret binding exists on both staging Workers. The secret value was not read or exposed. The sender is invoked by lifecycle hooks and a scheduled handler, but a real authenticated signed sync has not yet been exercised. Production remains untouched.
 
 
 ## Security hardening — Super Admin excluded from Global Admin sync (2026-11-21)
@@ -79,3 +79,11 @@ Status: design specification only. No bridge endpoint or credentials are deploye
 - The same change is deployed to the staging Super Admin Worker and committed to the staging source branch.
 - No production Worker or production D1 data was changed. Production Super Admin Worker and shared-secret configuration are still not provisioned.
 - End-to-end sync has not yet been authenticated and exercised. The route requires an active Super Admin session; do not use a database-only assertion as proof of a successful signed sync.
+
+
+## Scheduled reconciliation verified (2026-11-21)
+- Cloudflare confirms the staging Super Admin Worker has the Cron Trigger `*/15 * * * *` (every 15 minutes).
+- The deployed Worker export includes a `scheduled(controller, env)` handler that calls `syncGlobalAdminAuthorizations(env)`.
+- The handler catches and logs failures; it does not yet persist a last-success timestamp or expose a durable failure indicator in the dashboard.
+- This is a staging-only verification. It is not evidence that a signed sync has completed successfully, because Worker-to-Worker runtime execution and the authenticated user lifecycle have not yet been tested end-to-end.
+- Recommended next improvement: persist sync outcome and last-success time in the Super Admin D1 audit/operations data, then surface it in the dashboard without exposing HMAC material.
