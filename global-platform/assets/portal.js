@@ -148,7 +148,7 @@ if(user.role==="client"){
    finally{delete form.dataset.submitting;submit.disabled=false;submit.textContent="Submit Video Editing Application";}
   };
 }else if(user.role==="editor"){
- $("editor-panel").hidden=false;renderEditorReadiness();if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
+ $("editor-panel").hidden=false;renderEditorReadiness();if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadMyEditorPerformance();loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
  $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();loadAdminCleanupRuns();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
