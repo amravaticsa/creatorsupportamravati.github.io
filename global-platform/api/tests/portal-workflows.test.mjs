@@ -116,6 +116,9 @@ test("Tender award is a handoff only; it does not bypass verified-editor offer a
   assert.match(api, /next_step:"create_client_quote_and_send_managed_editor_offer"/);
   assert.match(api, /SELECT e\.user_id FROM editor_profiles e JOIN users u ON u\.id=e\.user_id WHERE e\.user_id=\? AND e\.verification_status='verified' AND u\.account_status='active'/);
   assert.match(api, /if\(!ed\)return bad\("Only verified editors can receive offers\."/);
+  assert.match(api, /editor_kyc_required/);
+  assert.match(api, /k\.status='verified'/);
+  assert.match(api, /Tender department access is required to send a managed editor offer/);
   assert.match(api, /o\.status!=="ready_for_assignment"/);
   assert.match(api, /payment\.status!=="captured"/);
   assert.doesNotMatch(api, /if\(action==="award"\)[\s\S]{0,1800}INSERT INTO assignments/);
