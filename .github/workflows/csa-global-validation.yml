@@ -22,6 +22,7 @@ jobs:
       - name: Check Worker and browser JavaScript syntax
         run: |
           node --check global-platform/api/src/index.js
+          node --test global-platform/api/tests/rbac-route-map.test.mjs
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
           node --check global-platform/superadmin/global-admin-sync.js
@@ -68,7 +69,8 @@ jobs:
           grep -q "trg_projects_default_department" global-platform/migrations/0021_department_routing_bridge.sql
           grep -q "dept-content-video" global-platform/migrations/0021_department_routing_bridge.sql
           grep -q "global_admin_department_access" global-platform/api/src/index.js
-          grep -Fq 'super_admin:["projects.manage"' global-platform/api/src/index.js
+          grep -Fq 'project_admin:["projects.manage"]' global-platform/api/src/index.js
+          test -s global-platform/api/tests/rbac-route-map.test.mjs
           grep -Fq "FROM admin_accounts ORDER BY id" global-platform/superadmin/global-admin-sync.js
           grep -q "department_access_missing" global-platform/api/src/index.js
           grep -q "project_department_routes" global-platform/api/src/index.js
