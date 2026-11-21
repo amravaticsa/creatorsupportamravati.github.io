@@ -640,6 +640,24 @@ async function loadMyEditorPerformance(){
  const root=$("editor-performance");if(!root)return;root.textContent="Loading your performance…";
  try{const d=await api("/v1/editor/performance");renderPerformanceMetrics(root,d.performance||{});await loadEditorClientFeedback();}catch(e){root.textContent=e.message;}
 }
+async function loadAdminProjectOffers(){
+ const root=$("admin-project-offers");if(!root)return;root.textContent="Loading offer history…";
+ try{
+  const d=await api("/v1/admin/project-offers");root.replaceChildren();
+  if(!Array.isArray(d.offers)||!d.offers.length){root.textContent="No project offers have been created yet.";return;}
+  for(const o of d.offers){
+   const card=document.createElement("article");card.className="card";
+   const h=document.createElement("h4");h.textContent=(o.title||"Project")+" · "+(o.public_project_code||o.project_id);
+   const meta=document.createElement("p");meta.textContent=(o.display_name||o.public_editor_code||o.editor_email)+" · Status: "+String(o.status).replaceAll("_"," ")+" · Fee "+(o.proposed_fee_minor/100)+" "+o.fee_currency+" · Deposit "+(o.deposit_amount_minor/100)+" "+o.deposit_currency+" · "+o.delivery_days+" days";
+   const details=document.createElement("p");details.className="muted";details.textContent="Created: "+new Date(o.created_at).toLocaleString()+" · Expires: "+(o.offer_expires_at?new Date(o.offer_expires_at).toLocaleString():"Not set")+" · Payment: "+(o.payment_status||"not initiated")+" · Project: "+(o.project_status||"unknown");
+   card.append(h,meta,details);
+   if(["offered","accepted_pending_terms"].includes(o.status)){
+    const cancel=document.createElement("button");cancel.className="btn outline";cancel.textContent="Cancel Offer";cancel.onclick=async()=>{const reason=prompt("Reason for cancelling this offer:");if(reason===null)return;if(!reason.trim()){alert("Cancellation reason is required.");return;}cancel.disabled=true;try{await api("/v1/admin/offers/"+o.id+"/cancel",{method:"POST",body:JSON.stringify({reason:reason.trim()})});await loadAdminProjectOffers();}catch(e){alert(e.message);cancel.disabled=false;}};card.append(cancel);
+   }
+   root.append(card);
+  }
+ }catch(e){root.textContent=e.message;}
+}
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
@@ -647,6 +665,7 @@ async function loadAdmin(){
  loadEditorReviewHistory();
  loadEditorPerformance();
  loadAdminEditorWorkload();
+ loadAdminProjectOffers();
  loadAdminClientFeedback();
  try{
   updateEditorReviewSummary("profile",null,"loading");
@@ -758,8 +777,9 @@ async function loadOffers(){
    if(o.status==="offered"){
     const b=document.createElement("button");b.className="btn dark";b.textContent="Accept Project";
     b.onclick=async()=>{b.disabled=true;try{await api("/v1/offers/"+o.id+"/accept",{method:"POST",body:"{}"});await loadOffers();}catch(e){alert(e.message);b.disabled=false;}};
-    card.append(b);
+    const reject=document.createElement("button");reject.className="btn outline";reject.textContent="Decline Offer";reject.onclick=async()=>{if(!confirm("Decline this CSA project offer?"))return;const reason=prompt("Optional reason for declining:")||"";reject.disabled=true;try{await api("/v1/offers/"+o.id+"/reject",{method:"POST",body:JSON.stringify({reason})});await loadOffers();}catch(e){alert(e.message);reject.disabled=false;}};card.append(b,reject);
    }
+   if(o.offer_expires_at){const expiry=document.createElement("p");expiry.className="muted";expiry.textContent="Offer expires: "+new Date(o.offer_expires_at).toLocaleString();card.append(expiry);}
    if(o.status==="accepted_pending_terms"){
     const meta=document.createElement("p");meta.className="muted";
     meta.textContent="Project fee: "+(o.proposed_fee_minor/100)+" "+o.fee_currency+" · Delivery: "+o.delivery_days+" days · Refundable security deposit: "+(o.deposit_amount_minor/100)+" "+o.deposit_currency;
