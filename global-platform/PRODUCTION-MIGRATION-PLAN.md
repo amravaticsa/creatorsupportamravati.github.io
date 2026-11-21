@@ -95,3 +95,27 @@ Cloudflare's current D1 documentation states:
 The account inventory currently contains exactly 10 D1 databases. Attempts to read account subscription and billing usage through the connected API returned HTTP 403 authentication errors, so the active plan cannot be verified through this connection. Do not assume the account is Free solely from the database count.
 
 **Recommended next gate:** the account owner should verify the active Workers plan in Cloudflare Dashboard → Workers & Pages → Plans/Billing. If Free, evaluate upgrading to Workers Paid (review current billing and usage before confirming). If already Paid, contact Cloudflare support because the observed 10-database ceiling does not match the published Paid allowance. No plan, billing, database, Worker, or route change was made by this audit.
+
+
+## Staging source-schema inventory (read-only, 2026-11-21)
+
+A read-only `sqlite_master` inventory was run against the two identified staging source databases. No rows or schema were changed.
+
+### Super Admin staging source
+- 33 application tables, 36 indexes, and 6 triggers.
+- The 33 tables include admin identity/authentication, permissions, module access, audit/activity, employee, attendance, task/project, client, invoice and payment domains.
+- The staging database is approximately 565,248 bytes at the time of inspection.
+- The inventory includes triggers that automatically provision module access and activity/audit records; these must be preserved and tested in a production schema migration.
+
+### Rush staging source
+- 3 application tables, 4 indexes, and no triggers.
+- Tables: `rush_delivery_audit`, `rush_delivery_quotes`, `video_editing_orders`.
+- The staging database is approximately 57,344 bytes at the time of inspection.
+- Quote constraints enforce supported rush levels, surcharge basis points, non-negative surcharge amounts, total = base + surcharge, approval states, quote states, and payment type values.
+- The audit table references rush quotes; migration verification must include foreign-key checks and index checks.
+
+### Migration readiness decision
+- The source schema is now inventoried, but production migration files have **not** been generated or applied. The returned DDL excerpts were partially truncated by the inspection interface; do not use those excerpts as executable migration scripts.
+- Before provisioning, capture a complete schema export/DDL artifact for each source database, verify object counts and SQL hashes, and test the migration against a disposable target.
+- Preserve triggers, indexes, CHECK constraints, foreign keys, and table creation order. Do not copy sessions, OTP challenges, enrollment tokens, or password/token hashes as part of production bootstrap.
+- This is a schema inventory only, not proof that Worker code is compatible with a fresh production database.
