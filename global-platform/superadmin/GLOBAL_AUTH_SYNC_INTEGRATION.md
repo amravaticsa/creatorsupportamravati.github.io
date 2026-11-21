@@ -127,3 +127,11 @@ Limitations:
 - Staging D1 migration: `0013_global_admin_sync_logs.sql`. It has been applied to staging D1 and verified.
 - Deployment is staging-only. No production Worker, database, credentials, or payment configuration was changed.
 - End-to-end runtime success still requires a real Cloudflare Access-authenticated Super Admin session; do not treat deployment acceptance as proof of a successful HMAC sync.
+
+
+## Runtime sync verification — 2026-11-21 (supersedes earlier pending-test notes)
+- Cloudflare D1 logs now show repeated real scheduled executions with `outcome=success`, `synced_count=1`, and no error code. The 20 most recent log rows include 15 consecutive scheduled successes and one successful lifecycle run; the remaining rows are earlier scheduled successes.
+- Latest observed scheduled success: 2026-11-21T10:45:22Z to 10:45:23Z (UTC). The 15-minute Cron Trigger is still configured as `*/15 * * * *`.
+- Global staging D1 confirms one active `editor_admin` authorization. The historical `super_admin` row remains revoked; active `super_admin` authorization count is zero. Department grants exist only for the active editor-admin source record; none exist for the revoked Super Admin record.
+- This proves the scheduled sender → signed receiver path is executing successfully in staging and the role-exclusion state remains enforced in the resulting authorization data. It does not prove every role's protected API routes by authenticated HTTP tests.
+- Manual Retry Sync Now has not been invoked through a logged-in Super Admin browser session. No test invitation or new account was created for this verification. Production remains untouched.
