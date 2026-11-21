@@ -130,3 +130,12 @@ Important release boundaries:
 - No margin percentage is preselected or activated. Quote generation returns a fail-closed response until Super Admin configures the applicable currency.
 - No production Worker, database, R2 bucket, Pages project, DNS, main website or live payment credential was changed.
 - The new Worker API version is staging-only. UI deployment and API deployment must both be checked independently.
+
+
+### Client quotation payment (Staging, Test Mode only)
+
+Migration `0024_client_quote_payments.sql` adds a quote-to-payment reference and payment status. Super Admin can optionally configure a client advance percentage per currency alongside the CSA markup policy. If no advance percentage is configured, checkout remains blocked. After the advance is captured, the next checkout is limited to the outstanding balance.
+
+The API refuses client checkout unless the staging Razorpay key ID starts with `rzp_test_`. Payment signatures and captured amount/currency are verified server-side; webhook capture events update quote payment status. This is a test-only integration and must not be treated as permission to accept live payments.
+
+Not yet completed: client refund initiation/reconciliation, payment receipt UI, failed/unknown payment support workflow, Razorpay Test Mode end-to-end checkout with a real test card, and legal approval of the client service agreement. Live payments remain disabled.
