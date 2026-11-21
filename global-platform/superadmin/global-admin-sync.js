@@ -60,7 +60,7 @@ export async function syncGlobalAdminAuthorizations(env) {
   const signature = await hmacHex(env.ADMIN_SYNC_HMAC_SECRET, canonical);
 
   const response = await fetch(
-    "https://csa-global-api-staging.creatorsupportamravati.workers.dev" + path,
+    (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path,
     {
       method: "POST",
       headers: {
