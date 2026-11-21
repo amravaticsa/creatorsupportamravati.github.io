@@ -31,6 +31,12 @@
 <input id="kyc-document-file" type="file" accept="application/pdf,image/jpeg,image/png" required>
 <label style="display:flex;gap:10px;align-items:flex-start"><input id="kyc-privacy-consent" type="checkbox" required><span>I authorize CSA to securely review this identity document only for editor KYC verification. I understand it will not be shown to clients or in my public profile.</span></label></section>
 <hr>
+<section id="rejected-portfolio-panel" class="card" hidden>
+<h3>Portfolio Videos — Corrections Required</h3>
+<p class="muted">CSA Admin ne jin videos ko reject kiya hai, unka reason yahan dikhega. Corrected video upload karne par wahi record dobara review ke liye submit hoga.</p>
+<div id="rejected-portfolio-list"></div>
+<p id="rejected-portfolio-status" class="muted" role="status"></p>
+</section>
 <h3>Editing Portfolio Videos</h3>
 <p class="muted">Upload 1–3 original editing samples. MP4 or MOV only; maximum 80 MB per video.</p>
 <div id="portfolio-video-list"><div class="portfolio-video-entry">
