@@ -19,7 +19,7 @@
 <label for="exp">Experience</label><select id="exp"><option>Beginner (under 1 year)</option><option>1–3 years</option><option>3–5 years</option><option>5+ years</option></select>
 <label for="software">Editing software</label><input id="software" placeholder="Premiere Pro, DaVinci Resolve, Final Cut, Filmora">
 <label for="specializations">Specializations *</label><textarea id="specializations" placeholder="YouTube, Reels, podcasts, wedding films, ads..."></textarea>
-<h3>Identity & KYC Verification</h3>
+<section id="kyc-review-status" class="notice" aria-live="polite" style="margin:16px 0"><strong>KYC review status</strong><p id="kyc-review-status-text" style="margin:6px 0 0">Your KYC status will appear here after Google identity verification.</p><p id="kyc-review-note" style="margin:6px 0 0" hidden></p></section><section id="kyc-upload-fields"><h3>Identity & KYC Verification</h3>
 <p class="muted">CSA must verify your identity before your editor profile or portfolio can be approved. Choose an official government-issued identity document available in your selected country. Only authorized CSA verification staff can review it; it is never shown to clients.</p>
 <label for="kyc-document-type">Government ID type *</label>
 <select id="kyc-document-type" required>
@@ -28,7 +28,7 @@
 <p class="muted" id="kyc-id-help">The accepted document list changes according to your selected country. Aadhaar is optional in India; it is never required.</p>
 <label for="kyc-document-file">Upload ID document * (PDF, JPG or PNG · max 10 MB)</label>
 <input id="kyc-document-file" type="file" accept="application/pdf,image/jpeg,image/png" required>
-<label style="display:flex;gap:10px;align-items:flex-start"><input id="kyc-privacy-consent" type="checkbox" required><span>I authorize CSA to securely review this identity document only for editor KYC verification. I understand it will not be shown to clients or in my public profile.</span></label>
+<label style="display:flex;gap:10px;align-items:flex-start"><input id="kyc-privacy-consent" type="checkbox" required><span>I authorize CSA to securely review this identity document only for editor KYC verification. I understand it will not be shown to clients or in my public profile.</span></label></section>
 <hr>
 <h3>Editing Portfolio Videos</h3>
 <p class="muted">Upload 1–3 original editing samples. MP4 or MOV only; maximum 80 MB per video.</p>
