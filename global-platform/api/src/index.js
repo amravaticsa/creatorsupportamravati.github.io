@@ -47,9 +47,9 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/departments")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible")return "finance.read";
- if(m==="GET"&&p==="/v1/notifications")return "support.manage";
- if(m==="POST"&&/^\/v1\/notifications\/[\w-]+\/read$/.test(p))return "support.manage";
- if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences")return "support.manage";
+ if(m==="GET"&&p==="/v1/notifications")return ["projects.manage","content.manage","finance.read","support.manage"];
+ if(m==="POST"&&/^\/v1\/notifications\/[\w-]+\/read$/.test(p))return ["projects.manage","content.manage","finance.read","support.manage"];
+ if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&p==="/v1/admin/notifications")return "support.manage";
  if(m==="GET"&&p==="/v1/admin/client-refunds")return "finance.read";
  if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";
