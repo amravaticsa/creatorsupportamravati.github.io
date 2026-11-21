@@ -8,7 +8,7 @@ const source = readFileSync(workerPath, "utf8");
 const match = source.match(/const portalRoleAllowed = \(req,env,role\) => \{[\s\S]*?\};/);
 assert.ok(match, "Super Admin portal host policy must exist");
 const sandbox = { URL };
-vm.runInNewContext(match[0] + "\\nglobalThis.portalRoleAllowed = portalRoleAllowed;", sandbox);
+vm.runInNewContext(match[0] + "\nglobalThis.portalRoleAllowed = portalRoleAllowed;", sandbox);
 const allowed = (host, role, environment = "staging") =>
   sandbox.portalRoleAllowed({ url: `https://${host}/api/login` }, { ENVIRONMENT: environment }, role);
 
