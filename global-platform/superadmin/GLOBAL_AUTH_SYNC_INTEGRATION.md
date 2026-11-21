@@ -155,3 +155,7 @@ Limitations:
 - Test coverage also asserts that `super_admin` is absent from the synchronized Global role map and that CSA pricing policy remains explicitly restricted by the separate Super Admin-only handler guard.
 - GitHub staging commits: test suite `3564a6018c80f35841d9d6667bdfe8a44fab504b`; workflow integration `72ed0e04a17005d39cac7b486ce1502cfc538a7f`; pricing-guard assertion clarification `73b296ca3461ca02c29237ad4cd339fc57579a3a`.
 - This is automated static regression coverage, not authenticated live HTTP testing. Workflow execution status has not yet been confirmed. No production deployment or role/account changes were made.
+
+## Pricing policy boundary (staging)
+
+The Global API pricing-policy routes are intentionally fail-closed for all synchronized Global Admin roles (`GET` and `POST /v1/admin/pricing-policy` resolve to `__deny__`). The handler also retains its explicit Super Admin-only guard. Do not add `super_admin` to `GLOBAL_ROLE_PERMISSIONS`, do not grant `projects.manage` as a workaround, and do not expose pricing controls in the Super Admin dashboard until a dedicated HMAC-authenticated Super Admin-to-Global API bridge is implemented with timestamp, nonce/replay protection, audit logging, and end-to-end tests. The Global staging `csa_pricing_policies` table currently has no policy rows; no pricing values were created or changed by this security hardening. Production remains untouched.
