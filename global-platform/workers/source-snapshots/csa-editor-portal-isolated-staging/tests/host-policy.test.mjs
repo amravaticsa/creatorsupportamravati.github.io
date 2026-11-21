@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { TextEncoder } from "node:util";
 
 const workerPath = new URL("../worker.js", import.meta.url);
 let source = readFileSync(workerPath, "utf8");
 source = source.replace(/^export function /gm, "function ");
 source = source.replace("export default {", "globalThis.__worker = {");
 source += "\nglobalThis.__hostPolicy = { resolvePortalHosts, isPortalHost };\n";
-const sandbox = {};
+const sandbox = { TextEncoder };
 vm.runInNewContext(source, sandbox, { filename: "editor-portal-worker.js" });
 const { resolvePortalHosts, isPortalHost } = sandbox.__hostPolicy;
 
