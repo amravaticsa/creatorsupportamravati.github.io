@@ -191,3 +191,21 @@ GitHub Actions run `44916566418` completed successfully for commit `0c13dcad6047
 - `schema-snapshot`: success
 
 The schema job executed `python3 global-platform/scripts/verify-schema-snapshots.py` against the committed Super Admin and Rush SQL snapshots. This confirms successful local SQLite execution, expected object counts, required table presence, foreign-key checks and integrity checks. It does **not** establish Cloudflare D1 compatibility or production readiness; disposable D1 validation remains a separate release gate.
+
+
+## Disposable D1 migration test runbook prepared (2026-11-21)
+
+Added `migrations/D1-DISPOSABLE-TEST-RUNBOOK.md` with the preflight safety gates, provisioning/apply commands, schema verification queries, acceptance criteria, evidence requirements, and cleanup controls for separate disposable Super Admin and Rush D1 targets.
+
+The runbook explicitly prohibits using any currently bound staging or production database as a test target. It also records the current 10/10 database-slot constraint and requires account-owner confirmation of quota and approval before creating new D1 resources.
+
+**Execution status: not run.** No new database was created, no existing database was repurposed or deleted, and no Worker binding or route was changed. Cloudflare D1 validation remains blocked until a genuinely disposable slot is confirmed available.
+
+## Latest staging CI and deployment evidence (2026-11-21)
+
+The latest visible staging runs for commit `8f94cd8744507b1130ea422faa4484d724a5767f` completed successfully:
+
+- CSA Global API validation: success; both `validate` and `schema-snapshot` jobs passed (run `44916719071`).
+- Deploy CSA Global staging workflow: success (run `44916719147`).
+
+This confirms the latest observed staging validation and staging deployment workflows completed successfully for that commit. It does not prove a browser-based end-to-end check of every portal or validate a disposable Cloudflare D1 migration. The production migration remains blocked by the release gates above.
