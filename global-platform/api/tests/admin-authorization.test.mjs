@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+
+test("admin identity registration requires a verified identity-provider email", () => {
+  assert.match(source, /c\.email_verified!==true/);
+  assert.match(source, /c\.sub!=="string"/);
+  assert.match(source, /c\.email!=="string"/);
+});
+
+test("admin registration rechecks active Super Admin authorization before creating the Global account", () => {
+  assert.match(source, /SELECT 1 AS ok FROM global_admin_authorizations WHERE email=\? COLLATE NOCASE AND status='active'/);
+  assert.match(source, /if\(!stillAuthorized\)return bad\("CSA Super Admin authorization is no longer active\."/);
+  assert.match(source, /INSERT INTO users\(id,auth_subject,role,email,email_verified_at,account_status\) VALUES\(\?,\?, 'admin',\?,\?, 'active'\)/);
+});
+
+test("admin access is revalidated against the active authorization on every authenticated request", () => {
+  assert.match(source, /SELECT source_role,source_admin_id FROM global_admin_authorizations WHERE email=\? COLLATE NOCASE AND status='active'/);
+  assert.match(source, /if\(!a\|\|!GLOBAL_ROLE_PERMISSIONS\[a\.source_role\]\)throw Error\("CSA Super Admin authorization is inactive\."\)/);
+});
+
+test("the Super Admin sync bridge accepts only the four delegated roles, never super_admin", () => {
+  assert.match(source, /\["project_admin","editor_admin","finance_admin","support_admin"\]\.includes\(role\)/);
+  assert.match(source, /revoked_if_absent:true/);
+});
+
+test("role permissions remain least-privilege and distinct", () => {
+  assert.match(source, /project_admin:\["projects\.manage"\]/);
+  assert.match(source, /editor_admin:\["content\.manage"\]/);
+  assert.match(source, /finance_admin:\["finance\.read","finance\.refunds"\]/);
+  assert.match(source, /support_admin:\["support\.manage"\]/);
+});
