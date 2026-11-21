@@ -18,3 +18,9 @@ Use these snapshots as a recoverable baseline for review and patch preparation. 
 6. Record the prior deployment version for rollback.
 
 No Worker source, settings, bindings, routes, or deployments were changed by this export.
+
+## Automated snapshot validation
+
+The repository workflow `.github/workflows/csa-global-validation.yml` now syntax-checks every JavaScript module in the three isolated Worker snapshots with Node.js 22 and scans for the previously identified raw exception-to-log patterns. These checks are source validation only; they do not deploy Workers or verify runtime bindings, D1/R2 behavior, route isolation, or live observability.
+
+Validation is triggered by changes under `global-platform/**` on the `staging` branch. A passing workflow is required before any isolated Worker deployment is considered.
