@@ -51,16 +51,17 @@ jobs:
       - name: Smoke-test deployed staging frontend and API health
         run: |
           set -euo pipefail
+          BASE_URL="https://staging.csa-global-staging.pages.dev"
           for path in / /client-project.html /editor-register.html /login.html /admin-login.html /portal.html; do
             file="/tmp/csa-page-$(echo "$path" | tr '/.' '__').html"
             curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
-              "https://csa-global-staging.pages.dev$path" -o "$file"
+              "$BASE_URL$path" -o "$file"
             grep -qi '<html' "$file"
             echo "PASS frontend route: $path"
           done
           for path in /assets/auth.js /assets/portal.js; do
             curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
-              "https://csa-global-staging.pages.dev$path" -o /dev/null
+              "$BASE_URL$path" -o /dev/null
             echo "PASS frontend asset: $path"
           done
           curl --fail --silent --show-error --retry 8 --retry-delay 5 --retry-all-errors \
