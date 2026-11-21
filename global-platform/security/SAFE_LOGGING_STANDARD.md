@@ -134,3 +134,35 @@ This runbook is limited to the three isolated staging Workers. Do not apply it t
 - Keep all public routes and production promotion disabled until all tests pass and a separate deployment approval is given.
 
 **Current execution status:** This is an operator runbook only. No secret has been generated, stored, or bound by this documentation change.
+
+
+## Editor Portal isolated-host and authentication audit — 2026-11-21
+
+A read-only source/settings review was completed for `csa-editor-portal-isolated-staging`. The Worker content was read from the isolated script; no settings, routes, secrets, bindings, D1 rows, or deployments were changed.
+
+### Verified source findings
+
+- The isolated Editor Portal source still hard-codes `https://editor.creatorsupportamravati.in` and `https://superadmin.creatorsupportamravati.in` as its video/admin origins.
+- The HTML entry routes are explicitly gated to the production hostnames: `editor.creatorsupportamravati.in` for the editor app and `superadmin.creatorsupportamravati.in` for `/editor-management`.
+- The admin API branch is also gated to `superadmin.creatorsupportamravati.in`; the editor API branch rejects any host other than `editor.creatorsupportamravati.in`.
+- The `/health` response currently reports `environment: "production"`, despite this isolated Worker being configured with staging D1/R2 resources. This is misleading environment metadata and must be corrected before test exposure.
+- The request Origin check is same-origin only: a supplied Origin must equal the request URL origin. The OPTIONS response advertises the Worker URL origin, not an independent allowlist. Keep this strict same-origin behavior unless a separately reviewed cross-origin design is required.
+- Admin API authentication reads the `csa_admin_session` cookie and validates its hashed session against `CSA_SUPERADMIN_DB`, requiring an active, unexpired `super_admin` account.
+- Editor API authentication reads a Bearer token and validates its hashed session against `CSA_VIDEO_DB`, requiring an active, unexpired editor account.
+- The isolated Editor Worker currently has the expected isolated D1/R2 binding names: `CSA_SUPERADMIN_DB`, `CSA_VIDEO_DB`, and `CSA_VIDEO_BUCKET`. The settings review did not expose any secret bindings for this Worker.
+
+### Readiness decision
+
+**Blocked for isolated-host end-to-end testing.** The current hostname guards mean the isolated Worker cannot serve the intended editor/admin UI on a separate staging hostname without a reviewed source change. Do not solve this by attaching the production hostnames or by changing active staging routes.
+
+### Safe next implementation plan
+
+1. Choose dedicated staging hostnames for the Editor Portal and its admin-management endpoint; keep them separate from `editor.creatorsupportamravati.in` and `superadmin.creatorsupportamravati.in`.
+2. Add explicit environment-aware host allowlists (exact host matches only) and keep the production host allowlist unchanged for the active Worker.
+3. Derive the health environment label from a non-secret environment binding rather than hard-coding `production`.
+4. Review every use of the two hard-coded origin constants and the embedded UI's API URLs before changing them; confirm cookies, same-site behavior, redirects, and CORS remain same-origin on the staging host.
+5. Test the admin cookie session and editor Bearer session separately with synthetic accounts in the isolated D1 databases. Confirm unauthorized, expired, revoked, disabled, and wrong-role sessions are rejected.
+6. Add automated source tests for allowed-host and rejected-host cases, plus health environment metadata. Run repository CI before uploading a new isolated Worker version.
+7. Only after those tests pass, capture the current v1 artifact as rollback evidence and request separate approval for an isolated Worker-only deployment. Do not add public zone routes or promote to production as part of this work.
+
+**Execution status:** Audit and plan only. No code was changed in Cloudflare, no Worker version was uploaded, no production hostname was altered, and no public route was added.
