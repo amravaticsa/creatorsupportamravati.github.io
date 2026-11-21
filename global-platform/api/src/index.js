@@ -729,7 +729,7 @@ async function handle(req,env){
   }
  }
  if(m==="POST"&&/^\/v1\/admin\/quotes\/[\w-]+\/send$/.test(p)){
-  const a=await user(req,env,["admin"]),id=p.split("/")[4],q=await env.DB.prepare("SELECT id,status FROM client_quotes WHERE id=?").bind(id).first();if(!q||q.status!=="draft")return bad("Only a draft quote can be sent.",409);
+  const a=await user(req,env,["admin"]),id=p.split("/")[4],q=await env.DB.prepare("SELECT id,status,project_id FROM client_quotes WHERE id=?").bind(id).first();if(!q||q.status!=="draft")return bad("Only a draft quote can be sent.",409);const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(q.project_id,a.source_admin_id).first();if(!access)return bad("Tender department access is required to send this quote.",403);
   await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status='sent',sent_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,'sent')").bind(uid("qev"),id,a.id)]);await log(env,a.id,"client_quote_sent","client_quote",id);return out({ok:true,status:"sent"});
  }
  if(m==="GET"&&p==="/v1/editor/tenders"){
