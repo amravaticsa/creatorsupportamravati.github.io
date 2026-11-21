@@ -231,3 +231,38 @@ This lets the existing `HttpOnly; Secure; SameSite=Strict; Path=/` host-only `cs
 - Keep production routes, cookies, databases, and active staging Worker routes unchanged.
 
 **Execution status:** GitHub source snapshot, tests, and CI workflow only. No Cloudflare settings, DNS records, routes, Worker versions, bindings, secrets, or deployments were changed.
+
+
+## Cloudflare isolated Editor Management preflight audit — 2026-11-21
+
+Read-only audit performed after the source-level host-policy tests passed.
+
+### Observed live Cloudflare state
+
+- `csa-superadmin-isolated-staging` already has plain-text `ENVIRONMENT=staging`.
+- `csa-editor-portal-isolated-staging` still has no `ENVIRONMENT` binding.
+- No exact DNS record was returned for `superadmin-editor-staging.creatorsupportamravati.in`.
+- No existing Worker route targets either isolated Worker. Existing production and prior staging routes remain in place.
+- Super Admin Worker binding `DB` points to D1 `csa-superadmin-isolated-staging` (UUID `c2bb3fb5-db22-4ed5-9283-161df57ebac2`).
+- Editor Portal binding `CSA_SUPERADMIN_DB` points to a different D1 database `csa-editor-superadmin-isolated-staging` (UUID `1fc2979f-52e2-420e-80f5-b70a51f6ac6c`).
+- Both databases have the expected admin/session schema, but they are separate databases. Read-only aggregate checks found zero admin accounts, zero active Super Admin accounts, and zero active sessions in both at audit time.
+
+### Authentication dependency — do not route yet
+
+The isolated Super Admin Worker issues and validates `csa_admin_session` records in `env.DB`. The isolated Editor Portal validates the same cookie by looking up `admin_sessions` and `admin_accounts` through `env.CSA_SUPERADMIN_DB`.
+
+Therefore, the two Workers must read the same isolated Super Admin D1 database for this shared-session design. Current bindings do not satisfy that requirement. The proposed binding for Editor Portal `CSA_SUPERADMIN_DB` is the exact same D1 UUID currently bound to Super Admin Worker `DB` (`c2bb3fb5-db22-4ed5-9283-161df57ebac2`). Do not change this until the operator explicitly approves the binding change and a backup/rollback plan is confirmed. Do not copy session rows or broaden cookie Domain as a workaround.
+
+### Required safe activation order
+
+1. Approve and apply Editor Portal `ENVIRONMENT=staging`.
+2. Approve and align Editor Portal `CSA_SUPERADMIN_DB` to the isolated Super Admin D1 database; verify the binding readback.
+3. Provision/verify the isolated Super Admin bootstrap and OTP delivery prerequisites using operator-controlled secrets; never reuse production secrets by default.
+4. Confirm the dedicated hostname DNS record and TLS coverage.
+5. Create exact path routes on the dedicated hostname only after verifying route precedence:
+   - `/` and Super Admin API paths → `csa-superadmin-isolated-staging`
+   - `/editor-management*` and `/editor-api/*` → `csa-editor-portal-isolated-staging`
+6. Test login, OTP, cookie flags, session lookup, logout/revocation, and Editor Management APIs on staging.
+7. Only then consider broader staging rollout. Production routes, cookies, databases, and secrets remain out of scope.
+
+**Execution status:** This audit made read-only Cloudflare API calls and a documentation update only. No Cloudflare DNS, Worker settings/bindings, routes, secrets, D1 rows, Worker deployments, or production resources were modified.
