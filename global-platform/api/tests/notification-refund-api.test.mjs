@@ -43,6 +43,6 @@ test("finance queue and review actions are separate least-privilege routes", () 
 
 test("refund review uses compare-and-set and only audits a successful status transition", () => {
   assert.match(source, /const updated=await env\.DB\.prepare\("UPDATE client_refund_requests SET status=.*WHERE id=\? AND status IN \('requested','under_review'\)"\)/);
-  assert.match(source, /if\(!updated\.meta\?\.changes\)return bad\("This refund request was updated by another reviewer\."/);
+  assert.match(source, /if\(!updated\.meta\?\.changes\)return bad\("This refund request was updated by another reviewer\. Refresh the queue and try again\.",409,"refund_review_conflict"\)/);
   assert.ok(source.indexOf("if(!updated.meta?.changes)") < source.indexOf('await log(env,a.id,"client_refund_"+next'));
 });
