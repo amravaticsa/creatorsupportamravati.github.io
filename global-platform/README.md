@@ -205,3 +205,12 @@ A fresh read-only inventory enumerated all 10 D1 databases, all deployed Workers
 - Therefore, this audit found **no database that can safely be declared a retirement candidate** based only on current evidence. No D1 database was deleted or modified.
 - Production Super Admin and Rush provisioning remains blocked by the D1 account quota. Preferred next path: ask Cloudflare to raise the D1 database limit, or obtain explicit owner approval for a separately planned consolidation/retirement after backups and complete dependency review. Do not unbind or delete an empty-but-referenced database just to free a slot.
 - The inventory was read-only. No Worker settings, routes, D1 data/schema, DNS, or payment configuration changed. Runtime HTTP/end-to-end behavior was not tested by this inventory.
+
+
+### Staging deployment and authorization smoke evidence (2026-11-21, latest)
+
+- Deployment workflow run `44921983519` completed successfully for commit `a4f7651faac5caa79df63b4b82e56f573caee31a`.
+- The post-deploy smoke test passed for the core frontend routes/assets and the staging API health endpoint.
+- The read-only authorization-boundary check passed: unauthenticated requests to client projects/refunds, editor tenders/assignments, admin tenders, pending editor KYC and client-refund queues were denied with HTTP 401/403.
+- This verifies unauthenticated denial only. It does not prove that valid client, editor or admin identities can complete their authorized workflows.
+- Next staging gate: provision dedicated test identities through the normal Google sign-in and editor KYC process, then execute the seven workflows in `global-platform/testing/STAGING-E2E-TEST-PLAN.md`. Do not place credentials, OTPs or KYC documents in GitHub.
