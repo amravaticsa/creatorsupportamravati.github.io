@@ -10,7 +10,7 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · Account status: "+(user.account_status||user.status||"not provided by login response");
 function endSession(message="Session expired. Please sign in again."){$("account-status").textContent=message;try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");}
 $("logout").onclick=()=>endSession("You have been signed out.");
-const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadClientFeedbackEligible(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadMyEditorPerformance(),loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
+const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadClientFeedbackEligible(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadMyEditorPerformance(),loadEditorAvailability(),loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
 async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
  const report=state=>{try{onStatus(state);}catch{}};
@@ -149,7 +149,7 @@ if(user.role==="client"){
    finally{delete form.dataset.submitting;submit.disabled=false;submit.textContent="Submit Video Editing Application";}
   };
 }else if(user.role==="editor"){
- $("editor-panel").hidden=false;renderEditorReadiness();if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadMyEditorPerformance();loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
+ $("editor-panel").hidden=false;renderEditorReadiness();if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadMyEditorPerformance();loadEditorAvailability();loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
  $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();loadAdminCleanupRuns();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
@@ -613,6 +613,21 @@ async function loadAdminClientFeedback(){
   for(const item of d.feedback){const card=document.createElement("article");card.className="card";const title=document.createElement("h4");title.textContent=(item.title||"Project")+" · "+item.public_project_code;const editor=document.createElement("p");editor.className="muted";editor.textContent="Editor: "+(item.editor_name||item.editor_email||"Unknown")+" · Client: "+(item.client_email||"");const rating=document.createElement("p");rating.textContent="Overall "+item.overall_rating+"/5 · Quality "+item.quality_rating+"/5 · Communication "+item.communication_rating+"/5 · Timeliness "+item.timeliness_rating+"/5";card.append(title,editor,rating);if(item.review_text){const review=document.createElement("p");review.textContent=item.review_text;card.append(review);}const date=document.createElement("small");date.className="muted";date.textContent=new Date(item.created_at).toLocaleString();card.append(date);root.append(card);}
  }catch(e){root.textContent=e.message;}
 }
+async function loadEditorAvailability(){
+ const root=$("editor-availability");if(!root)return;root.textContent="Loading availability settings…";
+ try{
+  const d=await api("/v1/editor/availability"),a=d.availability||{};root.replaceChildren();
+  const status=document.createElement("p");status.className="muted";status.textContent="Current status: "+(a.availability_status||"available").toUpperCase()+" · Active projects: "+(a.active_projects||0)+" · Open offers: "+(a.open_offers||0);root.append(status);
+  const form=$("editor-availability-form");if(!form)return;form.elements.availability_status.value=a.availability_status||"available";form.elements.max_concurrent_projects.value=String(a.max_concurrent_projects||2);form.elements.availability_note.value=a.availability_note||"";
+  const msg=$("editor-availability-message");form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('button[type="submit"]');button.disabled=true;msg.textContent="Saving your availability…";try{const body={availability_status:form.elements.availability_status.value,max_concurrent_projects:Number(form.elements.max_concurrent_projects.value),availability_note:form.elements.availability_note.value.trim()};await api("/v1/editor/availability",{method:"PUT",body:JSON.stringify(body)});msg.textContent="Availability settings saved.";await loadEditorAvailability();}catch(err){msg.textContent=err.message;}finally{button.disabled=false;}};
+ }catch(e){root.textContent=e.message;}
+}
+async function loadAdminEditorWorkload(){
+ const root=$("admin-editor-workload");if(!root)return;root.textContent="Loading editor availability and workload…";
+ try{const d=await api("/v1/admin/editor-workload");root.replaceChildren();if(!Array.isArray(d.editors)||!d.editors.length){root.textContent="No editor profiles are registered yet.";return;}
+  for(const e of d.editors){const card=document.createElement("article");card.className="card";const title=document.createElement("h4");title.textContent=(e.display_name||e.public_editor_code||"Editor")+" · "+String(e.availability_status||"available").toUpperCase();const stats=document.createElement("p");stats.textContent="Profile: "+(e.verification_status||"pending")+" · Account: "+(e.account_status||"unknown")+" · Active projects: "+(e.active_projects||0)+" · Open offers: "+(e.open_offers||0)+" · Workload: "+(e.workload||0)+" / "+(e.max_concurrent_projects||2);card.append(title,stats);if(e.availability_note){const note=document.createElement("p");note.className="muted";note.textContent="Editor note: "+e.availability_note;card.append(note);}root.append(card);}
+ }catch(e){root.textContent=e.message;}
+}
 async function loadEditorPerformance(){
  const root=$("admin-editor-performance");if(!root)return;root.textContent="Loading editor performance records…";
  try{
@@ -631,6 +646,7 @@ async function loadAdmin(){
  loadAdminKycReviews();
  loadEditorReviewHistory();
  loadEditorPerformance();
+ loadAdminEditorWorkload();
  loadAdminClientFeedback();
  try{
   updateEditorReviewSummary("profile",null,"loading");
