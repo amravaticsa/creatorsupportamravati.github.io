@@ -32,6 +32,9 @@ Status: **Prepared; interactive end-to-end execution is not yet complete.**
 
 ## Test identities and fixtures required
 
+Follow `global-platform/testing/STAGING-TEST-IDENTITY-SETUP.md` for the staging-only identity separation, synthetic fixture, evidence and stop-condition procedure. No test identities are created automatically by this runbook; use the normal sign-in and approval flows.
+
+
 Prepare these directly in the staging environment:
 1. One dedicated client Google identity.
 2. One dedicated editor identity with an approved test profile and KYC review fixture. Do not use another person's real identity document. If a real document is required to validate the process, obtain the editor's explicit consent and restrict access to authorized reviewers.
