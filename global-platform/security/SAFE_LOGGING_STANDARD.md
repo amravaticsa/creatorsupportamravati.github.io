@@ -101,3 +101,36 @@ The zone route query returned zero routes targeting these three isolated Worker 
 - **Rollback evidence:** previous isolated versions are retained for Super Admin (v1) and Global API (v1); the Editor isolated script currently lists only v1. Capture a known-good rollback artifact before any subsequent code/settings change.
 
 Latest successful GitHub validation run recorded for this phase: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44909035221. This is repository CI validation, not a Cloudflare Worker deployment.
+
+## Secure secret provisioning runbook — 2026-11-21
+
+This runbook is limited to the three isolated staging Workers. Do not apply it to active staging or production Worker names.
+
+### Required secret inventory
+
+| Worker | Binding | Value source |
+|---|---|---|
+| csa-superadmin-isolated-staging | ADMIN_SYNC_HMAC_SECRET | Generate a new random high-entropy secret for this isolated bridge |
+| csa-global-api-isolated-staging | ADMIN_SYNC_HMAC_SECRET | Bind the exact same generated value as the isolated Super Admin Worker |
+| csa-superadmin-isolated-staging | RESEND_API_KEY | Create/use a restricted Resend API key from the authorized Resend account |
+| csa-superadmin-isolated-staging | RESEND_FROM_EMAIL | Verified sender address authorized in Resend |
+
+### Operator procedure
+
+1. In Cloudflare Dashboard, open Workers & Pages, select only the exact isolated Worker name shown above, and open Settings → Variables and Secrets.
+2. Add ADMIN_SYNC_HMAC_SECRET as a Secret on both isolated Super Admin and isolated Global API Workers. Generate it in a trusted local password manager or secret manager; use one identical value for both. Do not paste it into ChatGPT, GitHub, source files, tickets, or logs.
+3. Add RESEND_API_KEY as a Secret on the isolated Super Admin Worker. Use a restricted key from Resend; do not use or expose an account-wide key if a restricted key is available.
+4. Add RESEND_FROM_EMAIL as a non-secret text variable on the isolated Super Admin Worker only after the sender domain/address is verified in Resend.
+5. Save the changes only on these isolated Worker names. Cloudflare may create new versions when bindings change. Do not change traffic allocation, attach routes, or enable workers.dev as part of this step.
+6. Re-read settings and secret names only to confirm all four binding placements. Never retrieve or print secret values.
+7. Record the new version IDs and confirm deployment allocation remains confined to the isolated script names. If a change unexpectedly affects any active route or script, stop and roll back immediately.
+
+### Runtime test gate
+
+- Test HMAC signing and verification between isolated Super Admin and isolated Global API using synthetic, non-customer payloads.
+- Test recovery-email generation with a mocked mail transport first; then send one explicitly approved test email to an internal test mailbox only.
+- Confirm logs contain fixed error codes and no tokens, signatures, email bodies, personal data, request bodies, or secret material.
+- Test editor origin/auth behavior independently before allowing the Editor Portal to call any admin or global endpoint.
+- Keep all public routes and production promotion disabled until all tests pass and a separate deployment approval is given.
+
+**Current execution status:** This is an operator runbook only. No secret has been generated, stored, or bound by this documentation change.
