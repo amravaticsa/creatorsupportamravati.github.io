@@ -95,7 +95,8 @@ jobs:
           grep -q "editor_tender_bids" global-platform/migrations/0023_tenders_pricing_quotes.sql
           grep -q "csa_pricing_policies" global-platform/migrations/0023_tenders_pricing_quotes.sql
           grep -q "client_quotes" global-platform/migrations/0023_tenders_pricing_quotes.sql
-          grep -q "client_advance_bps" global-platform/migrations/0024_client_quote_payments.sql
+          grep -q "client_advance_bps" global-platform/migrations/0023_tenders_pricing_quotes.sql
+          ! grep -Eiq "ALTER TABLE[[:space:]]+csa_pricing_policies[[:space:]]+ADD COLUMN[[:space:]]+client_advance_bps" global-platform/migrations/0024_client_quote_payments.sql
           grep -q "quote_id" global-platform/migrations/0024_client_quote_payments.sql
           grep -q "client_quote_payment_order_created" global-platform/api/src/index.js
           grep -q "client_quote_payment_verified" global-platform/api/src/index.js
