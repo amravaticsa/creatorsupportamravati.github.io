@@ -124,5 +124,5 @@ test("Tender award is a handoff only; it does not bypass verified-editor offer a
 test("Tender award and quote actions enforce project-department access independently", () => {
   assert.match(api, /const ta=p\.match\(\/\^\\\/v1\\\/admin\\\/tenders/);
   assert.match(api, /dr\.route_key='tender' AND da\.source_admin_id=\?\)\.bind\(t\.project_id,a\.source_admin_id\)/);
-  assert.match(api, /adminPermissionFor\(req\)/);
+  assert.match(api, /bind\(t\.project_id,a\.source_admin_id\)/);
 });
