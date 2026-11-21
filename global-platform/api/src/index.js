@@ -33,6 +33,12 @@ function adminPermissionFor(req){
  const p=new URL(req.url).pathname.replace(/\/$/,""),m=req.method;
  if(/^\/v1\/files\/[\w-]+$/.test(p))return null;
  if(m==="GET"&&["/v1/admin/submissions/pending","/v1/admin/offers/ready"].includes(p))return "projects.manage";
+ if(m==="GET"&&["/v1/admin/tenders","/v1/admin/pricing-policy"].includes(p))return "projects.manage";
+ if(m==="POST"&&(/^\\/v1\\/admin\\/projects\\/[\\w-]+\\/tender$/.test(p)||/^\\/v1\\/admin\\/tenders\\/[\\w-]+\\/(publish|close|award|quote)$/.test(p)||p==="/v1/admin/pricing-policy"))return "projects.manage";
+ if(m==="GET"&&p==="/v1/client/quotes")return null;
+ if(m==="POST"&&/^\\/v1\\/client\\/quotes\\/[\\w-]+\\/decision$/.test(p))return null;
+ if(m==="GET"&&p==="/v1/editor/tenders")return null;
+ if(m==="POST"&&/^\\/v1\\/editor\\/tenders\\/[\\w-]+\\/bids$/.test(p))return null;
  if(m==="GET"&&p==="/v1/admin/projects")return ["projects.manage","content.manage"];
  if(m==="GET"&&p==="/v1/admin/departments")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&(/^\/v1\/admin\/submissions\/[\w-]+\/review$/.test(p)||/^\/v1\/admin\/projects\/[\w-]+\/offers$/.test(p)||/^\/v1\/admin\/offers\/[\w-]+\/assign$/.test(p)))return "projects.manage";
@@ -669,6 +675,85 @@ async function handle(req,env){
   const legacyObject=file.r2_object_key.startsWith("legacyvideo/");
   const object=legacyObject?await env.LEGACY_VIDEO_BUCKET?.get(file.r2_object_key.slice("legacyvideo/".length)):await env.MEDIA?.get(file.r2_object_key);if(!object)return bad("Stored object is missing.",404);
   return new Response(object.body,{status:200,headers:{"content-type":file.mime_type||"application/octet-stream","content-length":String(file.size_bytes||object.size||0),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(file.original_filename||"download"),"x-content-type-options":"nosniff","cache-control":"private, no-store"}});
+ }
+
+ // Tender, editor bidding, Super Admin pricing and client quote lifecycle.
+ if(m==="GET"&&p==="/v1/admin/pricing-policy"){
+  const a=await user(req,env,["admin"]);if(a.source_role!=="super_admin")return bad("Only Super Admin can manage CSA pricing policy.",403);
+  const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,status,updated_at FROM csa_pricing_policies ORDER BY currency").all();return out({ok:true,policies:r.results||[]});
+ }
+ if(m==="POST"&&p==="/v1/admin/pricing-policy"){
+  const a=await user(req,env,["admin"]);if(a.source_role!=="super_admin")return bad("Only Super Admin can change CSA pricing policy.",403);
+  const b=await req.json(),currency=txt(b.currency,3).toUpperCase(),bps=b.margin_bps,min=amt(b.minimum_margin_minor??0);
+  if(!/^[A-Z]{3}$/.test(currency)||!Number.isInteger(bps)||bps<0||bps>10000||min===null)return bad("Valid currency, markup basis points (0–10000) and minimum markup are required.");
+  await env.DB.prepare("INSERT INTO csa_pricing_policies(currency,margin_bps,minimum_margin_minor,status,updated_by) VALUES(?,?,?,'active',?) ON CONFLICT(currency) DO UPDATE SET margin_bps=excluded.margin_bps,minimum_margin_minor=excluded.minimum_margin_minor,status='active',updated_by=excluded.updated_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(currency,bps,min,a.id).run();
+  await log(env,a.id,"csa_pricing_policy_updated","pricing_policy",currency,{margin_bps:bps,minimum_margin_minor:min});return out({ok:true,currency,margin_bps:bps,minimum_margin_minor:min,status:"active"});
+ }
+ if(m==="GET"&&p==="/v1/admin/tenders"){
+  const a=await user(req,env,["admin"]);if(!a.source_admin_id)return bad("Department access is not configured.",403);
+  const r=await env.DB.prepare("SELECT t.id,t.project_id,t.title,t.scope_summary,t.bid_deadline,t.status,t.published_at,p.public_project_code,p.title AS project_title,p.category,p.budget_currency,(SELECT COUNT(*) FROM editor_tender_bids b WHERE b.tender_id=t.id AND b.status IN ('submitted','shortlisted')) AS bid_count FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE EXISTS(SELECT 1 FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=p.id AND dr.route_key='tender' AND da.source_admin_id=?) ORDER BY t.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
+  return out({ok:true,tenders:r.results||[]});
+ }
+ const tenderDraft=p.match(/^\\/v1\\/admin\\/projects\\/([\\w-]+)\\/tender$/);
+ if(m==="POST"&&tenderDraft){
+  const a=await user(req,env,["admin"]),b=await req.json(),pr=await env.DB.prepare("SELECT id,title FROM projects WHERE id=?").bind(tenderDraft[1]).first();if(!pr)return bad("Application not found.",404);
+  const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(pr.id,a.source_admin_id).first();if(!access)return bad("Operations & Events tender access is required.",403);
+  const title=txt(b.title,180)||pr.title,scope=txt(b.scope_summary,8000),deadline=txt(b.bid_deadline,40);
+  if(!scope||!deadline||!Number.isFinite(Date.parse(deadline))||Date.parse(deadline)<=Date.now())return bad("Tender scope and future bid deadline are required.");
+  const oldTender=await env.DB.prepare("SELECT id,status FROM project_tenders WHERE project_id=?").bind(pr.id).first();if(oldTender&&oldTender.status!=="draft")return bad("Only a draft tender can be edited.",409);
+  const id=oldTender?.id||uid("tnd");
+  await env.DB.prepare("INSERT INTO project_tenders(id,project_id,title,scope_summary,bid_deadline,status) VALUES(?,?,?,?,?,'draft') ON CONFLICT(project_id) DO UPDATE SET title=excluded.title,scope_summary=excluded.scope_summary,bid_deadline=excluded.bid_deadline,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,pr.id,title,scope,deadline).run();
+  await log(env,a.id,"tender_draft_saved","tender",id,{project_id:pr.id});return out({ok:true,tender_id:id,status:"draft"},201);
+ }
+ const ta=p.match(/^\\/v1\\/admin\\/tenders\\/([\\w-]+)\\/(publish|close|award|quote)$/);
+ if(ta){
+  const a=await user(req,env,["admin"]),id=ta[1],action=ta[2],t=await env.DB.prepare("SELECT t.*,p.client_id,p.budget_currency FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.id=?").bind(id).first();if(!t)return bad("Tender not found.",404);
+  const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(t.project_id,a.source_admin_id).first();if(!access)return bad("Operations & Events department access is required.",403);
+  if(action==="publish"){if(t.status!=="draft"||Date.parse(t.bid_deadline)<=Date.now())return bad("Only a draft tender with a future deadline can be published.",409);await env.DB.prepare("UPDATE project_tenders SET status='published',published_by=?,published_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='draft'").bind(a.id,id).run();await log(env,a.id,"tender_published","tender",id);return out({ok:true,status:"published"});}
+  if(action==="close"){if(t.status!=="published")return bad("Only a published tender can be closed.",409);await env.DB.prepare("UPDATE project_tenders SET status='closed',closed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='published'").bind(id).run();await log(env,a.id,"tender_closed","tender",id);return out({ok:true,status:"closed"});}
+  if(action==="award"){
+   if(t.status!=="closed")return bad("Close the tender before awarding a bid.",409);const b=await req.json(),bid=await env.DB.prepare("SELECT id,editor_id,bid_amount_minor,currency,delivery_days FROM editor_tender_bids WHERE id=? AND tender_id=? AND status IN ('submitted','shortlisted')").bind(txt(b.bid_id,100),id).first();
+   if(!bid)return bad("Selected bid is not eligible.",404);if(bid.currency!==t.budget_currency)return bad("Bid currency must match application currency.",409);
+   await env.DB.batch([env.DB.prepare("UPDATE editor_tender_bids SET status=CASE WHEN id=? THEN 'won' ELSE 'rejected' END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE tender_id=? AND status IN ('submitted','shortlisted')").bind(bid.id,id),env.DB.prepare("UPDATE project_tenders SET status='awarded',awarded_bid_id=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='closed'").bind(bid.id,id)]);
+   await log(env,a.id,"tender_bid_awarded","tender",id,{bid_id:bid.id});return out({ok:true,status:"awarded",winning_bid:bid,next_step:"create_client_quote_and_send_managed_editor_offer"});
+  }
+  if(action==="quote"){
+   if(t.status!=="awarded"||!t.awarded_bid_id)return bad("Award a bid before creating a client quote.",409);
+   const policy=await env.DB.prepare("SELECT margin_bps,minimum_margin_minor,status FROM csa_pricing_policies WHERE currency=?").bind(t.budget_currency).first();if(!policy||policy.status!=="active"||policy.margin_bps===null)return bad("CSA pricing policy is not configured for "+t.budget_currency+". Super Admin must configure it first.",409,"pricing_policy_unconfigured");
+   const bid=await env.DB.prepare("SELECT id,bid_amount_minor,currency FROM editor_tender_bids WHERE id=? AND status='won'").bind(t.awarded_bid_id).first();if(!bid||bid.currency!==t.budget_currency)return bad("Winning bid currency mismatch.",409);
+   const markup=Math.max(Math.ceil(bid.bid_amount_minor*policy.margin_bps/10000),policy.minimum_margin_minor),total=bid.bid_amount_minor+markup,qid=uid("quo"),validUntil=new Date(Date.now()+7*86400000).toISOString();
+   await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status='superseded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE project_id=? AND status IN ('draft','sent')").bind(t.project_id),env.DB.prepare("INSERT INTO client_quotes(id,project_id,tender_id,winning_bid_id,client_id,base_cost_minor,margin_minor,total_amount_minor,currency,pricing_margin_bps,status,valid_until,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?)").bind(qid,t.project_id,id,bid.id,t.client_id,bid.bid_amount_minor,markup,total,t.budget_currency,policy.margin_bps,validUntil,a.id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type,details_json) VALUES(?,?,?,'created',?)").bind(uid("qev"),qid,a.id,JSON.stringify({margin_bps:policy.margin_bps,base_cost_minor:bid.bid_amount_minor,margin_minor:markup,total_amount_minor:total}))]);
+   await log(env,a.id,"client_quote_created","client_quote",qid,{project_id:t.project_id});return out({ok:true,quote_id:qid,status:"draft",base_cost_minor:bid.bid_amount_minor,margin_minor:markup,total_amount_minor:total,currency:t.budget_currency,valid_until:validUntil});
+  }
+ }
+ if(m==="POST"&&/^\\/v1\\/admin\\/quotes\\/[\\w-]+\\/send$/.test(p)){
+  const a=await user(req,env,["admin"]),id=p.split("/")[4],q=await env.DB.prepare("SELECT id,status FROM client_quotes WHERE id=?").bind(id).first();if(!q||q.status!=="draft")return bad("Only a draft quote can be sent.",409);
+  await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status='sent',sent_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,'sent')").bind(uid("qev"),id,a.id)]);await log(env,a.id,"client_quote_sent","client_quote",id);return out({ok:true,status:"sent"});
+ }
+ if(m==="GET"&&p==="/v1/editor/tenders"){
+  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT t.id,t.title,t.scope_summary,t.bid_deadline,p.public_project_code,p.category,p.budget_currency,p.preferred_deadline,p.priority FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.status='published' AND t.bid_deadline>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND NOT EXISTS(SELECT 1 FROM editor_tender_bids b WHERE b.tender_id=t.id AND b.editor_id=?) ORDER BY t.bid_deadline LIMIT 100").bind(a.id).all();return out({ok:true,tenders:r.results||[]});
+ }
+ const eb=p.match(/^\\/v1\\/editor\\/tenders\\/([\\w-]+)\\/bids$/);
+ if(m==="POST"&&eb){
+  const a=await user(req,env,["editor"]),b=await req.json(),t=await env.DB.prepare("SELECT t.id,t.project_id,t.status,t.bid_deadline,p.budget_currency FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.id=?").bind(eb[1]).first();
+  if(!t||t.status!=="published"||Date.parse(t.bid_deadline)<=Date.now())return bad("Tender is not open for bidding.",409);
+  const amount=amt(b.bid_amount_minor),currency=txt(b.currency,3).toUpperCase();if(!amount||currency!==t.budget_currency||!Number.isInteger(b.delivery_days)||b.delivery_days<1||b.delivery_days>365)return bad("Positive bid, matching currency and delivery days (1–365) are required.");
+  const id=uid("bid");await env.DB.prepare("INSERT INTO editor_tender_bids(id,tender_id,project_id,editor_id,bid_amount_minor,currency,delivery_days,proposal) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(tender_id,editor_id) DO UPDATE SET bid_amount_minor=excluded.bid_amount_minor,currency=excluded.currency,delivery_days=excluded.delivery_days,proposal=excluded.proposal,status='submitted',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,t.id,t.project_id,a.id,amount,currency,b.delivery_days,txt(b.proposal,3000)||null).run();await log(env,a.id,"editor_tender_bid_submitted","tender",t.id,{amount_minor:amount,currency});return out({ok:true,status:"submitted"});
+ }
+ if(m==="GET"&&p==="/v1/admin/tenders/bids"){
+  const a=await user(req,env,["admin"]),tenderId=txt(new URL(req.url).searchParams.get("tender_id"),100);if(!tenderId)return bad("Tender ID is required.");
+  const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=(SELECT project_id FROM project_tenders WHERE id=?) AND dr.route_key='tender' AND da.source_admin_id=?").bind(tenderId,a.source_admin_id).first();if(!access)return bad("Tender department access denied.",403);
+  const r=await env.DB.prepare("SELECT b.id,b.bid_amount_minor,b.currency,b.delivery_days,b.proposal,b.status,b.submitted_at,e.display_name,e.public_editor_code,e.country,e.languages_json,e.specializations_json FROM editor_tender_bids b JOIN editor_profiles e ON e.user_id=b.editor_id WHERE b.tender_id=? ORDER BY b.bid_amount_minor ASC,b.submitted_at ASC").bind(tenderId).all();return out({ok:true,bids:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/client/quotes"){
+  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT q.id,q.project_id,q.base_cost_minor,q.margin_minor,q.total_amount_minor,q.currency,q.status,q.valid_until,q.created_at,q.sent_at,p.public_project_code,p.title FROM client_quotes q JOIN projects p ON p.id=q.project_id WHERE q.client_id=? AND q.status IN ('sent','accepted','rejected','expired') ORDER BY q.created_at DESC").bind(a.id).all();return out({ok:true,quotes:r.results||[]});
+ }
+ const qd=p.match(/^\\/v1\\/client\\/quotes\\/([\\w-]+)\\/decision$/);
+ if(m==="POST"&&qd){
+  const a=await user(req,env,["client"]),b=await req.json(),status=b.decision==="accept"?"accepted":b.decision==="reject"?"rejected":null;if(!status)return bad("Decision must be accept or reject.");
+  const q=await env.DB.prepare("SELECT id,status,valid_until FROM client_quotes WHERE id=? AND client_id=?").bind(qd[1],a.id).first();if(!q||q.status!=="sent")return bad("Quote is not available for a decision.",404);
+  if(q.valid_until&&Date.parse(q.valid_until)<=Date.now()){await env.DB.prepare("UPDATE client_quotes SET status='expired' WHERE id=?").bind(q.id).run();return bad("Quote has expired.",409);}
+  await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status=?,client_decision_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='sent'").bind(status,q.id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,?)").bind(uid("qev"),q.id,a.id,status)]);await log(env,a.id,"client_quote_"+status,"client_quote",q.id);return out({ok:true,status,next_step:status==="accepted"?"client_payment_integration_pending":"none"});
  }
  if(m==="POST"&&p==="/v1/projects"){
   const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
