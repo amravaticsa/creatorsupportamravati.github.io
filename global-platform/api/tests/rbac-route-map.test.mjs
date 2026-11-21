@@ -78,6 +78,10 @@ test("Support Admin is limited to upload diagnostics and incident operations", (
   assert.equal(permits("support_admin", "GET", "/v1/admin/multipart-cleanup-runs"), true);
   assert.equal(permits("support_admin", "POST", "/v1/admin/multipart-uploads/up_1/incidents"), true);
   assert.equal(permits("support_admin", "GET", "/v1/notifications"), true);
+  assert.equal(permits("finance_admin", "GET", "/v1/notifications"), true);
+  assert.equal(permits("finance_admin", "GET", "/v1/notifications/preferences"), true);
+  assert.equal(permits("finance_admin", "PUT", "/v1/notifications/preferences"), true);
+  assert.equal(permits("finance_admin", "POST", "/v1/notifications/ntf_1/read"), true);
   assert.equal(permits("support_admin", "POST", "/v1/notifications/ntf_1/read"), true);
   assert.equal(permits("support_admin", "GET", "/v1/notifications/preferences"), true);
   assert.equal(permits("support_admin", "PUT", "/v1/notifications/preferences"), true);
