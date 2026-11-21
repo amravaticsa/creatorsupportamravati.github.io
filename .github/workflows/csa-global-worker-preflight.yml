@@ -1,0 +1,52 @@
+name: CSA Global staging Worker preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker-preflight:
+    name: Read-only Cloudflare Worker configuration check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require Cloudflare credentials
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_TOKEN}" ]; then
+            echo "::error::Add CLOUDFLARE_API_TOKEN in GitHub Actions secrets. Use a scoped token with Workers Scripts Read permission only."
+            exit 1
+          fi
+
+      - name: Read staging Worker settings
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
+          WORKER_NAME: "csa-global-api-staging"
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --max-time 30 \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/settings")"
+          printf '%s' "${response}" | jq -e '.success == true' >/dev/null
+          printf '%s' "${response}" > worker-settings.json
+
+      - name: Verify staging environment and expected database bindings
+        run: |
+          set -euo pipefail
+          jq -e '
+            (.result.bindings // []) as $b
+            | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
+            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "69f070a4-b71f-4448-973f-31993715b781") ] | length == 1)
+            and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
+          ' worker-settings.json >/dev/null || {
+            echo "::error::Worker settings do not match the recorded staging environment/bindings. No deployment was attempted."
+            exit 1
+          }
+          echo "PASS: csa-global-api-staging is configured for staging and its current D1/R2 bindings match the audited staging resources."
+          echo "NOTE: this is a read-only configuration check. It does not prove OAuth/payment flows or database isolation."
