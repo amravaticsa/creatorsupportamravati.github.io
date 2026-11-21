@@ -945,13 +945,18 @@ async function handle(req,env){
   catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
   if(event==="payment.captured"){
    const pid=entity.id||record.provider_payment_id;
-   if(!pid||entity.status!=="captured"||entity.amount!==record.amount_minor||entity.currency!==record.currency)return bad("Captured webhook amount or currency mismatch.",409);
-   await env.DB.batch([
-    env.DB.prepare("UPDATE payments SET provider_payment_id=COALESCE(provider_payment_id,?),status='succeeded',verified_at=COALESCE(verified_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pid,record.id),
-    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay webhook captured payment",record.user_id),
-    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_locked',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Locked to project pending CSA release/refund decision",record.user_id),
-    env.DB.prepare("UPDATE project_offers SET status='ready_for_assignment' WHERE id=? AND status='deposit_pending'").bind(record.offer_id)
-   ]);
+   if(!pid||entity.status!=="captured"||entity.amount!==record.amount_minor||String(entity.currency||"").toUpperCase()!==String(record.currency||"").toUpperCase())return bad("Captured webhook amount or currency mismatch.",409);
+   await env.DB.prepare("UPDATE payments SET provider_payment_id=COALESCE(provider_payment_id,?),status='succeeded',verified_at=COALESCE(verified_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pid,record.id).run();
+   if(record.payment_type==="editor_security_deposit"){
+    await env.DB.batch([
+     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay webhook captured payment",record.user_id),
+     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_locked',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Locked to project pending CSA release/refund decision",record.user_id),
+     env.DB.prepare("UPDATE project_offers SET status='ready_for_assignment' WHERE id=? AND status='deposit_pending'").bind(record.offer_id)
+    ]);
+   }else if(record.quote_id&&["client_advance","client_balance"].includes(record.payment_type)){
+    const paid=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(record.quote_id).first(),quote=await env.DB.prepare("SELECT total_amount_minor FROM client_quotes WHERE id=?").bind(record.quote_id).first();
+    if(quote)await env.DB.prepare("UPDATE client_quotes SET payment_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(Number(paid?.total||0)>=quote.total_amount_minor?"paid":"partial",record.quote_id).run();
+   }
   }else if(event==="payment.failed"){
    await env.DB.prepare("UPDATE payments SET status='failed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(record.id).run();
   }
