@@ -700,8 +700,13 @@ async function loadAdmin(){
       rankStatus.textContent="Top recommendation: "+ranked[0].display_name+" · "+Number(ranked[0].score).toFixed(1)+"/100. This is a recommendation only; CSA Admin makes the final selection.";
       rankDetails.replaceChildren();
       for(const e of ranked.slice(0,5)){
-       const line=document.createElement("p");line.textContent="#"+e.rank+" "+e.display_name+" — "+Number(e.score).toFixed(1)+"/100 · "+(e.reasons||[]).join(" · ");
-       rankDetails.append(line);
+       const card=document.createElement("section");card.className="card";
+       const line=document.createElement("h4");line.textContent="#"+e.rank+" "+e.display_name+" — "+Number(e.score).toFixed(1)+"/100";
+       const capacity=document.createElement("p");capacity.textContent="Available · Workload "+Number(e.workload||0)+" / "+Number(e.capacity||e.max_concurrent_projects||2)+" · Remaining capacity "+Number(e.remaining_capacity||0)+" · Open offers "+Number(e.open_offers||0);
+       const ratings=document.createElement("p");ratings.textContent=e.rating_count>=3?"Verified client rating: "+Number(e.average_rating).toFixed(2)+"/5 ("+e.rating_count+" reviews)":"Rating evidence: "+Number(e.rating_count||0)+" review(s); neutral ranking score used";
+       const breakdown=document.createElement("p");const b=e.score_breakdown||{};breakdown.textContent="Score breakdown — Skill "+Number(b.specialization||0)+"/25 · Language "+Number(b.language||0)+"/15 · Ratings "+Number(b.ratings||0)+"/20 · Reliability "+Number(b.reliability||0)+"/20 · Portfolio "+Number(b.portfolio||0)+"/10 · Workload "+Number(b.workload||0)+"/10";
+       const why=document.createElement("p");why.className="muted";why.textContent=(e.reasons||[]).join(" · ");
+       card.append(line,capacity,ratings,breakdown,why);rankDetails.append(card);
       }
       const note=document.createElement("p");note.className="muted";note.textContent="Scoring: specialization 25, language 15, verified client ratings 20, reliability 20, approved portfolio 10, workload 10. Ratings and delivery history use neutral scores until enough evidence exists; 3 client ratings are required before ratings affect ranking.";
       rankDetails.append(note);
