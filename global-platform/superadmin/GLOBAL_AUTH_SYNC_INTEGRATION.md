@@ -114,3 +114,16 @@ Deployment verification:
 Limitations:
 - This is static/deployment verification only. No authenticated role-by-role HTTP tests have been performed because there are no accepted test invitations/accounts yet.
 - The current four-role map should be reviewed against actual business duties before real admin invitations. Do not enable production access until role-by-role tests pass.
+
+
+## Sync monitoring and operator controls (2026-11-21)
+- The deployed staging Super Admin Worker now writes a row to `global_admin_sync_logs` for every lifecycle-triggered, scheduled, and manually retried sync.
+- Each row stores trigger type, success/failure, synchronized record count, bounded error code, start/finish timestamps, and optional actor admin ID. HMAC material and payload contents are never logged.
+- Super Admin-only endpoints:
+  - `GET /api/admins/global-sync-status` returns the latest attempt and up to 20 recent attempts.
+  - `POST /api/admins/sync-global` performs an authenticated manual retry and records the result.
+- The Super Admin Central Control page includes a Global Admin Sync Health panel and a Retry Sync Now control.
+- Cron remains `*/15 * * * *` (every 15 minutes). The scheduled handler records success or failure in the same log.
+- Staging D1 migration: `0013_global_admin_sync_logs.sql`. It has been applied to staging D1 and verified.
+- Deployment is staging-only. No production Worker, database, credentials, or payment configuration was changed.
+- End-to-end runtime success still requires a real Cloudflare Access-authenticated Super Admin session; do not treat deployment acceptance as proof of a successful HMAC sync.
