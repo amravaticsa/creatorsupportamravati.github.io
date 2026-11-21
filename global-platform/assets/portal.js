@@ -882,7 +882,7 @@ if(quoteForm)quoteForm.addEventListener("submit",async e=>{
 });
 async function loadAdmin(){
  loadNotifications("admin-notifications");
- loadFinancialPolicy();
+ loadFinancialPolicy();loadFinancialLedger();
  loadAdminDisputes();
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
