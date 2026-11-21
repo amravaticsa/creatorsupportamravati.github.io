@@ -38,7 +38,8 @@ function adminPermissionFor(req){
  if(m==="POST"&&/^\/v1\/admin\/quotes\/[\w-]+\/send$/.test(p))return "projects.manage";
  if(m==="POST"&&(/^\/v1\/admin\/projects\/[\w-]+\/tender$/.test(p)||/^\/v1\/admin\/tenders\/[\w-]+\/(publish|close|award|quote)$/.test(p)||p==="/v1/admin/pricing-policy"))return "projects.manage";
  if(m==="GET"&&p==="/v1/client/quotes")return null;
- if(m==="POST"&&/^\/v1\/client\/quotes\/[\w-]+\/decision$/.test(p))return null;
+ if(m==="POST"&&/^\/v1\/client\/quotes\/[\w-]+\/(decision|checkout)$/.test(p))return null;
+ if(m==="POST"&&p==="/v1/client/payments/razorpay/verify")return null;
  if(m==="GET"&&p==="/v1/editor/tenders")return null;
  if(m==="POST"&&/^\/v1\/editor\/tenders\/[\w-]+\/bids$/.test(p))return null;
  if(m==="GET"&&p==="/v1/admin/projects")return ["projects.manage","content.manage"];
@@ -682,14 +683,14 @@ async function handle(req,env){
  // Tender, editor bidding, Super Admin pricing and client quote lifecycle.
  if(m==="GET"&&p==="/v1/admin/pricing-policy"){
   const a=await user(req,env,["admin"]);if(a.source_role!=="super_admin")return bad("Only Super Admin can manage CSA pricing policy.",403);
-  const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,status,updated_at FROM csa_pricing_policies ORDER BY currency").all();return out({ok:true,policies:r.results||[]});
+  const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_at FROM csa_pricing_policies ORDER BY currency").all();return out({ok:true,policies:r.results||[]});
  }
  if(m==="POST"&&p==="/v1/admin/pricing-policy"){
   const a=await user(req,env,["admin"]);if(a.source_role!=="super_admin")return bad("Only Super Admin can change CSA pricing policy.",403);
-  const b=await req.json(),currency=txt(b.currency,3).toUpperCase(),bps=b.margin_bps,min=amt(b.minimum_margin_minor??0);
-  if(!/^[A-Z]{3}$/.test(currency)||!Number.isInteger(bps)||bps<0||bps>10000||min===null)return bad("Valid currency, markup basis points (0–10000) and minimum markup are required.");
-  await env.DB.prepare("INSERT INTO csa_pricing_policies(currency,margin_bps,minimum_margin_minor,status,updated_by) VALUES(?,?,?,'active',?) ON CONFLICT(currency) DO UPDATE SET margin_bps=excluded.margin_bps,minimum_margin_minor=excluded.minimum_margin_minor,status='active',updated_by=excluded.updated_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(currency,bps,min,a.id).run();
-  await log(env,a.id,"csa_pricing_policy_updated","pricing_policy",currency,{margin_bps:bps,minimum_margin_minor:min});return out({ok:true,currency,margin_bps:bps,minimum_margin_minor:min,status:"active"});
+  const b=await req.json(),currency=txt(b.currency,3).toUpperCase(),bps=b.margin_bps,min=amt(b.minimum_margin_minor??0),advance=b.client_advance_bps===undefined||b.client_advance_bps===null||b.client_advance_bps===""?null:Number(b.client_advance_bps);
+  if(!/^[A-Z]{3}$/.test(currency)||!Number.isInteger(bps)||bps<0||bps>10000||min===null||(advance!==null&&(!Number.isInteger(advance)||advance<1||advance>10000)))return bad("Valid currency, markup basis points, minimum markup and optional advance percentage (1–100%) are required.");
+  await env.DB.prepare("INSERT INTO csa_pricing_policies(currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_by) VALUES(?,?,?,?,'active',?) ON CONFLICT(currency) DO UPDATE SET margin_bps=excluded.margin_bps,minimum_margin_minor=excluded.minimum_margin_minor,client_advance_bps=excluded.client_advance_bps,status='active',updated_by=excluded.updated_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(currency,bps,min,advance,a.id).run();
+  await log(env,a.id,"csa_pricing_policy_updated","pricing_policy",currency,{margin_bps:bps,minimum_margin_minor:min,client_advance_bps:advance});return out({ok:true,currency,margin_bps:bps,minimum_margin_minor:min,client_advance_bps:advance,status:"active"});
  }
  if(m==="GET"&&p==="/v1/admin/tenders"){
   const a=await user(req,env,["admin"]);if(!a.source_admin_id)return bad("Department access is not configured.",403);
@@ -748,7 +749,7 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT b.id,b.bid_amount_minor,b.currency,b.delivery_days,b.proposal,b.status,b.submitted_at,e.display_name,e.public_editor_code,e.country,e.languages_json,e.specializations_json FROM editor_tender_bids b JOIN editor_profiles e ON e.user_id=b.editor_id WHERE b.tender_id=? ORDER BY b.bid_amount_minor ASC,b.submitted_at ASC").bind(tenderId).all();return out({ok:true,bids:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/client/quotes"){
-  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT q.id,q.project_id,q.base_cost_minor,q.margin_minor,q.total_amount_minor,q.currency,q.status,q.valid_until,q.created_at,q.sent_at,p.public_project_code,p.title FROM client_quotes q JOIN projects p ON p.id=q.project_id WHERE q.client_id=? AND q.status IN ('sent','accepted','rejected','expired') ORDER BY q.created_at DESC").bind(a.id).all();return out({ok:true,quotes:r.results||[]});
+  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT q.id,q.project_id,q.base_cost_minor,q.margin_minor,q.total_amount_minor,q.currency,q.status,q.payment_status,q.valid_until,q.created_at,q.sent_at,p.public_project_code,p.title FROM client_quotes q JOIN projects p ON p.id=q.project_id WHERE q.client_id=? AND q.status IN ('sent','accepted','rejected','expired') ORDER BY q.created_at DESC").bind(a.id).all();return out({ok:true,quotes:r.results||[]});
  }
  const qd=p.match(/^\/v1\/client\/quotes\/([\w-]+)\/decision$/);
  if(m==="POST"&&qd){
