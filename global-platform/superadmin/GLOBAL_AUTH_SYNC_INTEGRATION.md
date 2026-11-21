@@ -307,3 +307,17 @@ GitHub source tracking for the active staging Workers is complete: all five Supe
 - The safer next implementation is to prepare a separate production Super Admin Worker from the currently serving Super Admin source, with verified production D1/R2 bindings and preserved production secret bindings; test it before changing the official catch-all route.
 - Only after that route migration is independently validated should the active staging Super Admin Worker be rebound to `csa-attendance-evidence-staging`. Then verify the staging identity/admin database and the isolated Editor route flow with authenticated browser tests.
 - No Worker code, bindings, secrets, routes, custom domains, Access policies, DNS records, D1 data, R2 objects, or payment settings were modified during this inventory.
+
+
+### Production replacement readiness inventory — 2026-11-21
+
+A read-only account inventory was performed before creating or routing a separate production Super Admin Worker.
+
+- Cloudflare currently lists no Worker script named `csa-superadmin-api` or other separate production Super Admin Worker. The only Super Admin scripts found are `csa-superadmin-api-staging` and `csa-superadmin-isolated-staging`.
+- The official route `superadmin.creatorsupportamravati.in/*` still targets `csa-superadmin-api-staging`.
+- The active Super Admin Worker is bound to D1 `csa-superadmin-staging` (`99bc81fc-e97e-488b-a380-eb0237ff8ffc`) and the non-staging R2 bucket `csa-attendance-evidence`.
+- The D1 inventory contains `csa-global-platform`, `csa-orders`, and the named staging/isolated databases, but no clearly identified production Super Admin database. Do not infer that `csa-global-platform` or `csa-orders` is the production Super Admin database: their schemas and intended ownership must be verified first.
+- The R2 inventory contains both `csa-attendance-evidence` and `csa-attendance-evidence-staging`, but bucket existence alone does not prove which bucket currently contains production attendance evidence or which application owns it.
+- No Worker, route, custom domain, binding, D1 database, R2 bucket, Access policy, secret, or data was created or changed during this readiness inventory.
+
+**Decision:** Do not create or route a production Super Admin Worker yet. There is no verified production Super Admin D1 database to bind it to. Cloning the active Worker while pointing it at the current staging D1 would merely create another Worker against staging data; pointing it at an unrelated D1 would risk corrupting another application. The next safe prerequisite is to inspect the schemas and application ownership of `csa-global-platform` and `csa-orders`, then identify or deliberately provision the correct production Super Admin database and seed/migration plan. Do not copy staging admin accounts or secrets into production without an explicit controlled migration plan.
