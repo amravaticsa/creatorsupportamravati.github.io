@@ -2,11 +2,6 @@ name: CSA Global staging API smoke test
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - staging
-    paths:
-      - ".github/workflows/csa-global-staging-smoke.yml"
 
 permissions:
   contents: read
