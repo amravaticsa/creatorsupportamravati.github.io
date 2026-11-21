@@ -32,3 +32,9 @@ test("role permissions remain least-privilege and distinct", () => {
   assert.match(source, /finance_admin:\["finance\.read","finance\.refunds"\]/);
   assert.match(source, /support_admin:\["support\.manage"\]/);
 });
+
+
+test("Super Admin pricing bridge accepts a 10-digit timestamp and signs newline-delimited canonical data", () => {
+  assert.ok(source.includes('if(!/^\\d{10}$/.test(ts)'));
+  assert.ok(source.includes('const canonical="POST\\n/internal/superadmin/pricing-policy\\n"+ts+"\\n"+nonce+"\\n"+bodyHash'));
+});
