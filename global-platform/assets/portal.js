@@ -7,7 +7,7 @@ const token=readSessionValue("csa_global_token"),user=readSessionUser();
 if(!token||!user||typeof user!=="object"||!user.role){try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");return;}
 const headers={"content-type":"application/json","authorization":"Bearer "+token};
 $("welcome").textContent="Welcome to CSA Global";
-$("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · "+(user.status||"active");
+$("account-status").textContent="Signed in as "+(user.email||"verified account")+" · "+user.role+" · Account status: "+(user.account_status||user.status||"not provided by login response");
 function endSession(message="Session expired. Please sign in again."){$("account-status").textContent=message;try{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");}catch{}location.replace("login.html");}
 $("logout").onclick=()=>endSession("You have been signed out.");
 const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
@@ -148,10 +148,35 @@ if(user.role==="client"){
    finally{delete form.dataset.submitting;submit.disabled=false;submit.textContent="Submit Video Editing Application";}
   };
 }else if(user.role==="editor"){
- $("editor-panel").hidden=false;if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
+ $("editor-panel").hidden=false;renderEditorReadiness();if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");}
 }else if(user.role==="admin"){
  $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();loadAdminCleanupRuns();
 }else{$("account-status").textContent="This account role does not have a client/editor portal.";}
+function renderEditorReadiness(){
+ const root=$("editor-readiness");if(!root)return;root.replaceChildren();
+ const statusValue=(value)=>{const s=String(value||"").trim();return s?s.replaceAll("_"," "):"Not provided by login response";};
+ const items=[
+  ["Login / account",user.account_status||user.status],
+  ["KYC verification",user.kyc_status],
+  ["Editor profile approval",user.verification_status]
+ ];
+ for(const [label,value] of items){
+  const card=document.createElement("div");card.className="stat";
+  const title=document.createElement("small");title.textContent=label;
+  const strong=document.createElement("strong");strong.textContent=statusValue(value);
+  card.append(title,strong);root.append(card);
+ }
+ const note=document.createElement("p");note.className="muted";note.style.gridColumn="1 / -1";
+ const kyc=String(user.kyc_status||"").toLowerCase(),profile=String(user.verification_status||"").toLowerCase(),account=String(user.account_status||user.status||"").toLowerCase();
+ if(kyc==="verified"&&profile==="verified"&&account==="active"){
+  note.textContent="Your login session reports an active account, verified KYC and approved profile. CSA still validates eligibility on the server when offers are requested.";
+ }else if(!user.kyc_status&&!user.verification_status){
+  note.textContent="The current login response does not include KYC or profile-review details. This dashboard will not guess those results. Contact CSA for the latest review status; offer access remains controlled by the CSA server.";
+ }else{
+  note.textContent="Project invitations are available only when the CSA server confirms an active account, verified KYC and approved editor profile. If a status is pending or unavailable, contact CSA for review.";
+ }
+ root.append(note);
+}
 async function loadAdminCleanupRuns(){
  const root=$("admin-cleanup-runs");if(!root)return;root.textContent="Loading cleanup history…";
  try{
