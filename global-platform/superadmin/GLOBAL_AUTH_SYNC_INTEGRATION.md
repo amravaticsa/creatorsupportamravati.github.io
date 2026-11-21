@@ -210,3 +210,20 @@ The Global API pricing-policy routes are intentionally fail-closed for all synch
 - Read-back also shows two specific routes on the new hostname: `/editor-management*` and `/editor-api/*` map to `csa-editor-portal`. They were not created or changed in this step. The whole hostname is covered by the new Super Admin-only Access application; verify these intended paths and editor-role expectations before enabling broader access.
 - Important pending code check: the deployed Super Admin hostname allowlist was previously confirmed to accept `superadmin.creatorsupportamravati.in` only. Until the staging hostname is explicitly added to the staging Worker host guard and verified through an authenticated browser session, expect the application to reject or fail closed on this new hostname. Do not direct normal users to it yet.
 - The official `admin` and `superadmin` hostnames, their custom domains, existing routes and existing Access application were not modified. No production Worker, database, payment configuration or client data was changed.
+
+
+### Staging hostname follow-up audit — 2026-11-21
+
+- `superadmin-staging.creatorsupportamravati.in` is attached as a Worker Custom Domain to `csa-superadmin-api-staging`.
+- The Super Admin Worker `portalRoleAllowed()` currently allows `superadmin.creatorsupportamravati.in` only for `super_admin` and `admin.creatorsupportamravati.in` for non-Super-Admin roles. It does not yet allow the isolated staging hostname. Add the staging hostname as a Super-Admin-only host; do not broaden the role condition.
+- The two staging-host routes currently target the **production** Editor Portal Worker:
+  - `superadmin-staging.creatorsupportamravati.in/editor-management*` → `csa-editor-portal`
+  - `superadmin-staging.creatorsupportamravati.in/editor-api/*` → `csa-editor-portal`
+- The production Editor Portal Worker is bound to production resources: D1 `CSA_VIDEO_DB` database `72a5d236-1ae1-4362-9a51-e6fb9b9840c8` and R2 bucket `csa-video-editing`. Its source hardcodes the admin host `superadmin.creatorsupportamravati.in` and production editor host. Do not route staging traffic to this Worker.
+- A separate `csa-editor-portal-staging` Worker exists and is bound to staging resources: D1 `CSA_VIDEO_DB` database `69f070a4-b71f-4448-973f-31993715b781` and R2 bucket `csa-video-editing-staging`. Its current source also hardcodes the old Super Admin host in both the `/editor-management` page guard and the `/editor-api/*` admin API guard.
+- Required staging-only correction before testing:
+  1. Add `superadmin-staging.creatorsupportamravati.in` to `portalRoleAllowed()` as `super_admin` only.
+  2. Update the **staging Editor Portal Worker source only** so `/editor-management` and the admin `/editor-api/*` branch accept the new staging host; update its admin-origin constant to the staging host.
+  3. Change only the two `superadmin-staging` route targets to `csa-editor-portal-staging`. Preserve all official `superadmin` host routes and the two production Editor Portal route targets unchanged.
+  4. Verify Cloudflare Access remains enforced for the whole staging hostname and test both Editor Management routes with a valid Super Admin session; verify unauthenticated requests return 401 and that staging data bindings are used.
+- No Worker source, Worker deployment, route, Access policy, DNS record, database, or production resource was modified in this follow-up audit. The staging hostname must remain unavailable for normal use until all four corrections and authenticated route tests pass.
