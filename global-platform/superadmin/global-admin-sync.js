@@ -33,7 +33,7 @@ export async function syncGlobalAdminAuthorizations(env) {
   // Pending invitations are intentionally omitted: they receive no Global access.
   // The receiver revokes records absent from this authoritative snapshot.
   const snapshot = (result.results || [])
-    .filter((account) => account.status !== "pending")
+    .filter((account) => account.status !== "pending" && account.role !== "super_admin")
     .map((account) => ({
       source_admin_id: account.id,
       email: String(account.email || "").trim().toLowerCase(),
