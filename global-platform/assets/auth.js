@@ -136,8 +136,6 @@ async function onGoogleCredential(response){
   specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),
   bio:$("bio").value.trim(),availability:"project-based"
  }:role.value==="admin"?{}:{company_name:$("company").value.trim(),country:$("client-country").value.trim(),language:"English"};
- if(isEditor&&(!profile.legal_name||!profile.country_code||!profile.state||!profile.city||!profile.specializations.length)){status.textContent="Full legal name, country, state/province, city and specializations are required.";return;}
- if(isEditor&&profile.country_code==="IN"&&profile.postal_code&&!/^\d{6}$/.test(profile.postal_code)){status.textContent="India ke liye PIN Code 6 digits ka hona chahiye.";return;}
  try{
   const r=await fetch(API+"/v1/auth/google",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,role:role.value,profile})});
   const data=await r.json();
@@ -147,11 +145,27 @@ async function onGoogleCredential(response){
    sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");
    if(data.existing_editor){
     renderKycReviewStatus(data);
-    if(["pending","in_review","verified"].includes(String(data.kyc_status||"").toLowerCase())){status.textContent="KYC status checked. See the review status panel for the next step.";return;}
+    if(String(data.verification_status||"").toLowerCase()==="rejected"){
+     const panel=$("profile-correction-panel"),message=$("profile-correction-status"),submit=$("profile-correction-submit"),ep=data.editor_profile||{};
+     const set=(id,value)=>{const el=$(id);if(el&&value!==null&&value!==undefined)el.value=value;};
+     set("legal-name",ep.legal_name);set("editor-country",ep.country_code);set("editor-state",ep.state);set("editor-district",ep.district);set("editor-city",ep.city);set("editor-village",ep.village);set("editor-postal-code",ep.postal_code);set("editor-address-line",ep.address_line);
+     const parse=(v)=>{try{const a=JSON.parse(v||"[]");return Array.isArray(a)?a.join(", "):"";}catch{return "";}};
+     set("langs",parse(ep.languages_json));set("exp",ep.experience_level);set("software",parse(ep.software_json));set("specializations",parse(ep.specializations_json));set("bio",ep.bio);
+     panel.hidden=false;message.textContent="CSA ne aapka profile reject kiya hai. Neeche details sudharein aur corrected profile dobara submit karein.";
+     submit.onclick=async()=>{const updated={legal_name:$("legal-name").value.trim(),country:$("editor-country").selectedOptions[0]?.textContent.trim()||"",country_code:$("editor-country").value,state:$("editor-state").value.trim(),district:$("editor-district").value.trim(),city:$("editor-city").value.trim(),village:$("editor-village").value.trim(),postal_code:$("editor-postal-code").value.trim(),address_line:$("editor-address-line").value.trim(),languages:$("langs").value.split(",").map(x=>x.trim()).filter(Boolean),experience_level:$("exp").value,software:$("software").value.split(",").map(x=>x.trim()).filter(Boolean),specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),bio:$("bio").value.trim(),availability:"project-based"};
+      if(!updated.legal_name||!updated.country_code||!updated.state||!updated.city||!updated.specializations.length){message.textContent="Full legal name, country, state, city aur at least one specialization zaroori hai.";return;}
+      if(updated.country_code==="IN"&&updated.postal_code&&!/^\\d{6}$/.test(updated.postal_code)){message.textContent="India PIN Code 6 digits ka hona chahiye.";return;}
+      submit.disabled=true;message.textContent="Corrected profile CSA ko submit ho raha hai…";
+      try{const cr=await fetch(API+"/v1/editor/profile-correction",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,profile:updated})}),cd=await cr.json();if(!cr.ok||!cd.ok)throw Error(cd.error?.message||"Profile correction submit nahi hua.");message.textContent="Corrected profile successfully submitted. CSA Admin review pending hai.";submit.hidden=true;status.textContent="Profile correction submitted for review.";}catch(err){message.textContent=err.message;submit.disabled=false;}
+     };
+    }
+    if(["pending","in_review","verified"].includes(String(data.kyc_status||"").toLowerCase())){status.textContent="KYC status checked. Profile correction option, if required, is shown above.";return;}
     if(!["rejected","not_submitted","missing"].includes(String(data.kyc_status||"").toLowerCase())){status.textContent="CSA could not confirm a safe KYC resubmission state. Please contact CSA before uploading again.";return;}
     const kycError=validateKycDocument();if(kycError){status.textContent=kycError;return;}
     await uploadKycDocument(response.credential);renderKycReviewStatus({kyc_status:"pending"},"submitted");status.textContent="Your replacement KYC document has been securely resubmitted. CSA review is pending.";
    }else{
+    if(isEditor&&(!profile.legal_name||!profile.country_code||!profile.state||!profile.city||!profile.specializations.length)){status.textContent="Full legal name, country, state/province, city and specializations are required.";return;}
+    if(isEditor&&profile.country_code==="IN"&&profile.postal_code&&!/^\\d{6}$/.test(profile.postal_code)){status.textContent="India ke liye PIN Code 6 digits ka hona chahiye.";return;}
     const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();
     if(portfolioError||kycError){status.textContent=portfolioError||kycError;return;}
     await uploadKycDocument(response.credential);renderKycReviewStatus({kyc_status:"pending"},"submitted");await uploadPortfolioVideos(response.credential);
