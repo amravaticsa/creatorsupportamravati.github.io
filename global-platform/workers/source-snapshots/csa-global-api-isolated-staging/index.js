@@ -193,4 +193,1027 @@ async function handle(req,env){
  if(m==="POST"&&p==="/v1/editor/password/change"){
  const a=await user(req,env,["editor"]),b=await req.json(),password=typeof b.new_password==="string"?b.new_password:"";if(password.length<12||password.length>128)return bad("New password must contain 12 to 128 characters.");
  const salt=crypto.getRandomValues(new Uint8Array(16)),km=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:310000},km,256),salt64=btoa(String.fromCharCode(...salt)),hash=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
- await env.DB.prepare("UPDATE editor_credentials SET --- TRUNCATED --- 155,950 chars
+ await env.DB.prepare("UPDATE editor_credentials SET password_salt=?,password_hash=?,must_change_password=0,failed_attempts=0,locked_until=NULL WHERE user_id=?").bind(salt64,hash,a.id).run();await log(env,a.id,"editor_password_changed","editor",a.id,{forced_change:true});return out({ok:true,password_changed:true});
+ }
+ if(m==="POST"&&p==="/v1/auth/google"){
+  const b=await req.json(),role=b.role,credential=txt(b.credential,10000),nonce=txt(b.nonce,200);
+  if(!credential||!nonce||!["client","editor","admin"].includes(role))return bad("Google credential, login nonce and account type are required.");
+  const c=await claims(new Request(req.url,{headers:{Authorization:"Bearer "+credential}}),env);
+  if(c.nonce!==nonce)return bad("Google login nonce validation failed. Please retry sign-in.",401,"nonce_invalid");
+  // A Google email allowlist alone must never create an administrator account.
+  // Only a server-synchronized, active Super Admin invitation grants Global admin access.
+  const adminAuthorization=role==="admin"?await env.DB.prepare("SELECT email,status FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(c.email).first():null;
+  if(role==="admin"&&!adminAuthorization)return bad("This Google account has not been invited by the CSA Super Admin.",403,"admin_invitation_required");
+  const old=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=?").bind(c.sub).first();
+  if(old){
+   if(old.role!==role)return bad("This Google account is already registered under a different account type. Please use the existing account type.",409,"role_conflict");
+   if(role==="editor"){const k=await env.DB.prepare("SELECT status,review_note FROM editor_kyc_documents WHERE editor_id=? ORDER BY created_at DESC LIMIT 1").bind(old.id).first();return out({ok:true,user_id:old.id,role:old.role,status:old.account_status,email:old.email,existing_editor:true,kyc_status:k?.status||"not_submitted",kyc_review_note:k?.review_note||null});}
+   return out({ok:true,user_id:old.id,role:old.role,status:old.account_status,email:old.email});
+  }
+  const byEmail=await env.DB.prepare("SELECT id,role,auth_subject FROM users WHERE email=? COLLATE NOCASE").bind(c.email).first();
+  if(byEmail)return bad("This email already has an account. Contact CSA support to securely link Google sign-in.",409,"email_exists");
+  const profile=b.profile||{},name=txt(profile.display_name,120)||txt(c.name,120)||txt(c.email,254).split("@")[0],newId=uid("usr");
+  if(role==="admin"){
+   // Re-check immediately before creating the Global admin identity.
+   const stillAuthorized=await env.DB.prepare("SELECT 1 AS ok FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(c.email).first();
+   if(!stillAuthorized)return bad("CSA Super Admin authorization is no longer active.",403,"admin_authorization_revoked");
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status) VALUES(?,?, 'admin',?,?, 'active')").bind(newId,c.sub,c.email,new Date().toISOString()).run();
+  }else if(role==="client"){
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
+   await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
+  }else{
+   const country=txt(profile.country,100),legalName=txt(profile.legal_name,160),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
+   if(!legalName||!country||!skills.length)return bad("Legal name, country and at least one specialization are required.");
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
+   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,legal_name,country,country_code,state,district,city,village,postal_code,address_line,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,legalName,country,txt(profile.country_code,2).toUpperCase()||null,txt(profile.state,120)||null,txt(profile.district,120)||null,txt(profile.city,120)||null,txt(profile.village,120)||null,txt(profile.postal_code,20)||null,txt(profile.address_line,240)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),null,null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
+  }
+  await log(env,newId,"google_account_registered",role,newId,{email_domain:c.email.split("@")[1]});
+  return out({ok:true,user_id:newId,role,status:role==="editor"?"pending":"active",email:c.email},201);
+ }
+ if(m==="POST"&&p==="/v1/onboarding/editor"){
+  const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),legalName=txt(b.legal_name,160),country=txt(b.country,100);
+  if(!name||!legalName||!country||!Array.isArray(b.specializations)||!b.specializations.length)return bad("Display name, legal name, country and specializations are required.");
+  const idu=uid("usr");
+  await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
+  await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,legal_name,country,country_code,state,district,city,village,postal_code,address_line,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,legalName,country,txt(b.country_code,2).toUpperCase()||null,txt(b.state,120)||null,txt(b.district,120)||null,txt(b.city,120)||null,txt(b.village,120)||null,txt(b.postal_code,20)||null,txt(b.address_line,240)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),null,null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
+  await log(env,idu,"editor_registration_submitted","editor",idu);
+  return out({ok:true,status:"pending_verification",message:"Registration is free. No deposit is charged until an editor chooses to accept a project offer."},201);
+ }
+
+ if(m==="POST"&&p==="/v1/editor/kyc-document"){
+  if(!env.MEDIA)return bad("Private KYC storage is not configured.",503);
+  const identity=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(identity.sub,identity.email).first();
+  if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status))return bad("An eligible editor registration is required.",403);
+  const docType=txt(req.headers.get("x-csa-kyc-document-type"),40).toLowerCase(),consent=req.headers.get("x-csa-kyc-consent")==="true",consentVersion=txt(req.headers.get("x-csa-kyc-consent-version"),20),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),declared=Number(req.headers.get("content-length")||0);
+  if(!["passport","national_id","pan","voter_id","driving_licence","aadhaar","residence_permit","tax_id","other_government_id"].includes(docType)||!consent||consentVersion!=="1.0")return bad("Select an accepted government ID type and accept the current KYC privacy notice.");
+  if(!["application/pdf","image/jpeg","image/png"].includes(mime))return bad("KYC document must be a PDF, JPG or PNG.",415);
+  if(!Number.isSafeInteger(declared)||declared<1||declared>10*1024*1024)return bad("KYC document must be between 1 byte and 10 MB.",413);
+  const pending=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status IN ('pending','in_review')").bind(editor.id).first();
+  if(pending)return bad("A KYC document is already awaiting review. Contact CSA if you need to replace it.",409);
+  const bytes=await req.arrayBuffer();if(bytes.byteLength!==declared)return bad("Uploaded file size does not match Content-Length.");
+  const head=new Uint8Array(bytes.slice(0,12));
+  const valid=mime==="application/pdf"?String.fromCharCode(...head.slice(0,5))==="%PDF-":mime==="image/jpeg"?head[0]===0xff&&head[1]===0xd8&&head[2]===0xff:head.length>=8&&head[0]===0x89&&String.fromCharCode(...head.slice(1,4))==="PNG";
+  if(!valid)return bad("The document file signature does not match its selected type.",415);
+  const id=uid("kyc"),key="private-kyc/"+editor.id+"/"+id+(mime==="application/pdf"?".pdf":mime==="image/png"?".png":".jpg");
+  await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store"}});
+  try{await env.DB.prepare("INSERT INTO editor_kyc_documents(id,editor_id,document_type,r2_object_key,mime_type,size_bytes,status,consent_version,consented_at) VALUES(?,?,?,?,?,?,'pending',?,?)").bind(id,editor.id,docType,key,mime,bytes.byteLength,consentVersion,new Date().toISOString()).run();await log(env,editor.id,"editor_kyc_document_submitted","editor_kyc",id,{document_type:docType,mime_type:mime,size_bytes:bytes.byteLength});}
+  catch(e){await env.MEDIA.delete(key);throw e;}
+  return out({ok:true,status:"pending_review",message:"KYC document submitted securely for CSA review."},201);
+ }
+ if(m==="POST"&&p==="/v1/editor/portfolio-videos"){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const c=await claims(req,env),editor=await env.DB.prepare("SELECT u.id,u.role,u.account_status,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.auth_subject=? AND u.email=? COLLATE NOCASE").bind(c.sub,c.email).first();
+  if(!editor||editor.role!=="editor"||!["pending","active"].includes(editor.account_status)||!["pending","in_review","verified"].includes(editor.verification_status))return bad("An eligible editor registration is required.",403);
+  const title=txt(req.headers.get("x-csa-video-title"),120),description=txt(req.headers.get("x-csa-video-description"),1200),category=txt(req.headers.get("x-csa-video-category"),80),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),rights=req.headers.get("x-csa-video-rights-confirmed")==="true",terms=txt(req.headers.get("x-csa-terms-version"),20),declared=Number(req.headers.get("content-length")||0);
+  if(!title||!description||!category||!rights||terms!=="1.0")return bad("Video details, rights confirmation and current terms acceptance are required.");
+  if(!["video/mp4","video/quicktime"].includes(mime))return bad("Only MP4 and MOV videos are accepted.",415);
+  if(!Number.isSafeInteger(declared)||declared<1||declared>80*1024*1024)return bad("Each portfolio video must be between 1 byte and 80 MB.",413);
+  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM editor_portfolio_videos WHERE editor_id=?").bind(editor.id).first();
+  if(Number(count?.n||0)>=3)return bad("A maximum of 3 portfolio videos is allowed.",409);
+  const bytes=await req.arrayBuffer();if(bytes.byteLength!==declared)return bad("Uploaded file size does not match Content-Length.",400);
+  const head=new Uint8Array(bytes.slice(0,12));if(head.length<8||String.fromCharCode(...head.slice(4,8))!=="ftyp")return bad("The uploaded file does not have a valid MP4/MOV container signature.",415);
+  const id=uid("pvid"),key="editor-portfolio/"+editor.id+"/"+id+(mime==="video/quicktime"?".mov":".mp4");
+  await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store"}});
+  try{await env.DB.prepare("INSERT INTO editor_portfolio_videos(id,editor_id,title,description,category,r2_object_key,mime_type,size_bytes,rights_confirmed,terms_version,terms_accepted_at) VALUES(?,?,?,?,?,?,?,?,1,?,?)").bind(id,editor.id,title,description,category,key,mime,bytes.byteLength,terms,new Date().toISOString()).run();await log(env,editor.id,"editor_portfolio_video_uploaded","editor_portfolio_video",id,{category,mime_type:mime,size_bytes:bytes.byteLength,terms_version:terms});}
+  catch(e){await env.MEDIA.delete(key);throw e;}
+  return out({ok:true,video_id:id,review_status:"pending"},201);
+ }
+ const portfolioPreview=p.match(/^\/v1\/admin\/editor-portfolio-videos\/([\w-]+)\/preview$/);
+ if(m==="GET"&&portfolioPreview){
+  const a=await user(req,env,["admin"]),video=await env.DB.prepare("SELECT r2_object_key,mime_type,title FROM editor_portfolio_videos WHERE id=?").bind(portfolioPreview[1]).first();
+  if(!video)return bad("Portfolio video not found.",404);
+  const object=await env.MEDIA.get(video.r2_object_key);if(!object)return bad("Portfolio video file is missing from private storage.",404);
+  return new Response(object.body,{headers:{"content-type":video.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+ }
+ if(m==="GET"&&p==="/v1/admin/editor-portfolio-videos"){
+  const a=await user(req,env,["admin"]),status=txt(u.searchParams.get("status"),20)||"pending";
+  if(!["pending","approved","rejected","all"].includes(status))return bad("Invalid review status.");
+  const query=env.DB.prepare("SELECT v.id,v.editor_id,e.display_name,e.country,v.title,v.description,v.category,v.mime_type,v.size_bytes,v.review_status,v.client_visible,v.terms_version,v.terms_accepted_at,v.created_at FROM editor_portfolio_videos v JOIN editor_profiles e ON e.user_id=v.editor_id "+(status==="all"?"":"WHERE v.review_status=?")+" ORDER BY v.created_at DESC LIMIT 200");
+  const rows=status==="all"?await query.all():await query.bind(status).all();
+  return out({ok:true,videos:rows.results||[]});
+ }
+ const portfolioReview=p.match(/^\/v1\/admin\/editor-portfolio-videos\/([\w-]+)\/review$/);
+ if(m==="POST"&&portfolioReview){
+  const a=await user(req,env,["admin"]),b=await req.json(),status=txt(b.status,20),note=txt(b.note,1000);
+  if(!["approved","rejected"].includes(status))return bad("Review status must be approved or rejected.");
+  const video=await env.DB.prepare("SELECT id FROM editor_portfolio_videos WHERE id=?").bind(portfolioReview[1]).first();
+  if(!video)return bad("Portfolio video not found.",404);
+  await env.DB.prepare("UPDATE editor_portfolio_videos SET review_status=?,client_visible=?,reviewed_by=?,reviewed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),review_note=? WHERE id=?").bind(status,status==="approved"?1:0,a.id,note||null,video.id).run();
+  await log(env,a.id,"editor_portfolio_video_reviewed","editor_portfolio_video",video.id,{status,note});
+  return out({ok:true,status,client_visible:status==="approved"});
+ }
+ if(m==="POST"&&p==="/v1/onboarding/client"){
+  const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120);if(!name)return bad("Name is required.");
+  const idu=uid("usr");
+  await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
+  await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(idu,name,txt(b.company_name,160)||null,txt(b.country,100)||null,txt(b.timezone,80)||null,txt(b.language,40)||null).run();
+  return out({ok:true,status:"active"},201);
+ }
+
+ if(m==="GET"&&p==="/v1/client/editor-portfolio-videos"){
+  const a=await user(req,env,["client"]);
+  const rows=await env.DB.prepare("SELECT v.id,v.title,v.description,v.category,v.mime_type FROM editor_portfolio_videos v JOIN editor_profiles e ON e.user_id=v.editor_id JOIN users u ON u.id=v.editor_id WHERE v.review_status='approved' AND v.client_visible=1 AND e.verification_status='verified' AND u.account_status='active' AND EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=v.editor_id AND k.status='verified') ORDER BY v.reviewed_at DESC,v.created_at DESC LIMIT 100").all();
+  return out({ok:true,videos:rows.results||[]});
+ }
+ const clientPortfolioStream=p.match(/^\/v1\/client\/editor-portfolio-videos\/([\w-]+)\/stream$/);
+ if(m==="GET"&&clientPortfolioStream){
+  const a=await user(req,env,["client"]),video=await env.DB.prepare("SELECT v.r2_object_key,v.mime_type FROM editor_portfolio_videos v JOIN editor_profiles e ON e.user_id=v.editor_id JOIN users u ON u.id=v.editor_id WHERE v.id=? AND v.review_status='approved' AND v.client_visible=1 AND e.verification_status='verified' AND u.account_status='active' AND EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=v.editor_id AND k.status='verified')").bind(clientPortfolioStream[1]).first();
+  if(!video)return bad("Showcase video not found.",404);
+  const object=await env.MEDIA.get(video.r2_object_key);if(!object)return bad("Showcase video is temporarily unavailable.",404);
+  return new Response(object.body,{headers:{"content-type":video.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff"}});
+ }
+ if(m==="POST"&&p==="/v1/client/legacy-video-orders/claim"){
+  const a=await user(req,env,["client"]);
+  if(!env.LEGACY_VIDEO_DB)return bad("Legacy order claim is not configured in this environment.",503);
+  const b=await req.json(),code=txt(b.order_code,40).toUpperCase(),accessToken=txt(b.access_token,160);
+  if(!/^CSA-VE-[A-F0-9]{8}$/.test(code)||accessToken.length<32||accessToken.length>128)return bad("Enter the original Video Editing Order ID and its access token.");
+  const legacy=await env.LEGACY_VIDEO_DB.prepare("SELECT id,order_code,customer_name,customer_email,customer_phone,country,service_package,project_type,video_duration,aspect_ratio,deadline,instructions,quoted_amount_paise,project_budget_paise,currency,payment_status,order_status,customer_access_hash,created_at,updated_at,is_draft FROM video_editing_orders WHERE order_code=? AND is_draft=0").bind(code).first();
+  const digestBytes=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(accessToken)));
+  const suppliedHash=[...digestBytes].map(x=>x.toString(16).padStart(2,"0")).join("");
+  if(!legacy||!legacy.customer_access_hash||!constantTime(suppliedHash,legacy.customer_access_hash))return bad("Order ID or access token is invalid. Check the original details and try again.",401,"legacy_claim_invalid");
+  const existing=await env.DB.prepare("SELECT project_id,client_id FROM legacy_video_order_claims WHERE legacy_order_id=? OR legacy_order_code=?").bind(legacy.id,code).first();
+  if(existing){
+   if(existing.client_id!==a.id)return bad("This legacy order has already been linked to another CSA Global account. Contact CSA Support for ownership review.",409,"legacy_order_already_claimed");
+   const project=await env.DB.prepare("SELECT public_project_code FROM projects WHERE id=?").bind(existing.project_id).first();
+   return out({ok:true,already_claimed:true,project_id:existing.project_id,project_code:project?.public_project_code||code});
+  }
+  const amount=Number(legacy.quoted_amount_paise||legacy.project_budget_paise||0),currency=txt(legacy.currency,3).toUpperCase()||"INR";
+  const rawStatus=txt(legacy.order_status,100),payStatus=txt(legacy.payment_status,60)||"quote_pending";
+  const status=/draft|awaiting.payment/i.test(rawStatus)?"quotation_pending":/completed|delivered/i.test(rawStatus)?"completed":/progress|editing/i.test(rawStatus)?"in_progress":/cancel/i.test(rawStatus)?"cancelled":"submitted";
+  const title=(txt(legacy.service_package,100)||"Video Editing")+" — "+(txt(legacy.project_type,100)||"Legacy order");
+  const requirements={communication_language:"Not provided",source_language:"Not provided",output_language:"Not provided",subtitle_languages:"",client_country:txt(legacy.country,100)||"Not provided",client_region:"",client_city:"Not provided",project_mode:"remote",project_location:"",client_timezone:"Asia/Kolkata",contact_name:txt(legacy.customer_name,100),contact_phone:txt(legacy.customer_phone,30),content_style:txt(legacy.project_type,100)||"Not provided",dialect:"",service_package:txt(legacy.service_package,100),project_type:txt(legacy.project_type,120),raw_footage_duration:txt(legacy.video_duration,80),legacy_order_code:code};
+  const projectId=uid("prj"),files=await env.LEGACY_VIDEO_DB.prepare("SELECT id,object_key,original_filename,content_type,file_size_bytes,file_role,created_at FROM video_editing_files WHERE order_id=? AND upload_state='complete' ORDER BY created_at").bind(legacy.id).all();
+  const history=await env.LEGACY_VIDEO_DB.prepare("SELECT id,old_status,new_status,note,changed_by,created_at FROM video_editing_status_history WHERE order_id=? ORDER BY created_at").bind(legacy.id).all();
+  const statements=[
+   env.DB.prepare("INSERT INTO projects(id,public_project_code,client_id,title,category,brief,raw_footage_minutes,aspect_ratio,requirements_json,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,revisions_included,status,client_visible_status,legacy_payment_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?, 'normal',2,?,?,?,?,?)").bind(projectId,code,a.id,title,"Video Editing",txt(legacy.instructions,12000)||"Imported legacy Video Editing request.",null,txt(legacy.aspect_ratio,20)||null,JSON.stringify(requirements),amount>0?amount:null,currency,amount>0?"fixed":"recommend",txt(legacy.deadline,40)||null,status,status,payStatus,legacy.created_at||new Date().toISOString(),legacy.updated_at||new Date().toISOString()),
+   env.DB.prepare("INSERT INTO legacy_video_order_claims(legacy_order_id,legacy_order_code,project_id,client_id) VALUES(?,?,?,?)").bind(legacy.id,code,projectId,a.id),
+   env.DB.prepare("INSERT INTO project_status_history(id,project_id,old_status,new_status,note,changed_by,source_system,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(uid("hist"),projectId,null,status,"Legacy order claimed into CSA Global. Original status: "+rawStatus,"client","legacy_video",legacy.created_at||new Date().toISOString())
+  ];
+  for(const f of files.results||[])statements.push(env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope,created_at) VALUES(?,?,?,?,?,?,?,'client_and_admin',?)").bind(uid("file"),projectId,a.id,"legacyvideo/"+f.object_key,f.original_filename,f.content_type||"application/octet-stream",Number(f.file_size_bytes||0),f.created_at||legacy.created_at||new Date().toISOString()));
+  for(const h of history.results||[])statements.push(env.DB.prepare("INSERT INTO project_status_history(id,project_id,old_status,new_status,note,changed_by,source_system,created_at) VALUES(?,?,?,?,?,?,?,?)").bind(uid("hist"),projectId,h.old_status,h.new_status,h.note||"",txt(h.changed_by,40)||"legacy_system","legacy_video",h.created_at||legacy.created_at||new Date().toISOString()));
+  try{await env.DB.batch(statements);}catch(e){
+   const race=await env.DB.prepare("SELECT project_id,client_id FROM legacy_video_order_claims WHERE legacy_order_id=? OR legacy_order_code=?").bind(legacy.id,code).first();
+   if(race?.client_id===a.id){const project=await env.DB.prepare("SELECT public_project_code FROM projects WHERE id=?").bind(race.project_id).first();return out({ok:true,already_claimed:true,project_id:race.project_id,project_code:project?.public_project_code||code});}
+   throw e;
+  }
+  await log(env,a.id,"legacy_video_order_claimed","project",projectId,{legacy_order_code:code,legacy_files_imported:(files.results||[]).length});
+  return out({ok:true,project_id:projectId,project_code:code,files_imported:(files.results||[]).length,status},201);
+ }
+ if(m==="GET"&&p==="/v1/client/projects"){
+  const a=await user(req,env,["client"]);
+  const r=await env.DB.prepare("SELECT id,public_project_code,title,category,brief,requirements_json,json(requirements_json) AS requirements,video_count,raw_footage_minutes,final_duration_minutes,resolution,aspect_ratio,budget_type,budget_amount_minor,budget_currency,COALESCE((SELECT pay.status FROM payments pay WHERE pay.project_id=projects.id AND pay.payment_type IN ('client_advance','client_balance') ORDER BY pay.created_at DESC LIMIT 1),projects.legacy_payment_status,'quotation_pending') AS payment_status,priority,revisions_included,CASE WHEN client_visible_status='reviewing' THEN 'client_review' WHEN client_visible_status='in_progress' THEN 'in_progress' WHEN status IN ('submitted','under_review') THEN status WHEN status IN ('approved','matching','assigned','in_progress','revision') THEN CASE WHEN status IN ('approved','matching') THEN status ELSE 'in_progress' END WHEN status='quality_check' THEN 'quality_review' WHEN status IN ('client_review','completed') THEN status WHEN status IN ('cancelled','rejected') THEN 'closed' ELSE 'submitted' END AS status,CASE WHEN status IN ('approved','matching','assigned','in_progress','quality_check','client_review','revision','completed') THEN 1 ELSE 0 END AS application_locked,preferred_deadline,created_at,updated_at FROM projects WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  const projects=(r.results||[]).map(p=>{let requirements={};try{requirements=JSON.parse(p.requirements_json||"{}");}catch{}return {...p,requirements};});
+  return out({ok:true,projects});
+ }
+ // Resumable R2 multipart uploads: 50 MiB parts, up to 5 GiB per file.
+ const multipartPart=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/parts\/(\d+)$/);
+ const multipartAction=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/(complete|abort)$/);
+ if(m==="POST"&&p==="/v1/uploads/multipart"){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor"]),b=await req.json();
+  if(!["project_file","submission"].includes(b.purpose))return bad("Upload purpose must be project_file or submission.");
+  const purpose=b.purpose;
+  const total=Number(b.size_bytes),partSize=50*1024*1024,maxSize=5*1024*1024*1024;
+  const mime=txt(b.mime_type,100).toLowerCase(),allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
+  if(!Number.isSafeInteger(total)||total<=90*1024*1024||total>maxSize)return bad("Resumable upload supports files larger than 90 MB and up to 5 GB.",413,"invalid_upload_size");
+  if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
+  const rawName=txt(b.filename,180)||"upload.bin",name=rawName.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
+  let projectId=null,assignmentId=null,key="";
+  if(purpose==="project_file"){
+   projectId=txt(b.project_id,100);
+   const project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectId).first();
+   if(!project)return bad("Project not found.",404);
+   if(a.role==="client"&&project.client_id!==a.id)return bad("You cannot upload to this project.",403);
+   if(a.role==="editor"){
+    const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision')").bind(projectId,a.id).first();
+    if(!assignment)return bad("Only the assigned editor can upload to this project.",403);
+   }
+   key="projects/"+projectId+"/source/"+uid("file")+"/"+name;
+  }else{
+   if(a.role!=="editor")return bad("Only assigned editors can submit deliverables.",403);
+   assignmentId=txt(b.assignment_id,100);
+   const assignment=await env.DB.prepare("SELECT id,project_id FROM assignments WHERE id=? AND editor_id=? AND status IN ('active','revision')").bind(assignmentId,a.id).first();
+   if(!assignment)return bad("Assignment is not active for this editor.",403);
+   projectId=assignment.project_id;
+   key="assignments/"+assignmentId+"/multipart/"+uid("sub")+"/"+name;
+  }
+  const expectedParts=Math.ceil(total/partSize);
+  const id=uid("upl"),disposition="attachment; filename*=UTF-8''"+encodeURIComponent(name);
+  const upload=await env.MEDIA.createMultipartUpload(key,{httpMetadata:{contentType:mime,contentDisposition:disposition}});
+  const expires=new Date(Date.now()+24*60*60*1000).toISOString();
+  try{
+   await env.DB.prepare("INSERT INTO multipart_upload_sessions(id,project_id,assignment_id,uploaded_by,purpose,r2_object_key,r2_upload_id,original_filename,mime_type,total_size_bytes,part_size_bytes,expected_parts,notes,status,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?)")
+    .bind(id,projectId,assignmentId,a.id,purpose,key,upload.uploadId,name,mime,total,partSize,expectedParts,txt(b.notes,2000)||null,expires).run();
+  }catch(e){await upload.abort();throw e;}
+  await log(env,a.id,"multipart_upload_started","multipart_upload",id,{purpose,total_size_bytes:total,expected_parts:expectedParts});
+  return out({ok:true,upload_id:id,part_size_bytes:partSize,expected_parts:expectedParts,expires_at:expires},201);
+ }
+ // Read-only inspection for a single multipart session. Never returns R2 object keys or provider upload IDs.
+ const multipartInspect=p.match(/^\/v1\/admin\/multipart-uploads\/([\w-]+)\/inspect$/);
+ if(m==="GET"&&multipartInspect){
+  await user(req,env,["admin","staff"]);
+  const id=multipartInspect[1];
+  const session=await env.DB.prepare("SELECT s.id,s.purpose,s.original_filename,s.total_size_bytes,s.part_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,s.completed_at,s.project_id,s.assignment_id,u.email,u.role,COALESCE(cp.display_name,ep.display_name,u.email) AS uploader_name,p.public_project_code,p.title AS project_title FROM multipart_upload_sessions s JOIN users u ON u.id=s.uploaded_by LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id LEFT JOIN projects p ON p.id=s.project_id WHERE s.id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  const rows=await env.DB.prepare("SELECT part_number,size_bytes,created_at,sha256 IS NOT NULL AS checksum_present FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  const parts=(rows.results||[]).map(r=>({part_number:Number(r.part_number),size_bytes:Number(r.size_bytes),created_at:r.created_at,checksum_present:Boolean(r.checksum_present)}));
+  const present=new Set(parts.map(r=>r.part_number)),expected=Number(session.expected_parts);
+  const missing=[];for(let n=1;n<=expected;n++)if(!present.has(n))missing.push(n);
+  return out({ok:true,session:{...session,total_size_bytes:Number(session.total_size_bytes),part_size_bytes:Number(session.part_size_bytes),expected_parts:expected,age_minutes:Math.max(0,Math.floor((Date.now()-new Date(session.created_at).getTime())/60000)),expired:session.status==="open"&&new Date(session.expires_at).getTime()<=Date.now()},parts,missing_parts:missing,integrity:{parts_with_checksum:parts.filter(x=>x.checksum_present).length,parts_without_checksum:parts.filter(x=>!x.checksum_present).length}});
+ }
+ // Append-only admin incident and resolution history for a multipart upload.
+ const multipartIncidents=p.match(/^\/v1\/admin\/multipart-uploads\/([\w-]+)\/incidents$/);
+ if(multipartIncidents&&(m==="GET"||m==="POST")){
+  const actor=await user(req,env,["admin","staff"]),sessionId=multipartIncidents[1];
+  const session=await env.DB.prepare("SELECT id FROM multipart_upload_sessions WHERE id=?").bind(sessionId).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(m==="GET"){
+   const rows=await env.DB.prepare("SELECT i.id,i.incident_type,i.resolution_status,i.notes,i.created_at,u.email AS actor_email,COALESCE(cp.display_name,ep.display_name,u.email) AS actor_name FROM multipart_upload_incidents i JOIN users u ON u.id=i.actor_user_id LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id WHERE i.session_id=? ORDER BY i.created_at DESC LIMIT 50").bind(sessionId).all();
+   return out({ok:true,incidents:rows.results||[]});
+  }
+  const body=await req.json(),incidentType=txt(body.incident_type,40),resolution=txt(body.resolution_status,40),notes=txt(body.notes,1000);
+  if(!["upload_failed","unknown_completion","stale_completion","expired_session","integrity_issue","other"].includes(incidentType))return bad("Invalid incident type.");
+  if(!["reviewed","awaiting_user","reupload_requested","resolved","escalated"].includes(resolution))return bad("Invalid resolution status.");
+  if(!notes)return bad("A short resolution note is required.");
+  const id=uid("inc");
+  await env.DB.prepare("INSERT INTO multipart_upload_incidents(id,session_id,actor_user_id,incident_type,resolution_status,notes) VALUES(?,?,?,?,?,?)").bind(id,sessionId,actor.id,incidentType,resolution,notes).run();
+  await log(env,actor.id,"multipart_upload_incident_recorded","multipart_upload",sessionId,{incident_id:id,incident_type:incidentType,resolution_status:resolution});
+  return out({ok:true,incident_id:id,recorded:true},201);
+ }
+ // Admin-only operational view of multipart upload sessions; no R2 credentials or object keys returned.
+ if(m==="GET"&&p==="/v1/admin/multipart-uploads"){
+  await user(req,env,["admin","staff"]);
+  const stats=await env.DB.prepare("SELECT status,COUNT(*) AS sessions,COALESCE(SUM(total_size_bytes),0) AS bytes FROM multipart_upload_sessions GROUP BY status").all();
+  const recent=await env.DB.prepare("SELECT s.id,s.purpose,s.original_filename,s.total_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,COALESCE(x.parts_uploaded,0) AS parts_uploaded,COALESCE(x.bytes_uploaded,0) AS bytes_uploaded,u.email,u.role,COALESCE(cp.display_name,ep.display_name,u.email) AS uploader_name,p.public_project_code,p.title AS project_title FROM multipart_upload_sessions s JOIN users u ON u.id=s.uploaded_by LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id LEFT JOIN projects p ON p.id=s.project_id LEFT JOIN (SELECT session_id,COUNT(*) AS parts_uploaded,SUM(size_bytes) AS bytes_uploaded FROM multipart_upload_parts GROUP BY session_id) x ON x.session_id=s.id ORDER BY s.created_at DESC LIMIT 50").all();
+  const totals={open:0,completed:0,aborted:0,unknown:0,completing:0,expired_open:0,total_bytes:0};
+  for(const row of stats.results||[]){totals[row.status]=Number(row.sessions);totals.total_bytes+=Number(row.bytes||0);}
+  const now=new Date().toISOString(),staleBefore=new Date(Date.now()-15*60*1000).toISOString();
+  const expired=await env.DB.prepare("SELECT COUNT(*) AS n FROM multipart_upload_sessions WHERE status='open' AND expires_at<=?").bind(now).first();
+  const attention=await env.DB.prepare("SELECT s.id,s.purpose,s.original_filename,s.total_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,u.email,u.role,COALESCE(cp.display_name,ep.display_name,u.email) AS uploader_name,p.public_project_code FROM multipart_upload_sessions s JOIN users u ON u.id=s.uploaded_by LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id LEFT JOIN projects p ON p.id=s.project_id WHERE s.status='unknown' OR (s.status='completing' AND s.created_at<=?) OR (s.status='open' AND s.expires_at<=?) ORDER BY s.created_at ASC LIMIT 30").bind(staleBefore,now).all();
+  const uploads=(recent.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),parts_uploaded:Number(r.parts_uploaded),bytes_uploaded:Number(r.bytes_uploaded),expired_open:r.status==="open"&&new Date(r.expires_at).getTime()<=Date.now()}));
+  const needsReview=(attention.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),age_minutes:Math.max(0,Math.floor((Date.now()-new Date(r.created_at).getTime())/60000)),reason:r.status==="unknown"?"Storage completion outcome is uncertain; reconcile before retrying.":r.status==="completing"?"Completion has remained in progress for over 15 minutes; inspect storage and metadata.":"Session expired and is awaiting scheduled cleanup."}));
+  totals.expired_open=Number(expired?.n||0);
+  return out({ok:true,totals,uploads,attention:needsReview});
+ }
+ // Admin-only history for hourly multipart cleanup executions.
+ if(m==="GET"&&p==="/v1/admin/multipart-cleanup-runs"){
+  await user(req,env,["admin","staff"]);
+  const rows=await env.DB.prepare("SELECT id,started_at,finished_at,status,checked,aborted,failed,error_message FROM multipart_cleanup_runs ORDER BY started_at DESC LIMIT 30").all();
+  return out({ok:true,runs:(rows.results||[]).map(r=>({...r,checked:Number(r.checked||0),aborted:Number(r.aborted||0),failed:Number(r.failed||0)}))});
+ }
+ // Recent multipart upload history is limited to the authenticated account.
+ if(m==="GET"&&p==="/v1/uploads/multipart/history"){
+  const a=await user(req,env,["client","editor"]);
+  const rows=await env.DB.prepare("SELECT s.id,s.project_id,s.assignment_id,s.purpose,s.original_filename,s.total_size_bytes,s.expected_parts,s.status,s.created_at,s.expires_at,s.completed_at,COALESCE(x.parts_uploaded,0) AS parts_uploaded,COALESCE(x.bytes_uploaded,0) AS bytes_uploaded FROM multipart_upload_sessions s LEFT JOIN (SELECT session_id,COUNT(*) AS parts_uploaded,SUM(size_bytes) AS bytes_uploaded FROM multipart_upload_parts GROUP BY session_id) x ON x.session_id=s.id WHERE s.uploaded_by=? ORDER BY s.created_at DESC LIMIT 30").bind(a.id).all();
+  return out({ok:true,uploads:(rows.results||[]).map(r=>({...r,total_size_bytes:Number(r.total_size_bytes),expected_parts:Number(r.expected_parts),parts_uploaded:Number(r.parts_uploaded),bytes_uploaded:Number(r.bytes_uploaded)}))});
+ }
+ const multipartSession=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)$/);
+ if(m==="GET"&&multipartSession){
+  const a=await user(req,env,["client","editor"]),id=multipartSession[1];
+  const session=await env.DB.prepare("SELECT id,purpose,original_filename,total_size_bytes,part_size_bytes,expected_parts,status,expires_at,uploaded_by FROM multipart_upload_sessions WHERE id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
+  if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  const rows=await env.DB.prepare("SELECT part_number,size_bytes,sha256 FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  return out({ok:true,upload_id:id,status:session.status,filename:session.original_filename,total_size_bytes:session.total_size_bytes,expected_parts:session.expected_parts,part_size_bytes:session.part_size_bytes,uploaded_parts:(rows.results||[]).map(x=>({part_number:Number(x.part_number),size_bytes:Number(x.size_bytes),sha256:x.sha256||null})),expires_at:session.expires_at});
+ }
+ if(m==="PUT"&&multipartPart){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor"]),id=multipartPart[1],partNumber=Number(multipartPart[2]);
+  const session=await env.DB.prepare("SELECT * FROM multipart_upload_sessions WHERE id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
+  if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  if(!Number.isInteger(partNumber)||partNumber<1||partNumber>session.expected_parts)return bad("Invalid part number.");
+  const expected=Math.min(session.part_size_bytes,session.total_size_bytes-(partNumber-1)*session.part_size_bytes);
+  const declared=Number(req.headers.get("content-length")||0);if(declared&&declared!==expected)return bad("Part Content-Length does not match the expected chunk size.",400,"part_size_mismatch");
+  const data=await req.arrayBuffer(),actual=data.byteLength;
+  if(actual!==expected)return bad("Uploaded part byte count does not match the expected size.",actual>expected?413:400,"part_size_mismatch");
+  const digest=await crypto.subtle.digest("SHA-256",data),partSha256=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+  let uploaded;
+  try{uploaded=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).uploadPart(partNumber,data);}
+  catch(e){throw e;}
+  await env.DB.prepare("INSERT INTO multipart_upload_parts(session_id,part_number,etag,size_bytes,sha256) VALUES(?,?,?,?,?) ON CONFLICT(session_id,part_number) DO UPDATE SET etag=excluded.etag,size_bytes=excluded.size_bytes,sha256=excluded.sha256,uploaded_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,partNumber,uploaded.etag,actual,partSha256).run();
+  return out({ok:true,upload_id:id,part_number:partNumber,size_bytes:actual,etag:uploaded.etag});
+ }
+ if(m==="POST"&&multipartAction){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor"]),id=multipartAction[1],action=multipartAction[2];
+  const session=await env.DB.prepare("SELECT * FROM multipart_upload_sessions WHERE id=?").bind(id).first();
+  if(!session)return bad("Upload session not found.",404);
+  if(session.uploaded_by!==a.id)return bad("This upload session belongs to another account.",403);
+  if(action==="abort"){
+   if(session.status!=="open")return bad("Only an open upload can be aborted.",409);
+   await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).abort();
+   await env.DB.prepare("UPDATE multipart_upload_sessions SET status='aborted' WHERE id=? AND status='open'").bind(id).run();
+   await log(env,a.id,"multipart_upload_aborted","multipart_upload",id,{});
+   return out({ok:true,status:"aborted"});
+  }
+  if(session.status!=="open"||new Date(session.expires_at).getTime()<Date.now())return bad("Upload session is not active or has expired.",410);
+  if(session.purpose==="project_file"){
+   const project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(session.project_id).first();
+   if(!project)return bad("Project no longer exists.",404);
+   if(a.role==="client"&&project.client_id!==a.id)return bad("You no longer have access to this project.",403);
+   if(a.role==="editor"){
+    const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision')").bind(session.project_id,a.id).first();
+    if(!assignment)return bad("Your project assignment is no longer active.",403);
+   }
+  }else{
+   const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE id=? AND editor_id=? AND status IN ('active','revision')").bind(session.assignment_id,a.id).first();
+   if(!assignment)return bad("Assignment is no longer active for submission.",403);
+  }
+  const rows=await env.DB.prepare("SELECT part_number,etag,size_bytes FROM multipart_upload_parts WHERE session_id=? ORDER BY part_number").bind(id).all();
+  const parts=rows.results||[];
+  if(parts.length!==session.expected_parts||parts.some((x,i)=>Number(x.part_number)!==i+1))return bad("Some upload parts are missing. Upload all parts before completing.",409,"parts_incomplete");
+  if(parts.reduce((n,x)=>n+Number(x.size_bytes),0)!==session.total_size_bytes)return bad("Uploaded part sizes do not match the original file size.",400,"total_size_mismatch");
+  const claimed=await env.DB.prepare("UPDATE multipart_upload_sessions SET status='completing' WHERE id=? AND status='open'").bind(id).run();
+  if(!claimed.meta?.changes)return bad("Upload completion is already in progress or finished.",409);
+  let object;
+  try{object=await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).complete(parts.map(x=>({partNumber:Number(x.part_number),etag:x.etag})));}
+  catch(e){await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();return bad("Storage completion outcome is uncertain. Contact CSA before retrying this upload.",502,"multipart_completion_unknown");}
+  try{
+   if(session.purpose==="project_file"){
+    await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(uid("file"),session.project_id,a.id,session.r2_object_key,session.original_filename,session.mime_type,session.total_size_bytes).run();
+   }else{
+    const last=await env.DB.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM work_submissions WHERE assignment_id=?").bind(session.assignment_id).first(),version=Number(last.n)+1,submissionId=uid("sub");
+    await env.DB.batch([
+     env.DB.prepare("INSERT INTO work_submissions(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status,original_filename,mime_type,size_bytes) VALUES(?,?,?,?,?,?,'pending',?,?,?)").bind(submissionId,session.assignment_id,a.id,session.r2_object_key,version,session.notes,session.original_filename,session.mime_type,session.total_size_bytes),
+     env.DB.prepare("UPDATE assignments SET status='submitted' WHERE id=?").bind(session.assignment_id),
+     env.DB.prepare("UPDATE projects SET status='quality_check',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(session.project_id)
+    ]);
+   }
+   await env.DB.prepare("UPDATE multipart_upload_sessions SET status='completed',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(id).run();
+  }catch(e){await env.DB.prepare("UPDATE multipart_upload_sessions SET status='unknown' WHERE id=?").bind(id).run();return bad("File is stored but CSA metadata finalization needs manual reconciliation.",500,"multipart_finalize_unknown");}
+  await log(env,a.id,"multipart_upload_completed","multipart_upload",id,{purpose:session.purpose,size_bytes:session.total_size_bytes,etag:object?.etag||null});
+  return out({ok:true,status:"completed",purpose:session.purpose,size_bytes:session.total_size_bytes});
+ }
+ if(m==="PUT"&&p.startsWith("/v1/projects/")&&p.endsWith("/files")){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const projectId=p.split("/")[3],a=await user(req,env,["client","editor","admin"]);
+  const project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectId).first();
+  if(!project)return bad("Project not found.",404);
+  if(a.role==="client"&&project.client_id!==a.id)return bad("You cannot upload to this project.",403);
+  if(a.role==="editor"){
+   const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision')").bind(projectId,a.id).first();
+   if(!assignment)return bad("Only the assigned editor can upload to this project.",403);
+  }
+  const size=Number(req.headers.get("content-length")||0),mime=txt(req.headers.get("content-type"),100).split(";")[0].toLowerCase();
+  if(!size||size>90*1024*1024)return bad("File must include Content-Length and be 90 MB or smaller for this staging uploader.",413);
+  const allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
+  if(!allowed.includes(mime))return bad("This file type is not allowed.",415);
+  const rawName=txt(req.headers.get("x-file-name"),180)||"upload.bin",name=rawName.split(/[\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"upload.bin";
+  const fileId=uid("file"),key="projects/"+projectId+"/source/"+fileId+"/"+name;
+  let actualSize=0;
+  const limitedBody=req.body.pipeThrough(new TransformStream({
+   transform(chunk,controller){
+    actualSize+=chunk.byteLength;
+    if(actualSize>90*1024*1024){controller.error(new Error("upload_too_large"));return;}
+    controller.enqueue(chunk);
+   }
+  }));
+  try{
+   await env.MEDIA.put(key,limitedBody,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  }catch(e){
+   if(String(e?.message||"").includes("upload_too_large"))return bad("Actual uploaded file size exceeds the 90 MB staging limit.",413,"file_too_large");
+   throw e;
+  }
+  if(actualSize!==size){
+   await env.MEDIA.delete(key);
+   return bad("Uploaded byte count does not match Content-Length. Please retry the upload.",400,"content_length_mismatch");
+  }
+  await env.DB.prepare("INSERT INTO project_files(id,project_id,uploaded_by,r2_object_key,original_filename,mime_type,size_bytes,access_scope) VALUES(?,?,?,?,?,?,?,'assigned_editor')").bind(fileId,projectId,a.id,key,name,mime,actualSize).run();
+  await log(env,a.id,"project_file_uploaded","project_file",fileId,{project_id:projectId,size_bytes:size,mime_type:mime});
+  return out({ok:true,file_id:fileId,filename:name,size_bytes:size,status:"stored_privately"},201);
+ }
+ const projectFiles=p.match(/^\/v1\/projects\/([\w-]+)\/files$/);
+ if(m==="GET"&&projectFiles){
+  const a=await user(req,env,["client","editor","admin","staff"]),project=await env.DB.prepare("SELECT id,client_id FROM projects WHERE id=?").bind(projectFiles[1]).first();
+  if(!project)return bad("Project not found.",404);
+  let allowed=a.role==="admin"||a.role==="staff"||a.id===project.client_id;
+  if(a.role==="editor"){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(project.id,a.id).first();allowed=!!assignment;}
+  if(!allowed)return bad("You cannot view files for this project.",403);
+  const r=await env.DB.prepare("SELECT id,original_filename,mime_type,size_bytes,created_at FROM project_files WHERE project_id=? ORDER BY created_at ASC").bind(project.id).all();
+  return out({ok:true,files:r.results||[]});
+ }
+ const deliver=p.match(/^\/v1\/client\/projects\/([\w-]+)\/deliverables$/);
+ if(m==="GET"&&deliver){
+  const a=await user(req,env,["client"]),project=await env.DB.prepare("SELECT id FROM projects WHERE id=? AND client_id=?").bind(deliver[1],a.id).first();
+  if(!project)return bad("Project not found.",404);
+  const r=await env.DB.prepare("SELECT s.id,s.version_number,s.original_filename,s.mime_type,s.size_bytes,s.submitted_at FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=? AND s.qc_status='approved' ORDER BY s.version_number DESC").bind(project.id).all();
+  return out({ok:true,deliverables:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/editor/assignments"){
+  const a=await user(req,env,["editor"]);
+  const r=await env.DB.prepare("SELECT a.id,a.project_id,a.due_at,a.status,p.public_project_code,p.title,p.category,p.brief,o.delivery_days FROM assignments a JOIN projects p ON p.id=a.project_id JOIN project_offers o ON o.id=a.offer_id WHERE a.editor_id=? AND a.status IN ('active','submitted','quality_check','revision') ORDER BY a.due_at ASC").bind(a.id).all();
+  return out({ok:true,assignments:r.results||[]});
+ }
+ if(m==="PUT"&&p.startsWith("/v1/assignments/")&&p.endsWith("/submissions")){
+  if(!env.MEDIA)return bad("Private media storage is not configured.",503);
+  const assignmentId=p.split("/")[3],a=await user(req,env,["editor"]);
+  const assignment=await env.DB.prepare("SELECT id,project_id,status FROM assignments WHERE id=? AND editor_id=? AND status IN ('active','revision')").bind(assignmentId,a.id).first();
+  if(!assignment)return bad("Assignment is not active for this editor.",403);
+  const size=Number(req.headers.get("content-length")||0),mime=txt(req.headers.get("content-type"),100).split(";")[0].toLowerCase();
+  if(!size||size>90*1024*1024)return bad("Submission must be 90 MB or smaller in this staging uploader.",413);
+  const allowed=["video/mp4","video/quicktime","video/x-matroska","audio/mpeg","audio/wav","audio/x-wav","image/jpeg","image/png","application/pdf","application/zip","application/octet-stream"];
+  if(!allowed.includes(mime))return bad("Submission file type is not allowed.",415);
+  const last=await env.DB.prepare("SELECT COALESCE(MAX(version_number),0) AS n FROM work_submissions WHERE assignment_id=?").bind(assignmentId).first(),version=Number(last.n)+1;
+  const rawName=txt(req.headers.get("x-file-name"),180)||"submission.bin",name=rawName.split(/[\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,140)||"submission.bin",submissionId=uid("sub"),key="assignments/"+assignmentId+"/submissions/"+version+"/"+submissionId+"/"+name;
+  const saved=await env.MEDIA.put(key,req.body,{httpMetadata:{contentType:mime,contentDisposition:"attachment; filename*=UTF-8''"+encodeURIComponent(name)}});
+  if(saved.size>90*1024*1024){await env.MEDIA.delete(key);return bad("Submission exceeds the staging upload size limit.",413);}
+  await env.DB.batch([
+   env.DB.prepare("INSERT INTO work_submissions(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status,original_filename,mime_type,size_bytes) VALUES(?,?,?,?,?,?,'pending',?,?,?)").bind(submissionId,assignmentId,a.id,key,version,txt(req.headers.get("x-submission-notes"),2000)||null,name,mime,saved.size),
+   env.DB.prepare("UPDATE assignments SET status='submitted' WHERE id=?").bind(assignmentId),
+   env.DB.prepare("UPDATE projects SET status='quality_check',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(assignment.project_id)
+  ]);
+  await log(env,a.id,"work_submission_uploaded","submission",submissionId,{assignment_id:assignmentId,version});
+  return out({ok:true,submission_id:submissionId,version,status:"pending_quality_check"},201);
+ }
+ if(m==="GET"&&p==="/v1/admin/submissions/pending"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,s.original_filename,s.mime_type,s.size_bytes,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' ORDER BY s.submitted_at ASC LIMIT 100").all();
+  return out({ok:true,submissions:r.results||[]});
+ }
+ const qc=p.match(/^\/v1\/admin\/submissions\/([\w-]+)\/review$/);
+ if(m==="POST"&&qc){
+  const a=await user(req,env,["admin"]),b=await req.json(),status=b.status;
+  if(!["approved","changes_requested","rejected"].includes(status))return bad("Invalid QC decision.");
+  const sub=await env.DB.prepare("SELECT s.id,s.assignment_id,a.project_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=? AND s.qc_status='pending'").bind(qc[1]).first();
+  if(!sub)return bad("Submission is not awaiting QC.",409);
+  await env.DB.batch([
+   env.DB.prepare("UPDATE work_submissions SET qc_status=? WHERE id=?").bind(status,qc[1]),
+   env.DB.prepare("UPDATE assignments SET status=? WHERE id=?").bind(status==="approved"?"approved":status==="changes_requested"?"revision":"active",sub.assignment_id),
+   env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(status==="approved"?"client_review":status==="changes_requested"?"revision":"in_progress",status==="approved"?"reviewing":"in_progress",sub.project_id)
+  ]);
+  await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
+  return out({ok:true,status});
+ }
+ if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT p.id AS payment_id,p.amount_minor,p.currency,p.provider_payment_id,p.created_at AS paid_at,o.id AS offer_id,pr.id AS project_id,pr.public_project_code,pr.title,e.display_name,e.public_editor_code,s.id AS approved_submission_id,s.submitted_at AS quality_approved_at FROM payments p JOIN project_offers o ON o.id=p.offer_id JOIN projects pr ON pr.id=o.project_id JOIN editor_profiles e ON e.user_id=p.user_id JOIN assignments a ON a.offer_id=o.id AND a.editor_id=p.user_id JOIN work_submissions s ON s.assignment_id=a.id AND s.qc_status='approved' WHERE p.payment_type='editor_security_deposit' AND p.status='succeeded' AND NOT EXISTS(SELECT 1 FROM editor_deposit_refunds x WHERE x.payment_id=p.id) GROUP BY p.id ORDER BY s.submitted_at ASC LIMIT 100").all();
+  return out({ok:true,eligible:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/editor/deposit-refunds"){
+  const a=await user(req,env,["editor"]);
+  const r=await env.DB.prepare("SELECT r.id,r.amount_minor,r.currency,r.status,r.provider_refund_id,r.created_at,r.updated_at,pr.public_project_code,pr.title FROM editor_deposit_refunds r JOIN payments p ON p.id=r.payment_id JOIN projects pr ON pr.id=p.project_id WHERE r.editor_id=? ORDER BY r.created_at DESC LIMIT 100").bind(a.id).all();
+  return out({ok:true,refunds:r.results||[]});
+ }
+ const refundMatch=p.match(/^\/v1\/admin\/deposits\/([\w-]+)\/refund$/);
+ if(m==="POST"&&refundMatch){
+  const a=await user(req,env,["admin"]);
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay credentials are not configured.",503);
+  const payment=await env.DB.prepare("SELECT p.id,p.user_id,p.project_id,p.offer_id,p.amount_minor,p.currency,p.provider_payment_id,p.status,pr.public_project_code,pr.title FROM payments p JOIN projects pr ON pr.id=p.project_id WHERE p.id=? AND p.payment_type='editor_security_deposit' AND p.provider='razorpay'").bind(refundMatch[1]).first();
+  if(!payment)return bad("Security deposit payment not found.",404);
+  if(payment.status!=="succeeded"||!payment.provider_payment_id)return bad("Only a captured and verified security deposit can be refunded.",409);
+  const approved=await env.DB.prepare("SELECT s.id FROM assignments x JOIN work_submissions s ON s.assignment_id=x.id WHERE x.offer_id=? AND x.editor_id=? AND x.project_id=? AND s.qc_status='approved' ORDER BY s.submitted_at DESC LIMIT 1").bind(payment.offer_id,payment.user_id,payment.project_id).first();
+  if(!approved)return bad("Refund is locked until CSA quality approval is recorded for this project.",409,"quality_approval_required");
+  const refundId=uid("rfd"),idempotencyKey=crypto.randomUUID();
+  try{
+   await env.DB.prepare("INSERT INTO editor_deposit_refunds(id,payment_id,editor_id,project_id,amount_minor,currency,idempotency_key,status,requested_by) VALUES(?,?,?,?,?,?,?,'requesting',?)").bind(refundId,payment.id,payment.user_id,payment.project_id,payment.amount_minor,payment.currency,idempotencyKey,a.id).run();
+  }catch(e){return bad("A refund request already exists for this deposit. Check its status before taking any further action.",409,"refund_already_requested");}
+  let response;
+  try{
+   response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:payment.amount_minor,notes:{csa_project_code:payment.public_project_code,csa_payment_id:payment.id,csa_reason:"Security deposit refund after CSA quality approval"}})});
+  }catch(e){
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(txt(String(e),1000),refundId).run();
+   await log(env,a.id,"editor_deposit_refund_unknown","deposit_refund",refundId,{payment_id:payment.id});
+   return bad("Razorpay response was interrupted. Refund status is marked unknown; reconcile in Razorpay before any retry.",502,"refund_status_unknown");
+  }
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok||!payload.id){
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET status='failed',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(JSON.stringify(payload).slice(0,3000),refundId).run();
+   await log(env,a.id,"editor_deposit_refund_failed","deposit_refund",refundId,{payment_id:payment.id,http_status:response.status});
+   return bad("Razorpay did not accept the refund. Check Razorpay dashboard before deciding next steps.",502,"refund_provider_rejected");
+  }
+  const providerMatches=payload.payment_id===payment.provider_payment_id&&Number(payload.amount)===Number(payment.amount_minor)&&String(payload.currency||"").toUpperCase()===String(payment.currency||"").toUpperCase();
+  if(!providerMatches){
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,JSON.stringify({reason:"Razorpay refund response did not match the full deposit.",payment_id:payload.payment_id??null,amount:payload.amount??null,currency:payload.currency??null}).slice(0,3000),refundId).run();
+   await log(env,a.id,"editor_deposit_refund_unknown","deposit_refund",refundId,{payment_id:payment.id,provider_refund_id:payload.id});
+   return bad("Razorpay returned a refund response that did not match the full deposit. Status is unknown; reconcile in Razorpay before any retry.",502,"refund_response_mismatch");
+  }
+  const refundStatus=["processed","pending"].includes(payload.status)?payload.status:"pending";
+  await env.DB.batch([
+   env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status=CASE WHEN status IN ('processed','failed') THEN status ELSE ? END,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,refundStatus,JSON.stringify(payload).slice(0,3000),refundId),
+   ...(refundStatus==="processed"?[
+    env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refunded after CSA quality approval; Razorpay refund "+payload.id,a.id)
+   ]:[])
+  ]);
+  await log(env,a.id,"editor_deposit_refund_initiated","deposit_refund",refundId,{payment_id:payment.id,provider_refund_id:payload.id,status:refundStatus});
+  return out({ok:true,refund_id:refundId,provider_refund_id:payload.id,status:refundStatus,amount_minor:payment.amount_minor,currency:payment.currency});
+ }
+ const fileMatch=p.match(/^\/v1\/files\/([\w-]+)$/);
+ if(m==="GET"&&fileMatch){
+  if(!env.MEDIA&&!env.LEGACY_VIDEO_BUCKET)return bad("Private media storage is not configured.",503);
+  const a=await user(req,env,["client","editor","admin","staff"]);
+  let file=await env.DB.prepare("SELECT f.id,f.project_id,f.uploaded_by,f.r2_object_key,f.original_filename,f.mime_type,f.size_bytes,f.access_scope,p.client_id,'source' AS kind FROM project_files f JOIN projects p ON p.id=f.project_id WHERE f.id=?").bind(fileMatch[1]).first();
+  if(!file)file=await env.DB.prepare("SELECT s.id,a.project_id,s.submitted_by AS uploaded_by,s.r2_object_key,s.original_filename,s.mime_type,s.size_bytes,'admin_only' AS access_scope,p.client_id,'submission' AS kind,s.qc_status,a.editor_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id WHERE s.id=?").bind(fileMatch[1]).first();
+  if(!file)return bad("File not found.",404);
+  if(a.role==="admin"&&!globalAdminCan(a,file.kind==="submission"?"content.manage":"projects.manage"))return bad("Your Global admin role cannot access this file type.",403);
+  let allowed=a.role==="admin"||a.role==="staff"||a.id===file.client_id||a.id===file.uploaded_by;
+  if(a.role==="editor"&&!allowed){const assignment=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND editor_id=? AND status IN ('active','submitted','quality_check','revision','approved','completed')").bind(file.project_id,a.id).first();allowed=!!assignment&&file.access_scope==="assigned_editor";}
+  if(a.role==="client"&&file.kind==="submission")allowed=allowed&&file.qc_status==="approved";
+  if(!allowed)return bad("You do not have permission to access this file.",403);
+  const legacyObject=file.r2_object_key.startsWith("legacyvideo/");
+  const object=legacyObject?await env.LEGACY_VIDEO_BUCKET?.get(file.r2_object_key.slice("legacyvideo/".length)):await env.MEDIA?.get(file.r2_object_key);if(!object)return bad("Stored object is missing.",404);
+  return new Response(object.body,{status:200,headers:{"content-type":file.mime_type||"application/octet-stream","content-length":String(file.size_bytes||object.size||0),"content-disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(file.original_filename||"download"),"x-content-type-options":"nosniff","cache-control":"private, no-store"}});
+ }
+
+ // Tender, editor bidding, Super Admin pricing and client quote lifecycle.
+ if(m==="GET"&&p==="/v1/admin/pricing-policy"){
+  const a=await user(req,env,["admin"]);if(a.source_role!=="super_admin")return bad("Only Super Admin can manage CSA pricing policy.",403);
+  const r=await env.DB.prepare("SELECT currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_at FROM csa_pricing_policies ORDER BY currency").all();return out({ok:true,policies:r.results||[]});
+ }
+ if(m==="POST"&&p==="/v1/admin/pricing-policy"){
+  const a=await user(req,env,["admin"]);if(a.source_role!=="super_admin")return bad("Only Super Admin can change CSA pricing policy.",403);
+  const b=await req.json(),currency=txt(b.currency,3).toUpperCase(),bps=b.margin_bps,min=amt(b.minimum_margin_minor??0),advance=b.client_advance_bps===undefined||b.client_advance_bps===null||b.client_advance_bps===""?null:Number(b.client_advance_bps);
+  if(!/^[A-Z]{3}$/.test(currency)||!Number.isInteger(bps)||bps<0||bps>10000||min===null||(advance!==null&&(!Number.isInteger(advance)||advance<1||advance>10000)))return bad("Valid currency, markup basis points, minimum markup and optional advance percentage (1–100%) are required.");
+  await env.DB.prepare("INSERT INTO csa_pricing_policies(currency,margin_bps,minimum_margin_minor,client_advance_bps,status,updated_by) VALUES(?,?,?,?,'active',?) ON CONFLICT(currency) DO UPDATE SET margin_bps=excluded.margin_bps,minimum_margin_minor=excluded.minimum_margin_minor,client_advance_bps=excluded.client_advance_bps,status='active',updated_by=excluded.updated_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(currency,bps,min,advance,a.id).run();
+  await log(env,a.id,"csa_pricing_policy_updated","pricing_policy",currency,{margin_bps:bps,minimum_margin_minor:min,client_advance_bps:advance});return out({ok:true,currency,margin_bps:bps,minimum_margin_minor:min,client_advance_bps:advance,status:"active"});
+ }
+ if(m==="GET"&&p==="/v1/admin/tenders"){
+  const a=await user(req,env,["admin"]);if(!a.source_admin_id)return bad("Department access is not configured.",403);
+  const r=await env.DB.prepare("SELECT t.id,t.project_id,t.title,t.scope_summary,t.bid_deadline,t.status,t.published_at,p.public_project_code,p.title AS project_title,p.category,p.budget_currency,(SELECT COUNT(*) FROM editor_tender_bids b WHERE b.tender_id=t.id AND b.status IN ('submitted','shortlisted')) AS bid_count FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE EXISTS(SELECT 1 FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=p.id AND dr.route_key='tender' AND da.source_admin_id=?) ORDER BY t.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
+  return out({ok:true,tenders:r.results||[]});
+ }
+ const tenderDraft=p.match(/^\/v1\/admin\/projects\/([\w-]+)\/tender$/);
+ if(m==="POST"&&tenderDraft){
+  const a=await user(req,env,["admin"]),b=await req.json(),pr=await env.DB.prepare("SELECT id,title FROM projects WHERE id=?").bind(tenderDraft[1]).first();if(!pr)return bad("Application not found.",404);
+  const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(pr.id,a.source_admin_id).first();if(!access)return bad("Operations & Events tender access is required.",403);
+  const title=txt(b.title,180)||pr.title,scope=txt(b.scope_summary,8000),deadline=txt(b.bid_deadline,40);
+  if(!scope||!deadline||!Number.isFinite(Date.parse(deadline))||Date.parse(deadline)<=Date.now())return bad("Tender scope and future bid deadline are required.");
+  const oldTender=await env.DB.prepare("SELECT id,status FROM project_tenders WHERE project_id=?").bind(pr.id).first();if(oldTender&&oldTender.status!=="draft")return bad("Only a draft tender can be edited.",409);
+  const id=oldTender?.id||uid("tnd");
+  await env.DB.prepare("INSERT INTO project_tenders(id,project_id,title,scope_summary,bid_deadline,status) VALUES(?,?,?,?,?,'draft') ON CONFLICT(project_id) DO UPDATE SET title=excluded.title,scope_summary=excluded.scope_summary,bid_deadline=excluded.bid_deadline,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,pr.id,title,scope,deadline).run();
+  await log(env,a.id,"tender_draft_saved","tender",id,{project_id:pr.id});return out({ok:true,tender_id:id,status:"draft"},201);
+ }
+ const ta=p.match(/^\/v1\/admin\/tenders\/([\w-]+)\/(publish|close|award|quote)$/);
+ if(ta){
+  const a=await user(req,env,["admin"]),id=ta[1],action=ta[2],t=await env.DB.prepare("SELECT t.*,p.client_id,p.budget_currency FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.id=?").bind(id).first();if(!t)return bad("Tender not found.",404);
+  const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(t.project_id,a.source_admin_id).first();if(!access)return bad("Operations & Events department access is required.",403);
+  if(action==="publish"){if(t.status!=="draft"||Date.parse(t.bid_deadline)<=Date.now())return bad("Only a draft tender with a future deadline can be published.",409);await env.DB.prepare("UPDATE project_tenders SET status='published',published_by=?,published_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='draft'").bind(a.id,id).run();await log(env,a.id,"tender_published","tender",id);return out({ok:true,status:"published"});}
+  if(action==="close"){if(t.status!=="published")return bad("Only a published tender can be closed.",409);await env.DB.prepare("UPDATE project_tenders SET status='closed',closed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='published'").bind(id).run();await log(env,a.id,"tender_closed","tender",id);return out({ok:true,status:"closed"});}
+  if(action==="award"){
+   if(t.status!=="closed")return bad("Close the tender before awarding a bid.",409);const b=await req.json(),bid=await env.DB.prepare("SELECT id,editor_id,bid_amount_minor,currency,delivery_days FROM editor_tender_bids WHERE id=? AND tender_id=? AND status IN ('submitted','shortlisted')").bind(txt(b.bid_id,100),id).first();
+   if(!bid)return bad("Selected bid is not eligible.",404);if(bid.currency!==t.budget_currency)return bad("Bid currency must match application currency.",409);
+   await env.DB.batch([env.DB.prepare("UPDATE editor_tender_bids SET status=CASE WHEN id=? THEN 'won' ELSE 'rejected' END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE tender_id=? AND status IN ('submitted','shortlisted')").bind(bid.id,id),env.DB.prepare("UPDATE project_tenders SET status='awarded',awarded_bid_id=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='closed'").bind(bid.id,id)]);
+   await log(env,a.id,"tender_bid_awarded","tender",id,{bid_id:bid.id});return out({ok:true,status:"awarded",winning_bid:bid,next_step:"create_client_quote_and_send_managed_editor_offer"});
+  }
+  if(action==="quote"){
+   if(t.status!=="awarded"||!t.awarded_bid_id)return bad("Award a bid before creating a client quote.",409);
+   const policy=await env.DB.prepare("SELECT margin_bps,minimum_margin_minor,status FROM csa_pricing_policies WHERE currency=?").bind(t.budget_currency).first();if(!policy||policy.status!=="active"||policy.margin_bps===null)return bad("CSA pricing policy is not configured for "+t.budget_currency+". Super Admin must configure it first.",409,"pricing_policy_unconfigured");
+   const bid=await env.DB.prepare("SELECT id,bid_amount_minor,currency FROM editor_tender_bids WHERE id=? AND status='won'").bind(t.awarded_bid_id).first();if(!bid||bid.currency!==t.budget_currency)return bad("Winning bid currency mismatch.",409);
+   const markup=Math.max(Math.ceil(bid.bid_amount_minor*policy.margin_bps/10000),policy.minimum_margin_minor),total=bid.bid_amount_minor+markup,qid=uid("quo"),validUntil=new Date(Date.now()+7*86400000).toISOString();
+   await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status='superseded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE project_id=? AND status IN ('draft','sent')").bind(t.project_id),env.DB.prepare("INSERT INTO client_quotes(id,project_id,tender_id,winning_bid_id,client_id,base_cost_minor,margin_minor,total_amount_minor,currency,pricing_margin_bps,status,valid_until,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,'draft',?,?)").bind(qid,t.project_id,id,bid.id,t.client_id,bid.bid_amount_minor,markup,total,t.budget_currency,policy.margin_bps,validUntil,a.id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type,details_json) VALUES(?,?,?,'created',?)").bind(uid("qev"),qid,a.id,JSON.stringify({margin_bps:policy.margin_bps,base_cost_minor:bid.bid_amount_minor,margin_minor:markup,total_amount_minor:total}))]);
+   await log(env,a.id,"client_quote_created","client_quote",qid,{project_id:t.project_id});return out({ok:true,quote_id:qid,status:"draft",base_cost_minor:bid.bid_amount_minor,margin_minor:markup,total_amount_minor:total,currency:t.budget_currency,valid_until:validUntil});
+  }
+ }
+ if(m==="POST"&&/^\/v1\/admin\/quotes\/[\w-]+\/send$/.test(p)){
+  const a=await user(req,env,["admin"]),id=p.split("/")[4],q=await env.DB.prepare("SELECT id,status,project_id FROM client_quotes WHERE id=?").bind(id).first();if(!q||q.status!=="draft")return bad("Only a draft quote can be sent.",409);const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(q.project_id,a.source_admin_id).first();if(!access)return bad("Tender department access is required to send this quote.",403);
+  await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status='sent',sent_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,'sent')").bind(uid("qev"),id,a.id)]);await log(env,a.id,"client_quote_sent","client_quote",id);return out({ok:true,status:"sent"});
+ }
+ if(m==="GET"&&p==="/v1/editor/tenders"){
+  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT t.id,t.title,t.scope_summary,t.bid_deadline,p.public_project_code,p.category,p.budget_currency,p.preferred_deadline,p.priority FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.status='published' AND t.bid_deadline>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND NOT EXISTS(SELECT 1 FROM editor_tender_bids b WHERE b.tender_id=t.id AND b.editor_id=?) ORDER BY t.bid_deadline LIMIT 100").bind(a.id).all();return out({ok:true,tenders:r.results||[]});
+ }
+ const eb=p.match(/^\/v1\/editor\/tenders\/([\w-]+)\/bids$/);
+ if(m==="POST"&&eb){
+  const a=await user(req,env,["editor"]),b=await req.json(),t=await env.DB.prepare("SELECT t.id,t.project_id,t.status,t.bid_deadline,p.budget_currency FROM project_tenders t JOIN projects p ON p.id=t.project_id WHERE t.id=?").bind(eb[1]).first();
+  if(!t||t.status!=="published"||Date.parse(t.bid_deadline)<=Date.now())return bad("Tender is not open for bidding.",409);
+  const amount=amt(b.bid_amount_minor),currency=txt(b.currency,3).toUpperCase();if(!amount||currency!==t.budget_currency||!Number.isInteger(b.delivery_days)||b.delivery_days<1||b.delivery_days>365)return bad("Positive bid, matching currency and delivery days (1–365) are required.");
+  const id=uid("bid");await env.DB.prepare("INSERT INTO editor_tender_bids(id,tender_id,project_id,editor_id,bid_amount_minor,currency,delivery_days,proposal) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(tender_id,editor_id) DO UPDATE SET bid_amount_minor=excluded.bid_amount_minor,currency=excluded.currency,delivery_days=excluded.delivery_days,proposal=excluded.proposal,status='submitted',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(id,t.id,t.project_id,a.id,amount,currency,b.delivery_days,txt(b.proposal,3000)||null).run();await log(env,a.id,"editor_tender_bid_submitted","tender",t.id,{amount_minor:amount,currency});return out({ok:true,status:"submitted"});
+ }
+ if(m==="GET"&&p==="/v1/admin/tenders/bids"){
+  const a=await user(req,env,["admin"]),tenderId=txt(new URL(req.url).searchParams.get("tender_id"),100);if(!tenderId)return bad("Tender ID is required.");
+  const access=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=(SELECT project_id FROM project_tenders WHERE id=?) AND dr.route_key='tender' AND da.source_admin_id=?").bind(tenderId,a.source_admin_id).first();if(!access)return bad("Tender department access denied.",403);
+  const r=await env.DB.prepare("SELECT b.id,b.bid_amount_minor,b.currency,b.delivery_days,b.proposal,b.status,b.submitted_at,e.display_name,e.public_editor_code,e.country,e.languages_json,e.specializations_json FROM editor_tender_bids b JOIN editor_profiles e ON e.user_id=b.editor_id WHERE b.tender_id=? ORDER BY b.bid_amount_minor ASC,b.submitted_at ASC").bind(tenderId).all();return out({ok:true,bids:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/client/quotes"){
+  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT q.id,q.project_id,q.base_cost_minor,q.margin_minor,q.total_amount_minor,q.currency,q.status,q.payment_status,q.valid_until,q.created_at,q.sent_at,p.public_project_code,p.title FROM client_quotes q JOIN projects p ON p.id=q.project_id WHERE q.client_id=? AND q.status IN ('sent','accepted','rejected','expired') ORDER BY q.created_at DESC").bind(a.id).all();return out({ok:true,quotes:r.results||[]});
+ }
+ const qd=p.match(/^\/v1\/client\/quotes\/([\w-]+)\/decision$/);
+ if(m==="POST"&&qd){
+  const a=await user(req,env,["client"]),b=await req.json(),status=b.decision==="accept"?"accepted":b.decision==="reject"?"rejected":null;if(!status)return bad("Decision must be accept or reject.");
+  const q=await env.DB.prepare("SELECT id,status,valid_until FROM client_quotes WHERE id=? AND client_id=?").bind(qd[1],a.id).first();if(!q||q.status!=="sent")return bad("Quote is not available for a decision.",404);
+  if(q.valid_until&&Date.parse(q.valid_until)<=Date.now()){await env.DB.prepare("UPDATE client_quotes SET status='expired' WHERE id=?").bind(q.id).run();return bad("Quote has expired.",409);}
+  await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status=?,client_decision_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='sent'").bind(status,q.id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,?)").bind(uid("qev"),q.id,a.id,status)]);await log(env,a.id,"client_quote_"+status,"client_quote",q.id);return out({ok:true,status,next_step:status==="accepted"?"client_payment_checkout":"none"});
+ }
+
+ // Client quote checkout: staging is explicitly restricted to Razorpay Test Mode.
+ const clientCheckout=p.match(/^\/v1\/client\/quotes\/([\w-]+)\/checkout$/);
+ if(m==="POST"&&clientCheckout){
+  const a=await user(req,env,["client"]),quote=await env.DB.prepare("SELECT id,project_id,total_amount_minor,currency,status,payment_status,valid_until FROM client_quotes WHERE id=? AND client_id=?").bind(clientCheckout[1],a.id).first();
+  if(!quote||quote.status!=="accepted")return bad("Accept the client quotation before making payment.",409);
+  if(quote.valid_until&&Date.parse(quote.valid_until)<=Date.now())return bad("This quotation has expired.",409);
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Client checkout is locked until Razorpay Test Mode credentials are confirmed on the staging Worker.",503,"test_mode_required");
+  const policy=await env.DB.prepare("SELECT client_advance_bps,status FROM csa_pricing_policies WHERE currency=?").bind(quote.currency).first();
+  if(!policy||policy.status!=="active"||!Number.isInteger(policy.client_advance_bps))return bad("Client advance percentage is not configured by Super Admin for this currency.",409,"client_payment_policy_unconfigured");
+  const paidRow=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS paid FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(quote.id).first(),paid=Number(paidRow?.paid||0),remaining=quote.total_amount_minor-paid;
+  if(remaining<=0){await env.DB.prepare("UPDATE client_quotes SET payment_status='paid' WHERE id=?").bind(quote.id).run();return out({ok:true,already_paid:true,payment_status:"paid"});}
+  const type=paid===0?"client_advance":"client_balance",amount=paid===0?Math.min(remaining,Math.max(1,Math.ceil(quote.total_amount_minor*policy.client_advance_bps/10000))):remaining;
+  const prior=await env.DB.prepare("SELECT id,provider_order_id,amount_minor,currency FROM payments WHERE quote_id=? AND payment_type=? AND status IN ('created','pending') ORDER BY created_at DESC LIMIT 1").bind(quote.id,type).first();
+  if(prior?.provider_order_id)return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:prior.provider_order_id,amount:prior.amount_minor,currency:prior.currency,payment_id:prior.id,payment_stage:type});
+  const paymentId=uid("pay"),idem="client-quote:"+quote.id+":"+type+":"+crypto.randomUUID();
+  const orderRes=await fetch("https://api.razorpay.com/v1/orders",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"content-type":"application/json"},body:JSON.stringify({amount,currency:quote.currency,receipt:paymentId.slice(0,40),notes:{quote_id:quote.id,project_id:quote.project_id,payment_type:type}})});
+  const order=await orderRes.json().catch(()=>({}));
+  if(!orderRes.ok||!order.id||order.amount!==amount||String(order.currency).toUpperCase()!==quote.currency)return bad("Razorpay test order creation failed or amount/currency mismatch.",502,"razorpay_order_failed");
+  await env.DB.prepare("INSERT INTO payments(id,user_id,project_id,offer_id,payment_type,amount_minor,currency,provider,provider_order_id,idempotency_key,status,quote_id) VALUES(?,?,?,NULL,?,?,?,'razorpay',?,?,'created',?)").bind(paymentId,a.id,quote.project_id,type,amount,quote.currency,order.id,idem,quote.id).run();
+  await log(env,a.id,"client_quote_payment_order_created","payment",paymentId,{quote_id:quote.id,payment_type:type,amount_minor:amount});
+  return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:order.id,amount:order.amount,currency:order.currency,payment_id:paymentId,payment_stage:type,checkout_name:"CSA Global",description:type==="client_advance"?"Client quotation advance":"Client quotation balance"},201);
+ }
+ if(m==="POST"&&p==="/v1/client/payments/razorpay/verify"){
+  const a=await user(req,env,["client"]),b=await req.json(),orderId=txt(b.razorpay_order_id,100),paymentId=txt(b.razorpay_payment_id,100),signature=txt(b.razorpay_signature,200);
+  if(!orderId||!paymentId||!signature||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID?.startsWith("rzp_test_"))return bad("Test-mode payment verification details are missing.",503);
+  const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND user_id=? AND quote_id IS NOT NULL AND payment_type IN ('client_advance','client_balance')").bind(orderId,a.id).first();if(!record)return bad("Payment order does not belong to this client.",404);
+  const expected=await hmacHex(env.RAZORPAY_KEY_SECRET,orderId+"|"+paymentId);if(!constantTime(expected,signature))return bad("Razorpay payment signature did not match.",400,"signature_invalid");
+  const pr=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(paymentId),{headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET)}}),payment=await pr.json().catch(()=>({}));
+  if(!pr.ok||payment.order_id!==orderId||payment.amount!==record.amount_minor||String(payment.currency||"").toUpperCase()!==record.currency||payment.status!=="captured")return bad("Razorpay has not confirmed the captured client payment. Quote remains unpaid/partial.",409,"payment_not_captured");
+  await env.DB.prepare("UPDATE payments SET provider_payment_id=?,status='succeeded',verified_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(paymentId,record.id).run();
+  const paidRow=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS paid FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(record.quote_id).first(),quote=await env.DB.prepare("SELECT total_amount_minor FROM client_quotes WHERE id=? AND client_id=?").bind(record.quote_id,a.id).first();
+  if(!quote)return bad("Client quotation record not found.",404);
+  const paymentStatus=Number(paidRow?.paid||0)>=quote.total_amount_minor?"paid":"partial";
+  await env.DB.prepare("UPDATE client_quotes SET payment_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(paymentStatus,record.quote_id).run();
+  await log(env,a.id,"client_quote_payment_verified","payment",record.id,{quote_id:record.quote_id,payment_type:record.payment_type,payment_status:paymentStatus});
+  return out({ok:true,status:"captured",payment_status:paymentStatus,paid_minor:Number(paidRow?.paid||0),total_minor:quote.total_amount_minor});
+ }
+ if(m==="POST"&&p==="/v1/projects"){
+  const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
+  const rawReq=b.requirements&&typeof b.requirements==="object"&&!Array.isArray(b.requirements)?b.requirements:{};
+  const requirements={
+   communication_language:txt(rawReq.communication_language,40),
+   source_language:txt(rawReq.source_language,40),
+   output_language:txt(rawReq.output_language,40),
+   subtitle_languages:txt(rawReq.subtitle_languages,200),
+   client_country:txt(rawReq.client_country,100),
+   client_region:txt(rawReq.client_region,100),
+   client_city:txt(rawReq.client_city,100),
+   project_mode:txt(rawReq.project_mode,20),
+   project_location:txt(rawReq.project_location,300),
+   client_timezone:txt(rawReq.client_timezone,80),
+   contact_name:txt(rawReq.contact_name,100),
+   contact_phone:txt(rawReq.contact_phone,30),
+   content_style:txt(rawReq.content_style,100),
+   dialect:txt(rawReq.dialect,100),
+   service_package:txt(rawReq.service_package,100),
+   project_type:txt(rawReq.project_type,120),
+   raw_footage_duration:txt(rawReq.raw_footage_duration,80)
+  };
+  if(!requirements.communication_language||!requirements.source_language||!requirements.output_language||!requirements.client_country||!requirements.client_city||!["remote","onsite","hybrid"].includes(requirements.project_mode))return bad("Communication language, source language, output language, country, city and project mode are required.");
+
+  const recommendBudget=b.budget_type==="recommend";
+  if(!title||!cat||!brief||(!budget&&!recommendBudget)||!/^[A-Z]{3}$/.test(cur))return bad("Project title, category, brief, and a valid ISO currency are required. A budget is optional when you select Recommend a budget.");
+  const pid=uid("prj"),code="CSA-"+new Date().getUTCFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
+  await env.DB.prepare("INSERT INTO projects(id,public_project_code,client_id,title,category,brief,raw_footage_minutes,final_duration_minutes,video_count,resolution,aspect_ratio,requirements_json,reference_url,budget_amount_minor,budget_currency,budget_type,preferred_deadline,priority,revisions_included,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')").bind(pid,code,a.id,title,cat,brief,Number.isInteger(b.raw_footage_minutes)?b.raw_footage_minutes:null,Number.isInteger(b.final_duration_minutes)?b.final_duration_minutes:null,Number.isInteger(b.video_count)?b.video_count:null,txt(b.resolution,20)||null,txt(b.aspect_ratio,20)||null,JSON.stringify(requirements),txt(b.reference_url,1000)||null,budget,cur,["fixed","flexible","recommend"].includes(b.budget_type)?b.budget_type:"fixed",txt(b.preferred_deadline,40)||null,["normal","urgent","flexible"].includes(b.priority)?b.priority:"normal",Number.isInteger(b.revisions_included)?Math.max(0,Math.min(10,b.revisions_included)):2).run();
+  await env.DB.prepare("UPDATE client_profiles SET country=?,preferred_language=? WHERE user_id=?").bind(requirements.client_country,requirements.communication_language,a.id).run();
+  await log(env,a.id,"project_submitted","project",pid);
+  return out({ok:true,project_id:pid,project_code:code,status:"submitted"},201);
+ }
+ if(m==="GET"&&p==="/v1/editor/agreements"){
+  await user(req,env,["editor"]);
+  const r=await env.DB.prepare("SELECT id,version,title,body_markdown FROM agreement_versions WHERE agreement_type='project_specific' AND active=1 ORDER BY created_at DESC").all();
+  return out({ok:true,agreements:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/editor/offers"){
+  const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT o.id,o.offer_message,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.offer_expires_at,o.status,p.public_project_code,p.title,p.category,p.brief,p.requirements_json,p.preferred_deadline,p.revisions_included FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.editor_id=? AND o.status IN ('offered','accepted_pending_terms','terms_accepted_pending_deposit','deposit_pending','ready_for_assignment','assigned') ORDER BY o.created_at DESC").bind(a.id).all();
+  return out({ok:true,offers:r.results||[]});
+ }
+ const ac=p.match(/^\/v1\/offers\/([\w-]+)\/accept$/);
+ if(m==="POST"&&ac){
+  const a=await user(req,env,["editor"]),r=await env.DB.prepare("UPDATE project_offers SET status='accepted_pending_terms',accepted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND editor_id=? AND status='offered' AND (offer_expires_at IS NULL OR offer_expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now'))").bind(ac[1],a.id).run();
+  if(!r.meta?.changes)return bad("Offer is expired, unavailable or already processed.",409,"offer_not_available");
+  await log(env,a.id,"offer_accepted","offer",ac[1]);return out({ok:true,next_step:"review_project_terms"});
+ }
+ const tm=p.match(/^\/v1\/offers\/([\w-]+)\/terms$/);
+ if(m==="POST"&&tm){
+  const a=await user(req,env,["editor"]),b=await req.json();if(b.accept!==true||!txt(b.agreement_version_id,100))return bad("Explicit agreement acceptance and version are required.");
+  const o=await env.DB.prepare("SELECT id,project_id,status FROM project_offers WHERE id=? AND editor_id=?").bind(tm[1],a.id).first();
+  if(!o||o.status!=="accepted_pending_terms")return bad("Offer is not awaiting agreement.",409);
+  const ag=await env.DB.prepare("SELECT id FROM agreement_versions WHERE id=? AND agreement_type='project_specific' AND active=1").bind(b.agreement_version_id).first();if(!ag)return bad("Agreement version is not active.",409);
+  await env.DB.prepare("INSERT INTO agreement_acceptances(id,agreement_version_id,user_id,project_id,offer_id) VALUES(?,?,?,?,?)").bind(uid("agr"),ag.id,a.id,o.project_id,tm[1]).run();
+  await env.DB.prepare("UPDATE project_offers SET status='terms_accepted_pending_deposit' WHERE id=? AND editor_id=?").bind(tm[1],a.id).run();
+  await log(env,a.id,"project_terms_accepted","offer",tm[1],{agreement_version_id:ag.id});return out({ok:true,next_step:"security_deposit_payment"});
+ }
+ const pay=p.match(/^\/v1\/offers\/([\w-]+)\/deposit\/checkout$/);
+ if(m==="POST"&&p.startsWith("/v1/admin/offers/")&&p.endsWith("/assign")){
+  const a=await user(req,env,["admin"]),offerId=p.split("/")[4],o=await env.DB.prepare("SELECT id,project_id,editor_id,delivery_days,status FROM project_offers WHERE id=?").bind(offerId).first();
+  if(!o||o.status!=="ready_for_assignment")return bad("Offer is not paid and ready for assignment.",409);
+  const due=new Date(Date.now()+o.delivery_days*86400000).toISOString(),assignmentId=uid("asn");
+  await env.DB.batch([
+   env.DB.prepare("INSERT INTO assignments(id,project_id,offer_id,editor_id,assigned_by,due_at,status) VALUES(?,?,?,?,?,?,'active')").bind(assignmentId,o.project_id,o.id,o.editor_id,a.id,due),
+   env.DB.prepare("UPDATE project_offers SET status='assigned' WHERE id=? AND status='ready_for_assignment'").bind(o.id),
+   env.DB.prepare("UPDATE projects SET status='assigned',client_visible_status='in_progress',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(o.project_id)
+  ]);
+  await log(env,a.id,"project_assignment_confirmed","assignment",assignmentId,{project_id:o.project_id,offer_id:o.id});
+  return out({ok:true,assignment_id:assignmentId,status:"assigned",due_at:due},201);
+ }
+ if(m==="POST"&&p.startsWith("/v1/offers/")&&p.endsWith("/deposit/checkout")){
+  const offerId=p.split("/")[3],a=await user(req,env,["editor"]);
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay API keys are not configured in Cloudflare secrets.",503,"razorpay_not_configured");
+  const offer=await env.DB.prepare("SELECT o.id,o.project_id,o.status,o.deposit_amount_minor,o.deposit_currency,p.title FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.id=? AND o.editor_id=?").bind(offerId,a.id).first();
+  if(!offer||!["terms_accepted_pending_deposit","deposit_pending"].includes(offer.status))return bad("Accept the offer and project agreement before paying the deposit.",409);
+  if(!Number.isSafeInteger(offer.deposit_amount_minor)||offer.deposit_amount_minor<=0)return bad("Invalid deposit amount.",409);
+  const prior=await env.DB.prepare("SELECT id,provider_order_id,amount_minor,currency,status FROM payments WHERE offer_id=? AND payment_type='editor_security_deposit' AND status IN ('created','pending') ORDER BY created_at DESC LIMIT 1").bind(offer.id).first();
+  if(prior?.provider_order_id)return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:prior.provider_order_id,amount:prior.amount_minor,currency:prior.currency,payment_id:prior.id,checkout_name:"CSA Global",description:"Project-specific editor security deposit"});
+  const idem="editor-deposit:"+offer.id+":"+uid("try");
+  const orderRes=await fetch("https://api.razorpay.com/v1/orders",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"content-type":"application/json"},body:JSON.stringify({amount:offer.deposit_amount_minor,currency:offer.deposit_currency,receipt:offer.id.slice(0,40),notes:{offer_id:offer.id,project_id:offer.project_id,payment_type:"editor_security_deposit"}})});
+  const order=await orderRes.json();
+  if(!orderRes.ok||!order.id||order.amount!==offer.deposit_amount_minor||order.currency!==offer.deposit_currency)return bad("Razorpay order creation failed or amount/currency mismatch.",502,"razorpay_order_failed");
+  const paymentId=uid("pay");
+  await env.DB.prepare("INSERT INTO payments(id,user_id,project_id,offer_id,payment_type,amount_minor,currency,provider,provider_order_id,idempotency_key,status) VALUES(?,?,?,?, 'editor_security_deposit',?,?, 'razorpay',?,?, 'created')").bind(paymentId,a.id,offer.project_id,offer.id,offer.deposit_amount_minor,offer.deposit_currency,order.id,idem).run();
+  await env.DB.prepare("UPDATE project_offers SET status='deposit_pending' WHERE id=?").bind(offer.id).run();
+  await log(env,a.id,"razorpay_deposit_order_created","payment",paymentId,{offer_id:offer.id});
+  return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:order.id,amount:order.amount,currency:order.currency,payment_id:paymentId,checkout_name:"CSA Global",description:"Project-specific editor security deposit"},201);
+ }
+ if(m==="POST"&&p==="/v1/payments/razorpay/verify"){
+  const a=await user(req,env,["editor"]),b=await req.json(),orderId=txt(b.razorpay_order_id,100),paymentId=txt(b.razorpay_payment_id,100),signature=txt(b.razorpay_signature,200);
+  if(!orderId||!paymentId||!signature||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID)return bad("Payment verification details or Razorpay keys are missing.",503);
+  const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND user_id=? AND payment_type='editor_security_deposit'").bind(orderId,a.id).first();
+  if(!record)return bad("Payment order does not belong to this editor.",404);
+  const expected=await hmacHex(env.RAZORPAY_KEY_SECRET,orderId+"|"+paymentId);
+  if(!constantTime(expected,signature))return bad("Razorpay payment signature did not match.",400,"signature_invalid");
+  const pr=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(paymentId),{headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET)}});
+  const payment=await pr.json();
+  if(!pr.ok||payment.order_id!==orderId||payment.amount!==record.amount_minor||payment.currency!==record.currency||payment.status!=="captured")return bad("Razorpay has not confirmed a captured payment. Assignment remains locked.",409,"payment_not_captured");
+  if(record.status!=="succeeded"){
+   await env.DB.batch([
+    env.DB.prepare("UPDATE payments SET provider_payment_id=?,status='succeeded',verified_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(paymentId,record.id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),a.id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay captured payment",a.id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_locked',?,?,?,?)").bind(uid("dep"),a.id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Locked to project pending CSA release/refund decision",a.id),
+    env.DB.prepare("UPDATE project_offers SET status='ready_for_assignment' WHERE id=? AND status='deposit_pending'").bind(record.offer_id)
+   ]);
+   await log(env,a.id,"razorpay_deposit_verified","payment",record.id,{provider_payment_id:paymentId});
+  }
+  return out({ok:true,status:"captured",next_step:"await_csa_assignment"});
+ }
+ if(m==="POST"&&p==="/v1/webhooks/razorpay"){
+  if(!env.RAZORPAY_WEBHOOK_SECRET)return bad("Razorpay webhook secret is not configured.",503);
+  const raw=await req.text(),sig=req.headers.get("x-razorpay-signature")||"",eventId=req.headers.get("x-razorpay-event-id")||"";
+  if(!sig||!eventId||!constantTime(await hmacHex(env.RAZORPAY_WEBHOOK_SECRET,raw),sig))return bad("Webhook signature verification failed.",401,"webhook_signature_invalid");
+  const body=JSON.parse(raw),event=txt(body.event,100);
+  const refundEntity=body.payload?.refund?.entity;
+  if(event.startsWith("refund.")&&refundEntity?.payment_id){
+   const payment=await env.DB.prepare("SELECT * FROM payments WHERE provider='razorpay' AND provider_payment_id=? AND payment_type='editor_security_deposit'").bind(refundEntity.payment_id).first();
+   if(!payment)return out({ok:true,ignored:true});
+   const refund=await env.DB.prepare("SELECT id,provider_refund_id,status FROM editor_deposit_refunds WHERE payment_id=?").bind(payment.id).first();
+   try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,payment.id,JSON.stringify({event,refund_id:refundEntity.id,payment_id:refundEntity.payment_id,amount:refundEntity.amount??null,currency:refundEntity.currency??null})).run();}
+   catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
+   if(!refund)return out({ok:true,ignored:true,reason:"No CSA refund request exists for this payment."});
+   const amountMatches=Number(refundEntity.amount)===Number(payment.amount_minor);
+   const currencyMatches=String(refundEntity.currency||"").toUpperCase()===String(payment.currency||"").toUpperCase();
+   const refundIdMatches=!refund.provider_refund_id||refund.provider_refund_id===refundEntity.id;
+   if(!amountMatches||!currencyMatches||!refundIdMatches){
+    const detail={event,refund_id:refundEntity.id,received_amount:refundEntity.amount??null,received_currency:refundEntity.currency??null,expected_amount:payment.amount_minor,expected_currency:payment.currency,refund_id_conflict:!refundIdMatches};
+    await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(JSON.stringify(detail).slice(0,3000),payment.id).run();
+    await log(env,payment.user_id,"editor_deposit_refund_unknown","deposit_refund",payment.id,detail);
+    return out({ok:true,processed:false,refund_status:"unknown",reason:"Refund amount, currency or provider reference did not match the full CSA deposit."});
+   }
+   const status=event==="refund.processed"?"processed":event==="refund.failed"?"failed":"pending";
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=COALESCE(provider_refund_id,?),status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(refundEntity.id,status,JSON.stringify({event,refund_id:refundEntity.id,amount:refundEntity.amount,currency:refundEntity.currency}).slice(0,3000),payment.id).run();
+   if(status==="processed"){
+    const existing=await env.DB.prepare("SELECT id FROM deposit_ledger WHERE payment_id=? AND entry_type='deposit_refunded' LIMIT 1").bind(payment.id).first();
+    if(!existing)await env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full Razorpay refund processed: "+refundEntity.id,payment.user_id).run();
+    await env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id).run();
+   }
+   await log(env,payment.user_id,"editor_deposit_refund_"+status,"deposit_refund",payment.id,{provider_refund_id:refundEntity.id,amount_minor:refundEntity.amount,currency:refundEntity.currency});
+   return out({ok:true,processed:true,refund_status:status});
+  }
+  const entity=body.payload?.payment?.entity||body.payload?.order?.entity,orderId=entity?.order_id||entity?.id;
+  if(!orderId)return out({ok:true,ignored:true});
+  const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND provider='razorpay'").bind(orderId).first();
+  if(!record)return out({ok:true,ignored:true});
+  try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,record.id,JSON.stringify({event,order_id:orderId,provider_payment_id:entity.id||null})).run();}
+  catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
+  if(event==="payment.captured"){
+   const pid=entity.id||record.provider_payment_id;
+   if(!pid||entity.status!=="captured"||entity.amount!==record.amount_minor||String(entity.currency||"").toUpperCase()!==String(record.currency||"").toUpperCase())return bad("Captured webhook amount or currency mismatch.",409);
+   await env.DB.prepare("UPDATE payments SET provider_payment_id=COALESCE(provider_payment_id,?),status='succeeded',verified_at=COALESCE(verified_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pid,record.id).run();
+   if(record.payment_type==="editor_security_deposit"){
+    await env.DB.batch([
+     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_received',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Razorpay webhook captured payment",record.user_id),
+     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_locked',?,?,?,?)").bind(uid("dep"),record.user_id,record.project_id,record.offer_id,record.id,record.amount_minor,record.currency,"Locked to project pending CSA release/refund decision",record.user_id),
+     env.DB.prepare("UPDATE project_offers SET status='ready_for_assignment' WHERE id=? AND status='deposit_pending'").bind(record.offer_id)
+    ]);
+   }else if(record.quote_id&&["client_advance","client_balance"].includes(record.payment_type)){
+    const paid=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(record.quote_id).first(),quote=await env.DB.prepare("SELECT total_amount_minor FROM client_quotes WHERE id=?").bind(record.quote_id).first();
+    if(quote)await env.DB.prepare("UPDATE client_quotes SET payment_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(Number(paid?.total||0)>=quote.total_amount_minor?"paid":"partial",record.quote_id).run();
+   }
+  }else if(event==="payment.failed"){
+   await env.DB.prepare("UPDATE payments SET status='failed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(record.id).run();
+  }
+  return out({ok:true,processed:true});
+ }
+ if(m==="GET"&&p==="/v1/admin/agreements"){
+  await user(req,env,["admin"]);
+  const r=await env.DB.prepare("SELECT id,agreement_type,version,title,active,created_at FROM agreement_versions ORDER BY created_at DESC LIMIT 100").all();
+  return out({ok:true,agreements:r.results||[]});
+ }
+ if(m==="POST"&&p==="/v1/admin/agreements"){
+  const a=await user(req,env,["admin"]),b=await req.json(),type=txt(b.agreement_type,40),version=txt(b.version,40),title=txt(b.title,180),body=txt(b.body_markdown,30000);
+  if(!["editor_master","project_specific","client_service"].includes(type)||!version||!title||!body)return bad("Agreement type, version, title and full text are required.");
+  const idg=uid("agrv");
+  await env.DB.prepare("INSERT INTO agreement_versions(id,agreement_type,version,title,body_markdown,active) VALUES(?,?,?,?,?,0)").bind(idg,type,version,title,body).run();
+  await log(env,a.id,"agreement_version_created","agreement",idg,{agreement_type:type,version});
+  return out({ok:true,agreement_id:idg,active:false,requires_legal_review:true},201);
+ }
+ const activateAgreement=p.match(/^\/v1\/admin\/agreements\/([\w-]+)\/activate$/);
+ if(m==="POST"&&activateAgreement){
+  const a=await user(req,env,["admin"]),ag=await env.DB.prepare("SELECT id,agreement_type FROM agreement_versions WHERE id=?").bind(activateAgreement[1]).first();
+  if(!ag)return bad("Agreement version not found.",404);
+  await env.DB.batch([
+   env.DB.prepare("UPDATE agreement_versions SET active=0 WHERE agreement_type=?").bind(ag.agreement_type),
+   env.DB.prepare("UPDATE agreement_versions SET active=1 WHERE id=?").bind(ag.id)
+  ]);
+  await log(env,a.id,"agreement_version_activated","agreement",ag.id,{agreement_type:ag.agreement_type});
+  return out({ok:true,active:true,agreement_id:ag.id});
+ }
+ if(m==="GET"&&p==="/v1/admin/departments"){
+  const a=await user(req,env,["admin"]);
+  const r=await env.DB.prepare("SELECT d.id,d.name,d.status,x.access_level FROM global_admin_department_access x JOIN global_departments d ON d.id=x.department_id WHERE x.source_admin_id=? AND d.status='active' ORDER BY d.name").bind(a.source_admin_id).all();
+  return out({ok:true,departments:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/admin/projects"){
+  const a=await user(req,env,["admin"]);
+  if(!a.source_admin_id)return bad("Department access is not configured for this admin.",403,"department_access_missing");
+  const r=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.category,p.brief,p.requirements_json,p.budget_amount_minor,p.budget_currency,p.budget_type,p.preferred_deadline,p.priority,p.status,p.department_id,GROUP_CONCAT(DISTINCT d.name) AS department_names,GROUP_CONCAT(DISTINCT dr.route_key) AS department_routes,p.created_at FROM projects p JOIN project_department_routes dr ON dr.project_id=p.id JOIN global_departments d ON d.id=dr.department_id WHERE dr.department_id IN (SELECT department_id FROM global_admin_department_access WHERE source_admin_id=?) AND p.status IN ('submitted','under_review','approved','matching','assigned','in_progress','quality_check','client_review','revision') GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100").bind(a.source_admin_id).all();
+  return out({ok:true,projects:r.results||[]});
+ }
+ const kycPreview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-preview$/);
+ if(m==="GET"&&kycPreview){
+  const a=await user(req,env,["admin"]);const doc=await env.DB.prepare("SELECT id,r2_object_key,mime_type FROM editor_kyc_documents WHERE editor_id=? ORDER BY created_at DESC LIMIT 1").bind(kycPreview[1]).first();
+  if(!doc)return bad("KYC document not found.",404);await log(env,a.id,"editor_kyc_document_previewed","editor_kyc",doc.id,{editor_id:kycPreview[1]});const object=await env.MEDIA.get(doc.r2_object_key);if(!object)return bad("KYC document is missing from private storage.",404);
+  return new Response(object.body,{headers:{"content-type":doc.mime_type,"content-disposition":"inline","cache-control":"private, no-store","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'; sandbox"}});
+ }
+ if(m==="GET"&&p==="/v1/admin/editors/kyc/pending"){
+  await user(req,env,["admin"]);const r=await env.DB.prepare("SELECT d.id,d.editor_id,d.document_type,d.mime_type,d.size_bytes,d.status,d.consent_version,d.consented_at,d.created_at,u.email,e.display_name,e.legal_name,e.public_editor_code,e.country,e.city FROM editor_kyc_documents d JOIN users u ON u.id=d.editor_id JOIN editor_profiles e ON e.user_id=d.editor_id WHERE d.status IN ('pending','in_review') ORDER BY d.created_at ASC LIMIT 100").all();
+  return out({ok:true,documents:r.results||[]});
+ }
+ const kycReview=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/kyc-review$/);
+ if(m==="POST"&&kycReview){
+  const a=await user(req,env,["admin"]),b=await req.json(),status=txt(b.status,20),note=txt(b.note,1000);
+  if(!["verified","rejected"].includes(status))return bad("KYC status must be verified or rejected.");if(status==="rejected"&&!note)return bad("A rejection reason is required.");
+  const doc=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status IN ('pending','in_review') ORDER BY created_at DESC LIMIT 1").bind(kycReview[1]).first();
+  if(!doc)return bad("No pending KYC document was found.",404);
+  await env.DB.prepare("UPDATE editor_kyc_documents SET status=?,reviewed_by=?,reviewed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),review_note=? WHERE id=?").bind(status,a.id,note||null,doc.id).run();
+  await log(env,a.id,"editor_kyc_reviewed","editor_kyc",doc.id,{editor_id:kycReview[1],status,note});return out({ok:true,status});
+ }
+ if(m==="GET"&&p==="/v1/admin/editors/verified"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT u.id,u.account_status,e.public_editor_code,e.display_name,e.country,e.city,e.languages_json,e.specializations_json FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND u.account_status='active' AND e.verification_status='verified' AND EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=u.id AND k.status='verified') ORDER BY e.display_name LIMIT 300").all();
+  return out({ok:true,editors:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/admin/editors/pending"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT u.id,u.email,e.public_editor_code,e.display_name,e.legal_name,e.country,e.country_code,e.state,e.district,e.city,e.village,e.postal_code,e.address_line,e.specializations_json,e.software_json,e.portfolio_url,e.verification_status,e.created_at,COALESCE((SELECT k.status FROM editor_kyc_documents k WHERE k.editor_id=u.id ORDER BY k.created_at DESC LIMIT 1),'not_submitted') AS kyc_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE e.verification_status IN ('pending','in_review') ORDER BY e.created_at ASC LIMIT 100").all();
+  return out({ok:true,editors:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/admin/offers/ready"){
+  await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT o.id,o.project_id,o.editor_id,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.status,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM project_offers o JOIN projects p ON p.id=o.project_id JOIN editor_profiles e ON e.user_id=o.editor_id WHERE o.status='ready_for_assignment' ORDER BY o.created_at ASC LIMIT 100").all();
+  return out({ok:true,offers:r.results||[]});
+ }
+ if(m==="GET"&&p==="/v1/admin/overview"){
+  await user(req,env,["admin","staff"]);
+  const q=await env.DB.batch([env.DB.prepare("SELECT COUNT(*) n FROM projects WHERE status IN ('submitted','under_review','matching')"),env.DB.prepare("SELECT COUNT(*) n FROM users WHERE role='editor' AND account_status='pending'"),env.DB.prepare("SELECT COUNT(*) n FROM assignments WHERE status IN ('active','submitted','quality_check','revision')"),env.DB.prepare("SELECT COUNT(*) n FROM project_disputes WHERE status IN ('open','under_review')")]);
+  return out({ok:true,metrics:{projects_to_review:q[0].results[0].n,editors_pending:q[1].results[0].n,active_assignments:q[2].results[0].n,open_disputes:q[3].results[0].n}});
+ }
+ const ev=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/verify$/);
+ if(m==="POST"&&ev){
+  const a=await user(req,env,["admin"]),b=await req.json();if(!["verified","rejected","in_review"].includes(b.status))return bad("Invalid verification status.");if(b.status==="verified"){const k=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status='verified' ORDER BY reviewed_at DESC LIMIT 1").bind(ev[1]).first();if(!k)return bad("Editor KYC must be verified before profile approval.",409,"kyc_required");}
+  await env.DB.prepare("UPDATE editor_profiles SET verification_status=? WHERE user_id=?").bind(b.status,ev[1]).run();
+  if(b.status==="verified")await env.DB.prepare("UPDATE users SET account_status='pending' WHERE id=? AND role='editor'").bind(ev[1]).run();
+  if(b.status==="rejected")await env.DB.prepare("UPDATE users SET account_status='suspended' WHERE id=? AND role='editor'").bind(ev[1]).run();
+  await log(env,a.id,"editor_verification_updated","editor",ev[1],{status:b.status});return out({ok:true,status:b.status});
+ }
+ const cred=p.match(/^\/v1\/admin\/editors\/([\w-]+)\/credentials$/);
+ if(m==="POST"&&cred){
+ const a=await user(req,env,["admin"]),ed=await env.DB.prepare("SELECT u.id,e.public_editor_code,e.verification_status FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.id=? AND u.role='editor'").bind(cred[1]).first();if(!ed||ed.verification_status!=="verified")return bad("Verify editor before issuing credentials.",409);
+ const username=ed.public_editor_code.toUpperCase(),raw=crypto.getRandomValues(new Uint8Array(24)),temporaryPassword=btoa(String.fromCharCode(...raw)).replace(/\\+/g,"R").replace(/\//g,"S").replace(/=+$/,"")+"d8!",salt=crypto.getRandomValues(new Uint8Array(16)),km=await crypto.subtle.importKey("raw",new TextEncoder().encode(temporaryPassword),"PBKDF2",false,["deriveBits"]),bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:310000},km,256),salt64=btoa(String.fromCharCode(...salt)),hash=[...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ await env.DB.batch([env.DB.prepare("INSERT INTO editor_credentials(user_id,username,password_salt,password_hash,must_change_password,created_by) VALUES(?,?,?,?,1,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,password_salt=excluded.password_salt,password_hash=excluded.password_hash,must_change_password=1,failed_attempts=0,locked_until=NULL,created_by=excluded.created_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(ed.id,username,salt64,hash,a.id),env.DB.prepare("UPDATE users SET account_status='active' WHERE id=?").bind(ed.id),env.DB.prepare("DELETE FROM editor_sessions WHERE user_id=?").bind(ed.id)]);
+ await log(env,a.id,"editor_credentials_issued","editor",ed.id,{username,must_change_password:true});return out({ok:true,username,temporary_password:temporaryPassword,must_change_password:true,one_time_display:true},201);
+ }
+ const of=p.match(/^\/v1\/admin\/projects\/([\w-]+)\/offers$/);
+ if(m==="POST"&&of){
+  const a=await user(req,env,["admin"]),b=await req.json(),ed=await env.DB.prepare("SELECT e.user_id FROM editor_profiles e JOIN users u ON u.id=e.user_id WHERE e.user_id=? AND e.verification_status='verified' AND u.account_status='active'").bind(b.editor_id).first();
+  if(!ed)return bad("Only verified editors can receive offers.",409);
+  const fee=amt(b.proposed_fee_minor),dep=amt(b.deposit_amount_minor),cur=txt(b.fee_currency,3).toUpperCase(),dc=txt(b.deposit_currency,3).toUpperCase();
+  if(!fee||!dep||!/^[A-Z]{3}$/.test(cur)||!/^[A-Z]{3}$/.test(dc)||!Number.isInteger(b.delivery_days)||b.delivery_days<1)return bad("Valid fee, deposit, currency and delivery days are required.");
+  const pr=await env.DB.prepare("SELECT id,status FROM projects WHERE id=?").bind(of[1]).first();if(!pr||!["submitted","under_review","approved","matching"].includes(pr.status))return bad("Project is not ready for matching.",409);
+  const oid=uid("off");await env.DB.prepare("INSERT INTO project_offers(id,project_id,editor_id,offer_message,proposed_fee_minor,fee_currency,delivery_days,deposit_amount_minor,deposit_currency,offer_expires_at,status) VALUES(?,?,?,?,?,?,?,?,?,?,'offered')").bind(oid,pr.id,ed.user_id,txt(b.offer_message,2000)||null,fee,cur,b.delivery_days,dep,dc,txt(b.offer_expires_at,40)||null).run();
+  await env.DB.prepare("UPDATE projects SET status='matching',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(pr.id).run();await log(env,a.id,"project_offer_created","offer",oid,{project_id:pr.id,editor_id:ed.user_id});return out({ok:true,offer_id:oid,status:"offered"},201);
+ }
+
+ // In-app notifications and channel preferences. Email/WhatsApp are preference-only until providers are configured.
+ if(m==="GET"&&p==="/v1/notifications"){
+  const a=await user(req,env,["client","admin"]),r=await env.DB.prepare("SELECT id,channel,template_key,payload_json,status,created_at FROM notifications WHERE user_id=? AND channel='in_app' ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  const notifications=(r.results||[]).map(n=>{let payload={};try{payload=JSON.parse(n.payload_json||"{}");}catch{}return {id:n.id,title:txt(payload.title,180),body:txt(payload.body,4000),message:txt(payload.body,4000),created_at:n.created_at,read_at:n.status==="read"?n.created_at:null,status:n.status};});
+  return out({ok:true,notifications});
+ }
+ if(m==="POST"&&/^\/v1\/notifications\/[\w-]+\/read$/.test(p)){
+  const a=await user(req,env,["client","admin"]),id=p.split("/")[3],r=await env.DB.prepare("UPDATE notifications SET status='read' WHERE id=? AND user_id=? AND channel='in_app' AND status!='read'").bind(id,a.id).run();
+  if(!r.meta?.changes){const exists=await env.DB.prepare("SELECT id FROM notifications WHERE id=? AND user_id=? AND channel='in_app'").bind(id,a.id).first();if(!exists)return bad("Notification not found.",404);}
+  return out({ok:true,read:true});
+ }
+ if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences"){
+  const a=await user(req,env,["client","admin"]);
+  await env.DB.prepare("INSERT OR IGNORE INTO notification_preferences(user_id) VALUES(?)").bind(a.id).run();
+  if(m==="GET"){
+   const preferences=await env.DB.prepare("SELECT in_app_enabled,email_enabled,whatsapp_enabled,updated_at FROM notification_preferences WHERE user_id=?").bind(a.id).first();
+   return out({ok:true,preferences});
+  }
+  const b=await req.json(),keys=["in_app_enabled","email_enabled","whatsapp_enabled"];
+  if(keys.some(k=>typeof b[k]!=="boolean"))return bad("All notification preference values must be true or false.");
+  await env.DB.prepare("UPDATE notification_preferences SET in_app_enabled=?,email_enabled=?,whatsapp_enabled=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=?").bind(b.in_app_enabled?1:0,b.email_enabled?1:0,b.whatsapp_enabled?1:0,a.id).run();
+  await log(env,a.id,"notification_preferences_updated","notification_preferences",a.id,{whatsapp_opt_in:b.whatsapp_enabled});
+  return out({ok:true,saved:true,preferences:{in_app_enabled:b.in_app_enabled?1:0,email_enabled:b.email_enabled?1:0,whatsapp_enabled:b.whatsapp_enabled?1:0}});
+ }
+ if(m==="POST"&&p==="/v1/admin/notifications"){
+  const a=await user(req,env,["admin"]),b=await req.json(),recipient=txt(b.user_id,100),type=txt(b.type,60)||"admin_notice",title=txt(b.title,180),body=txt(b.body,4000);
+  if(!recipient||!title||!body)return bad("Recipient, title and message are required.");
+  const target=await env.DB.prepare("SELECT id,role,account_status FROM users WHERE id=?").bind(recipient).first();
+  if(!target||target.account_status!=="active"||!["client","editor"].includes(target.role))return bad("Active client or editor recipient not found.",404);
+  const pref=await env.DB.prepare("SELECT in_app_enabled FROM notification_preferences WHERE user_id=?").bind(recipient).first();
+  if(pref&&Number(pref.in_app_enabled)===0)return bad("Recipient has disabled in-app notifications.",409,"notifications_disabled");
+  const id=uid("ntf");
+  await env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status,sent_at) VALUES(?,?,'in_app',?,?,'sent',strftime('%Y-%m-%dT%H:%M:%fZ','now'))").bind(id,recipient,type,JSON.stringify({title,body,source:"csa_admin"})).run();
+  await log(env,a.id,"in_app_notification_sent","notification",id,{recipient_user_id:recipient,type});
+  return out({ok:true,notification_id:id,channel:"in_app",status:"sent"},201);
+ }
+ if(m==="GET"&&p==="/v1/client/refunds"){
+  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,created_at,updated_at,processed_at FROM client_refund_requests WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  return out({ok:true,refunds:r.results||[]});
+ }
+ if(m==="POST"&&p==="/v1/client/refunds"){
+  const a=await user(req,env,["client"]),b=await req.json(),paymentId=txt(b.payment_id,100),amount=amt(b.amount_minor),currency=txt(b.currency,3).toUpperCase(),reason=txt(b.reason,2000),key=txt(req.headers.get("Idempotency-Key")||b.idempotency_key,120);
+  if(!paymentId||!amount||amount<1||!/^[A-Z]{3}$/.test(currency)||reason.length<5||!key||!/^[A-Za-z0-9._:-]{8,120}$/.test(key))return bad("Payment, positive amount, currency, reason and a valid Idempotency-Key are required.");
+  const prior=await env.DB.prepare("SELECT id,payment_id,client_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();
+  if(prior){if(prior.payment_id!==paymentId||prior.client_id!==a.id)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:prior,replayed:true});}
+  const payment=await env.DB.prepare("SELECT id,user_id,project_id,amount_minor,currency,payment_type,status FROM payments WHERE id=? AND user_id=?").bind(paymentId,a.id).first();
+  if(!payment||!["client_advance","client_balance"].includes(payment.payment_type))return bad("Eligible CSA client payment not found.",404);
+  if(payment.status!=="succeeded"&&payment.status!=="partially_refunded")return bad("Only successful payments can be submitted for refund.",409);
+  if(String(payment.currency).toUpperCase()!==currency)return bad("Refund currency must match the original payment.",409);
+  const id=uid("crf");
+  try{
+   // The refundable-balance test and insert are one SQL statement, preventing concurrent requests from reserving more than the paid amount.
+   const inserted=await env.DB.prepare("INSERT INTO client_refund_requests(id,payment_id,client_id,project_id,amount_minor,currency,reason,status,idempotency_key,requested_by) SELECT ?,p.id,?,p.project_id,?,?,?,'requested',?,? FROM payments p WHERE p.id=? AND p.user_id=? AND p.payment_type IN ('client_advance','client_balance') AND p.status IN ('succeeded','partially_refunded') AND UPPER(p.currency)=? AND ? <= p.amount_minor-COALESCE((SELECT SUM(r.amount_minor) FROM client_refund_requests r WHERE r.payment_id=p.id AND r.status NOT IN ('rejected','failed','cancelled')),0) RETURNING id").bind(id,a.id,amount,currency,reason,key,a.id,paymentId,a.id,currency,amount).first();
+   if(!inserted)return bad("Refund amount exceeds the remaining refundable balance or payment is no longer eligible.",409,"refund_amount_exceeded");
+  }catch(e){if(String(e.message||"").includes("UNIQUE")){const duplicate=await env.DB.prepare("SELECT id,payment_id,client_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();if(duplicate){if(duplicate.client_id!==a.id||duplicate.payment_id!==paymentId)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:duplicate,replayed:true});}}throw e;}
+  await log(env,a.id,"client_refund_requested","client_refund",id,{payment_id:paymentId,amount_minor:amount,currency});
+  return out({ok:true,refund:{id,payment_id:paymentId,amount_minor:amount,currency,status:"requested"}},201);
+ }
+ if(m==="GET"&&p==="/v1/admin/client-refunds"){
+  const a=await user(req,env,["admin"]),r=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.created_at,r.updated_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 ELSE 2 END,r.created_at ASC LIMIT 200").all();
+  return out({ok:true,refunds:r.results||[]});
+ }
+ const clientRefundReview=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)$/);
+ if(m==="PATCH"&&clientRefundReview){
+  const a=await user(req,env,["admin"]),b=await req.json(),action=txt(b.action,30),note=txt(b.review_note,1000);
+  const transitions={under_review:"under_review",approve:"approved",reject:"rejected"};
+  if(!Object.prototype.hasOwnProperty.call(transitions,action))return bad("Action must be under_review, approve or reject.");
+  if(action==="reject"&&note.length<3)return bad("A rejection reason is required.");
+  const current=await env.DB.prepare("SELECT id,status FROM client_refund_requests WHERE id=?").bind(clientRefundReview[1]).first();
+  if(!current)return bad("Client refund request not found.",404);
+  if(!["requested","under_review"].includes(current.status))return bad("This refund request has already been decided.",409);
+  const next=transitions[action];
+  const updated=await env.DB.prepare("UPDATE client_refund_requests SET status=?,reviewed_by=?,review_note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('requested','under_review')").bind(next,a.id,note||null,current.id).run();
+  // Compare-and-set: if another reviewer decided this request first, do not report a false success or write a misleading audit event.
+  if(!updated.meta?.changes)return bad("This refund request was updated by another reviewer. Refresh the queue and try again.",409,"refund_review_conflict");
+  await log(env,a.id,"client_refund_"+next,"client_refund",current.id,{action,review_note:note||null,provider_refund_started:false});
+  return out({ok:true,status:next,provider_refund_started:false});
+ }
+ return bad("Route not found.",404,"not_found");
+}
+async function cleanupExpiredMultipartUploads(env){
+ const now=new Date().toISOString();
+ const rows=await env.DB.prepare("SELECT id,r2_object_key,r2_upload_id FROM multipart_upload_sessions WHERE status='open' AND expires_at<=? ORDER BY expires_at LIMIT 100").bind(now).all();
+ let aborted=0,failed=0;
+ for(const session of rows.results||[]){
+  try{
+   await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).abort();
+   const result=await env.DB.prepare("UPDATE multipart_upload_sessions SET status='aborted' WHERE id=? AND status='open'").bind(session.id).run();
+   if(result.meta?.changes)aborted++;
+  }catch(error){
+   failed++;
+   console.warn(JSON.stringify({event:"multipart_cleanup_abort_failed",error_code:"storage_abort_failed"}));
+  }
+ }
+ console.log(JSON.stringify({event:"multipart_cleanup_completed",checked:(rows.results||[]).length,aborted,failed,at:now}));
+ return {checked:(rows.results||[]).length,aborted,failed};
+}
+export default {async scheduled(controller,env){
+ if(!env.MEDIA||!env.DB)throw new Error("Cleanup requires the staging R2 and D1 bindings.");
+ const id=crypto.randomUUID(),started=new Date().toISOString();
+ await env.DB.prepare("INSERT INTO multipart_cleanup_runs(id,started_at,status) VALUES(?,?,'running')").bind(id,started).run();
+ try{
+  const result=await cleanupExpiredMultipartUploads(env),finished=new Date().toISOString(),status=result.failed?"partial":"success";
+  await env.DB.prepare("UPDATE multipart_cleanup_runs SET finished_at=?,status=?,checked=?,aborted=?,failed=? WHERE id=?").bind(finished,status,result.checked,result.aborted,result.failed,id).run();
+ }catch(error){
+  const message="multipart_cleanup_failed";
+  await env.DB.prepare("UPDATE multipart_cleanup_runs SET finished_at=?,status='failed',error_message=? WHERE id=?").bind(new Date().toISOString(),message,id).run();
+  throw error;
+ }
+},async fetch(req,env){
+ // File uploads use PUT; include it in CORS so browser preflight succeeds for client and editor uploads.
+ const origin=req.headers.get("Origin")||"",allowed=(env.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean),ch={"vary":"Origin","access-control-allow-methods":"GET,POST,PUT,OPTIONS","access-control-allow-headers":"Authorization,Content-Type,X-File-Name,X-Submission-Notes,X-CSA-Video-Title,X-CSA-Video-Description,X-CSA-Video-Category,X-CSA-Video-Rights-Confirmed,X-CSA-Terms-Accepted,X-CSA-Terms-Version,X-CSA-KYC-Document-Type,X-CSA-KYC-Consent,X-CSA-KYC-Consent-Version","access-control-max-age":"86400"};
+ if(allowed.includes(origin)||/^https:\/\/([a-z0-9-]+\.)?csa-global-staging\.pages\.dev$/i.test(origin))ch["access-control-allow-origin"]=origin;
+ if(req.method==="OPTIONS")return new Response(null,{status:204,headers:ch});
+ try{const r=await handle(req,env),h=new Headers(r.headers);Object.entries(ch).forEach(([k,v])=>h.set(k,v));return new Response(r.body,{status:r.status,headers:h});}
+ catch(e){const auth=/token|identity|account is|role is|verified email/i.test(e.message||"");return new Response(JSON.stringify({ok:false,error:{code:auth?"auth_error":"server_error",message:auth?e.message:"Request failed safely."}}),{status:auth?401:500,headers:{...H,...ch}});}
+}};
