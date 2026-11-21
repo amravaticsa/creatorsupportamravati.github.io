@@ -427,3 +427,14 @@ All three currently return no explicit observability configuration in the Worker
 **Implementation decision:** do not enable persisted logs/traces yet. First sanitize the two Super Admin email/recovery error logs and attendance failure log, and the Global API cleanup warning. Then enable observability on the isolated Editor Portal as a pilot, validate that requests and error cases produce no credentials, cookies, authorization headers, KYC/identity document details, payment secrets, or personal data, and only then roll out to the other isolated Workers.
 
 **No changes made:** no Worker settings, source code, deployments, routes, bindings, secrets, databases, R2 buckets, or Access policies were modified. This was a read-only source and configuration review.
+
+
+### Safe logging standard added — 2026-11-21
+
+Created `global-platform/security/SAFE_LOGGING_STANDARD.md` with:
+- strict allow-list rules for structured telemetry;
+- specific redaction/remediation targets for isolated Super Admin and Global API;
+- Editor Portal pilot recommendation;
+- synthetic runtime validation checklist and deployment guardrails.
+
+This is a source-control implementation specification, not a deployed code change. Worker source and observability settings remain unchanged until the isolated Worker source can be patched, syntax-checked, and runtime-validated without affecting production routes.
