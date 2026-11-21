@@ -665,6 +665,34 @@ async function loadAdmin(){
     if(requestedLangs.length){matchNote.textContent=matchedEditors.length+" verified editor(s) match source language: "+requestedLangs.join(", ")+". Only active editors with verified KYC and approved profiles are listed. Language-matched editors appear first; CSA Admin must still review and select the editor.";}
     else{matchNote.textContent="Source language is not specified. Add it to the project brief to enable language-based editor recommendations.";}
     form.append(matchNote);
+    const rankButton=document.createElement("button");rankButton.type="button";rankButton.className="btn outline";rankButton.textContent="Find best-matched Editors";
+    const rankStatus=document.createElement("p");rankStatus.className="muted";rankStatus.setAttribute("role","status");
+    const rankDetails=document.createElement("div");rankDetails.className="muted";
+    rankButton.onclick=async()=>{
+     rankButton.disabled=true;rankButton.textContent="Calculating Editor Ranking…";rankStatus.textContent="Checking KYC, specialization, language, verified ratings, delivery history, portfolio and workload.";
+     try{
+      const ranking=await api("/v1/admin/editor-ranking?project_id="+encodeURIComponent(p.id));
+      const ranked=Array.isArray(ranking.editors)?ranking.editors:[];
+      editorSelect.replaceChildren(first);
+      if(!ranked.length){rankStatus.textContent="No eligible Editor is currently available. Check KYC, profile approval, active account and existing project offers.";rankDetails.replaceChildren();return;}
+      for(const e of ranked){
+       const option=document.createElement("option");option.value=e.id;
+       option.textContent="#"+e.rank+" · "+Number(e.score).toFixed(1)+"/100 · "+e.public_editor_code+" · "+e.display_name+" · "+(e.rating_count>=3?"Rating "+Number(e.average_rating).toFixed(2)+"/5":"New rating history")+" · Active "+Number(e.active_total||0);
+       editorSelect.append(option);
+      }
+      editorSelect.value=ranked[0].id;
+      rankStatus.textContent="Top recommendation: "+ranked[0].display_name+" · "+Number(ranked[0].score).toFixed(1)+"/100. This is a recommendation only; CSA Admin makes the final selection.";
+      rankDetails.replaceChildren();
+      for(const e of ranked.slice(0,5)){
+       const line=document.createElement("p");line.textContent="#"+e.rank+" "+e.display_name+" — "+Number(e.score).toFixed(1)+"/100 · "+(e.reasons||[]).join(" · ");
+       rankDetails.append(line);
+      }
+      const note=document.createElement("p");note.className="muted";note.textContent="Scoring: specialization 25, language 15, verified client ratings 20, reliability 20, approved portfolio 10, workload 10. Ratings and delivery history use neutral scores until enough evidence exists; 3 client ratings are required before ratings affect ranking.";
+      rankDetails.append(note);
+     }catch(err){rankStatus.textContent="Ranking unavailable: "+err.message;}
+     finally{rankButton.disabled=false;rankButton.textContent="Refresh Editor Ranking";}
+    };
+    form.append(rankButton,rankStatus,rankDetails);
     for(const e of eligibleEditors){const opt=document.createElement("option");opt.value=e.id;opt.textContent=(e.languageMatched?"✓ LANGUAGE MATCH · ":"")+e.public_editor_code+" · "+e.display_name+" · "+[e.city,e.country].filter(Boolean).join(", ")+" · "+(e.editorLanguages.join("/")||"Languages not listed");editorSelect.append(opt);}
     if(matchedEditors.length)editorSelect.value=matchedEditors[0].id;
     const fee=document.createElement("input");fee.type="number";fee.min="0.01";fee.step="0.01";fee.placeholder="Editor fee in "+p.budget_currency;
