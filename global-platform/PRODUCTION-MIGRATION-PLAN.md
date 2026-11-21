@@ -138,3 +138,15 @@ These files contain schema only. No application rows or credential/session/token
 5. Production target database capacity and backup/rollback plan are confirmed.
 
 No production database, Worker binding, route, payment configuration, or live account setting was changed.
+
+
+## Schema snapshot correction and completeness check (2026-11-21)
+
+The first GitHub write attempt created placeholder-only files because the D1 query response was truncated by the inspection tool. Those placeholders were replaced with complete schema-only DDL extracted from `sqlite_master` in bounded chunks. The current committed files were fetched back from GitHub and verified for expected DDL counts and absence of truncation markers:
+
+- Super Admin: 33 `CREATE TABLE`, 36 explicit `CREATE INDEX`, 6 `CREATE TRIGGER`; 28,306 characters.
+- Rush: 3 `CREATE TABLE`, 4 explicit `CREATE INDEX`, 0 triggers; 2,714 characters.
+
+The snapshots preserve the full SQL text of the source objects, including constraints, foreign keys, partial indexes, and trigger bodies. They exclude SQLite internal autoindexes and Cloudflare internal objects. The D1 export API was also exercised with `no_data: true`; the export completed, but the committed migration artifacts were reconstructed from the bounded `sqlite_master` DDL extraction so the exact source SQL could be stored and reviewed in Git.
+
+**Important:** this is a completeness/count verification, not an execution test. No disposable D1 was available, and no schema was applied to any existing D1. Before calling these deployable migrations, execute each file on a genuinely disposable database and compare `sqlite_master` object counts, foreign-key checks, and representative trigger behavior. The earlier note that migration files had not yet been generated is superseded by this section; validation on a disposable target remains outstanding.
