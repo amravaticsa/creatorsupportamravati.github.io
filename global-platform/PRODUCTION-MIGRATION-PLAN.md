@@ -209,3 +209,10 @@ The latest visible staging runs for commit `8f94cd8744507b1130ea422faa4484d724a5
 - Deploy CSA Global staging workflow: success (run `44916719147`).
 
 This confirms the latest observed staging validation and staging deployment workflows completed successfully for that commit. It does not prove a browser-based end-to-end check of every portal or validate a disposable Cloudflare D1 migration. The production migration remains blocked by the release gates above.
+
+
+## D1 capacity and billing decision checklist (2026-11-21)
+
+Added `migrations/D1-CAPACITY-BILLING-CHECKLIST.md` based on current official Cloudflare D1/Workers pricing documentation. It records the Free-tier 10-database limit, Paid-tier 100,000 included databases, overage pricing, dashboard verification steps, and separate decisions for Free/Paid/unclear account states.
+
+The active CSA account plan remains **unverified**: a prior subscription/billing API lookup returned HTTP 403. The database count of 10/10 alone is not proof of the active plan. No plan upgrade or billing change was performed. Account-owner confirmation is required before any billing decision or D1 provisioning.
