@@ -72,3 +72,13 @@ pre,code{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
 .project-message-form textarea{width:100%;min-height:88px;resize:vertical}
 .project-message-form small{text-align:right}
 @media(max-width:600px){.project-message-meta{align-items:flex-start;flex-direction:column;gap:3px}.project-message{padding:10px}}
+
+
+/* CSA dispute and complaint workbench */
+.dispute-form{margin-top:14px;padding:12px;border:1px solid var(--border,#d8dee9);border-radius:10px}
+.dispute-form>summary{cursor:pointer;font-weight:700}
+.dispute-form .form,.dispute-decision{display:grid;gap:10px;margin-top:12px}
+.dispute-form textarea,.dispute-decision textarea,.dispute-form select,.dispute-decision select{width:100%;max-width:100%}
+.dispute-card{margin:12px 0}
+.dispute-event{padding:8px 10px;border-left:2px solid var(--accent,#2563eb);white-space:pre-wrap}
+.dispute-decision{padding-top:12px;border-top:1px solid var(--border,#d8dee9)}
