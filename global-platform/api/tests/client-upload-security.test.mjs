@@ -56,7 +56,7 @@ test("Browser resumes only matching file content, retries transient part failure
   assert.match(portal, /localStorage\.getItem\(resumeKey\)/);
   assert.match(portal, /crypto\.subtle\.digest\("SHA-256",await file\.slice\(from,to\)\.arrayBuffer\(\)\)/);
   assert.match(portal, /attempt<=3/);
-  assert.match(portal, /err\.retryable= r\.status===408/);
+  assert.match(portal, /requestError\.retryable=r\.status===408/);
   assert.match(portal, /Upload session is saved; select the same file again to resume/);
   assert.match(portal, /localStorage\.removeItem\(resumeKey\)/);
 });
