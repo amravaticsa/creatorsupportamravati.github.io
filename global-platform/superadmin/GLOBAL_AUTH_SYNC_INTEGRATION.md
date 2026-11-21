@@ -280,3 +280,30 @@ A deeper binding audit found an important shared-resource issue that must be res
 5. Complete authenticated browser login, Editor Management/API, unauthenticated denial, and staging data-write tests. Until then, the staging hostname remains test-only and is not approved for general use.
 
 No Worker bindings, Access rules, custom domains, or routes were changed during this recheck.
+
+### Isolated Worker inventory and source-tracking check — 2026-11-21
+
+A read-only comparison of the active staging Workers and the pre-existing isolated staging pair is complete.
+
+| Worker | D1 bindings | R2 bindings | Secret binding names |
+|---|---|---|---|
+| `csa-superadmin-api-staging` | `DB` → `csa-superadmin-staging` (`99bc81fc-e97e-488b-a380-eb0237ff8ffc`) | `ATTENDANCE_MEDIA` → `csa-attendance-evidence` (**not staging-only**) | `ADMIN_SYNC_HMAC_SECRET`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
+| `csa-superadmin-isolated-staging` | `DB` → isolated staging D1 (`c2bb3fb5-db22-4ed5-9283-161df57ebac2`) | `ATTENDANCE_MEDIA` → `csa-attendance-evidence-staging` | **none** |
+| `csa-editor-portal-staging` | `CSA_VIDEO_DB` → `csa-video-workflow-staging` (`69f070a4-b71f-4448-973f-31993715b781`); `CSA_SUPERADMIN_DB` → `csa-superadmin-staging` | `CSA_VIDEO_BUCKET` → `csa-video-editing-staging` | none |
+| `csa-editor-portal-isolated-staging` | `CSA_VIDEO_DB` → isolated staging D1 (`b611b8ff-8f9f-43b2-95c8-a767a14987d6`); `CSA_SUPERADMIN_DB` → isolated Super Admin D1 (`1fc2979f-52e2-420e-80f5-b70a51f6ac6c`) | `CSA_VIDEO_BUCKET` → `csa-video-editing-isolated-staging` | none |
+
+Secret values were not requested, returned, or read. The isolated Super Admin Worker source references `ADMIN_SYNC_HMAC_SECRET`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL`, but its current configuration has no secret bindings. It is therefore not ready to replace the active staging Worker without a controlled secret-provisioning step and a full test.
+
+The isolated Super Admin Worker already has a host guard that accepts `superadmin-staging.creatorsupportamravati.in` for `super_admin` only, and its attendance-media bucket is staging-specific. However, it is backed by a distinct isolated D1 database, not the active staging Super Admin database. Switching to it would also switch the identity/admin records and sync state to a different database; this is not a drop-in replacement.
+
+The isolated Editor Worker is not ready for staging routing: its source still sets `VIDEO_ORIGIN` to `https://editor.creatorsupportamravati.in` and `ADMIN_ORIGIN` to `https://superadmin.creatorsupportamravati.in`. Its admin route guards still reference the production Super Admin hostname. Its D1/R2 resources are isolated, but its host/origin configuration must be corrected and reviewed before use.
+
+GitHub source tracking for the active staging Workers is complete: all five Super Admin modules (`worker.js`, `admin-dashboard.js`, `admin-app-source.js`, `admin-app-validate.js`, `global-admin-sync.js`) and the Editor Portal `worker.js` were fetched successfully from the repository's `staging` branch. This verifies source files are present in GitHub; it does not by itself prove byte-for-byte parity with every deployed Cloudflare module.
+
+#### Decision and next safe step
+
+- Do not repoint the staging hostname to either pre-existing isolated Worker yet.
+- Do not change the active Super Admin Worker's `ATTENDANCE_MEDIA` binding while its catch-all still serves the official Super Admin hostname.
+- The safer next implementation is to prepare a separate production Super Admin Worker from the currently serving Super Admin source, with verified production D1/R2 bindings and preserved production secret bindings; test it before changing the official catch-all route.
+- Only after that route migration is independently validated should the active staging Super Admin Worker be rebound to `csa-attendance-evidence-staging`. Then verify the staging identity/admin database and the isolated Editor route flow with authenticated browser tests.
+- No Worker code, bindings, secrets, routes, custom domains, Access policies, DNS records, D1 data, R2 objects, or payment settings were modified during this inventory.
