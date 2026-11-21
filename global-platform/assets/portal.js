@@ -392,6 +392,37 @@ async function loadClientProjects(){
  }catch(e){root.textContent=e.message;}
 }
 const editorReviewCounts={kyc:null,profile:null,portfolio:null};
+async function loadEditorReviewHistory(){
+ const root=$("admin-editor-review-history");if(!root)return;root.textContent="Loading editor review history…";
+ try{
+  const data=await api("/v1/admin/editor-review-history?limit=100");
+  const events=Array.isArray(data.events)?data.events:[];
+  root.replaceChildren();
+  if(!events.length){root.textContent="No editor review decisions have been recorded yet.";return;}
+  const controls=document.createElement("div");controls.className="form";
+  const search=document.createElement("input");search.type="search";search.placeholder="Search editor name, code, admin or note";search.setAttribute("aria-label","Search editor review history");
+  const type=document.createElement("select");type.setAttribute("aria-label","Filter review type");
+  for(const [v,label] of [["all","All review types"],["editor_kyc_reviewed","KYC decisions"],["editor_verification_updated","Profile decisions"],["editor_portfolio_video_reviewed","Portfolio decisions"]]){const o=document.createElement("option");o.value=v;o.textContent=label;type.append(o);}
+  const list=document.createElement("div");
+  const render=()=>{
+   list.replaceChildren();
+   const q=search.value.trim().toLocaleLowerCase();
+   const filtered=events.filter(e=>(type.value==="all"||e.action===type.value)&&[e.display_name,e.public_editor_code,e.actor_email,e.review_note,e.review_status,e.action].some(v=>String(v||"").toLocaleLowerCase().includes(q)));
+   if(!filtered.length){list.textContent="No matching review records.";return;}
+   for(const event of filtered){
+    const card=document.createElement("article");card.className="card";
+    const title=document.createElement("h4");
+    const kind=event.action==="editor_kyc_reviewed"?"KYC verification":event.action==="editor_verification_updated"?"Editor profile":event.action==="editor_portfolio_video_reviewed"?"Portfolio video":"Editor review";
+    title.textContent=kind+" · "+String(event.review_status||"recorded").replaceAll("_"," ").toUpperCase();
+    const meta=document.createElement("p");meta.className="muted";
+    meta.textContent=(event.display_name||"Editor record")+(event.public_editor_code?" · "+event.public_editor_code:"")+" · Reviewed by "+(event.actor_email||"CSA Admin")+" · "+(event.created_at?new Date(event.created_at).toLocaleString():"Time unavailable");
+    const note=document.createElement("p");note.textContent=event.review_note||"No review note was recorded.";
+    card.append(title,meta,note);list.append(card);
+   }
+  };
+  search.oninput=render;type.onchange=render;controls.append(search,type);root.append(controls,list);render();
+ }catch(err){root.textContent="Editor review history unavailable: "+err.message;}
+}
 function updateEditorReviewSummary(kind,count,state="ready"){
  editorReviewCounts[kind]=state==="ready"?count:{state};
  const root=$("admin-editor-review-summary");if(!root)return;
@@ -460,6 +491,7 @@ async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
  loadAdminKycReviews();
+ loadEditorReviewHistory();
  try{
   updateEditorReviewSummary("profile",null,"loading");
   const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
