@@ -400,6 +400,7 @@ async function loadAdminKycReviews(){
 async function loadAdmin(){
  const metrics=$("admin-metrics"),projects=$("admin-projects"),editors=$("admin-editors"),ready=$("admin-ready");
  loadPortfolioVideoReviews();
+ loadAdminKycReviews();
  try{
   const [overview,pj,pe,ve,ro,qc,rf]=await Promise.all([
    api("/v1/admin/overview"),api("/v1/admin/projects"),api("/v1/admin/editors/pending"),api("/v1/admin/editors/verified"),api("/v1/admin/offers/ready"),api("/v1/admin/submissions/pending"),api("/v1/admin/deposits/refunds/eligible")
