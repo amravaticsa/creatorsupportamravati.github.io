@@ -758,6 +758,44 @@ async function handle(req,env){
   if(q.valid_until&&Date.parse(q.valid_until)<=Date.now()){await env.DB.prepare("UPDATE client_quotes SET status='expired' WHERE id=?").bind(q.id).run();return bad("Quote has expired.",409);}
   await env.DB.batch([env.DB.prepare("UPDATE client_quotes SET status=?,client_decision_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='sent'").bind(status,q.id),env.DB.prepare("INSERT INTO client_quote_events(id,quote_id,actor_user_id,event_type) VALUES(?,?,?,?)").bind(uid("qev"),q.id,a.id,status)]);await log(env,a.id,"client_quote_"+status,"client_quote",q.id);return out({ok:true,status,next_step:status==="accepted"?"client_payment_integration_pending":"none"});
  }
+
+ // Client quote checkout: staging is explicitly restricted to Razorpay Test Mode.
+ const clientCheckout=p.match(/^\/v1\/client\/quotes\/([\w-]+)\/checkout$/);
+ if(m==="POST"&&clientCheckout){
+  const a=await user(req,env,["client"]),quote=await env.DB.prepare("SELECT id,project_id,total_amount_minor,currency,status,payment_status,valid_until FROM client_quotes WHERE id=? AND client_id=?").bind(clientCheckout[1],a.id).first();
+  if(!quote||quote.status!=="accepted")return bad("Accept the client quotation before making payment.",409);
+  if(quote.valid_until&&Date.parse(quote.valid_until)<=Date.now())return bad("This quotation has expired.",409);
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Client checkout is locked until Razorpay Test Mode credentials are confirmed on the staging Worker.",503,"test_mode_required");
+  const policy=await env.DB.prepare("SELECT client_advance_bps,status FROM csa_pricing_policies WHERE currency=?").bind(quote.currency).first();
+  if(!policy||policy.status!=="active"||!Number.isInteger(policy.client_advance_bps))return bad("Client advance percentage is not configured by Super Admin for this currency.",409,"client_payment_policy_unconfigured");
+  const paidRow=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS paid FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(quote.id).first(),paid=Number(paidRow?.paid||0),remaining=quote.total_amount_minor-paid;
+  if(remaining<=0){await env.DB.prepare("UPDATE client_quotes SET payment_status='paid' WHERE id=?").bind(quote.id).run();return out({ok:true,already_paid:true,payment_status:"paid"});}
+  const type=paid===0?"client_advance":"client_balance",amount=paid===0?Math.min(remaining,Math.max(1,Math.ceil(quote.total_amount_minor*policy.client_advance_bps/10000))):remaining;
+  const prior=await env.DB.prepare("SELECT id,provider_order_id,amount_minor,currency FROM payments WHERE quote_id=? AND payment_type=? AND status IN ('created','pending') ORDER BY created_at DESC LIMIT 1").bind(quote.id,type).first();
+  if(prior?.provider_order_id)return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:prior.provider_order_id,amount:prior.amount_minor,currency:prior.currency,payment_id:prior.id,payment_stage:type});
+  const paymentId=uid("pay"),idem="client-quote:"+quote.id+":"+type+":"+crypto.randomUUID();
+  const orderRes=await fetch("https://api.razorpay.com/v1/orders",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"content-type":"application/json"},body:JSON.stringify({amount,currency:quote.currency,receipt:paymentId.slice(0,40),notes:{quote_id:quote.id,project_id:quote.project_id,payment_type:type}})});
+  const order=await orderRes.json().catch(()=>({}));
+  if(!orderRes.ok||!order.id||order.amount!==amount||String(order.currency).toUpperCase()!==quote.currency)return bad("Razorpay test order creation failed or amount/currency mismatch.",502,"razorpay_order_failed");
+  await env.DB.prepare("INSERT INTO payments(id,user_id,project_id,offer_id,payment_type,amount_minor,currency,provider,provider_order_id,idempotency_key,status,quote_id) VALUES(?,?,?,NULL,?,?,?,'razorpay',?,?,'created',?)").bind(paymentId,a.id,quote.project_id,type,amount,quote.currency,order.id,idem,quote.id).run();
+  await log(env,a.id,"client_quote_payment_order_created","payment",paymentId,{quote_id:quote.id,payment_type:type,amount_minor:amount});
+  return out({ok:true,key_id:env.RAZORPAY_KEY_ID,order_id:order.id,amount:order.amount,currency:order.currency,payment_id:paymentId,payment_stage:type,checkout_name:"CSA Global",description:type==="client_advance"?"Client quotation advance":"Client quotation balance"},201);
+ }
+ if(m==="POST"&&p==="/v1/client/payments/razorpay/verify"){
+  const a=await user(req,env,["client"]),b=await req.json(),orderId=txt(b.razorpay_order_id,100),paymentId=txt(b.razorpay_payment_id,100),signature=txt(b.razorpay_signature,200);
+  if(!orderId||!paymentId||!signature||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID?.startsWith("rzp_test_"))return bad("Test-mode payment verification details are missing.",503);
+  const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND user_id=? AND quote_id IS NOT NULL AND payment_type IN ('client_advance','client_balance')").bind(orderId,a.id).first();if(!record)return bad("Payment order does not belong to this client.",404);
+  const expected=await hmacHex(env.RAZORPAY_KEY_SECRET,orderId+"|"+paymentId);if(!constantTime(expected,signature))return bad("Razorpay payment signature did not match.",400,"signature_invalid");
+  const pr=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(paymentId),{headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET)}}),payment=await pr.json().catch(()=>({}));
+  if(!pr.ok||payment.order_id!==orderId||payment.amount!==record.amount_minor||String(payment.currency||"").toUpperCase()!==record.currency||payment.status!=="captured")return bad("Razorpay has not confirmed the captured client payment. Quote remains unpaid/partial.",409,"payment_not_captured");
+  await env.DB.prepare("UPDATE payments SET provider_payment_id=?,status='succeeded',verified_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='succeeded'").bind(paymentId,record.id).run();
+  const paidRow=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS paid FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(record.quote_id).first(),quote=await env.DB.prepare("SELECT total_amount_minor FROM client_quotes WHERE id=? AND client_id=?").bind(record.quote_id,a.id).first();
+  if(!quote)return bad("Client quotation record not found.",404);
+  const paymentStatus=Number(paidRow?.paid||0)>=quote.total_amount_minor?"paid":"partial";
+  await env.DB.prepare("UPDATE client_quotes SET payment_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(paymentStatus,record.quote_id).run();
+  await log(env,a.id,"client_quote_payment_verified","payment",record.id,{quote_id:record.quote_id,payment_type:record.payment_type,payment_status:paymentStatus});
+  return out({ok:true,status:"captured",payment_status:paymentStatus,paid_minor:Number(paidRow?.paid||0),total_minor:quote.total_amount_minor});
+ }
  if(m==="POST"&&p==="/v1/projects"){
   const a=await user(req,env,["client"]),b=await req.json(),title=txt(b.title,180),cat=txt(b.category,80),brief=txt(b.brief,12000),budget=amt(b.budget_amount_minor),cur=txt(b.budget_currency,3).toUpperCase();
   const rawReq=b.requirements&&typeof b.requirements==="object"&&!Array.isArray(b.requirements)?b.requirements:{};
