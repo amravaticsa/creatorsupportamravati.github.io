@@ -12,6 +12,50 @@ function endSession(message="Session expired. Please sign in again."){$("account
 $("logout").onclick=()=>endSession("You have been signed out.");
 const refreshButton=$("refresh-dashboard");if(refreshButton)refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent="Refreshing…";try{if(user.role==="client"){await Promise.all([loadClientProjects(),loadClientFeedbackEligible(),loadUploadHistory("client-upload-history")]);}else if(user.role==="editor"){await Promise.all([loadMyEditorPerformance(),loadEditorAvailability(),loadOffers(),loadAssignments(),loadEditorRefunds(),loadUploadHistory("editor-upload-history")]);}else if(user.role==="admin"){await Promise.all([loadAdmin(),loadAdminMultipartUploads(),loadAdminCleanupRuns()]);}}finally{refreshButton.disabled=false;refreshButton.textContent="Refresh data";}};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});let d={};try{d=await r.json();}catch{if(!r.ok)throw Error("CSA server returned an unreadable response (HTTP "+r.status+").");}if(r.status===401){endSession();throw Error("Your session has expired. Please sign in again.");}if(!r.ok)throw Error(d.error?.message||"Request failed (HTTP "+r.status+").");return d;}
+
+async function renderProjectMessages(projectId,role,host){
+ const details=document.createElement("details");details.className="project-messages panel";
+ const summary=document.createElement("summary");summary.textContent="Project messages · Client & CSA Support";
+ const body=document.createElement("div");body.className="project-message-body";
+ const history=document.createElement("div");history.className="project-message-history";history.setAttribute("aria-live","polite");history.textContent="Open to load project messages.";
+ const refresh=document.createElement("button");refresh.type="button";refresh.className="btn outline";refresh.textContent="Refresh messages";
+ const form=document.createElement("form");form.className="project-message-form";
+ const input=document.createElement("textarea");input.rows=3;input.maxLength=2000;input.required=true;input.placeholder="Write a message to CSA Support…";input.setAttribute("aria-label","Message to CSA Support");
+ const count=document.createElement("small");count.className="muted";count.textContent="0 / 2,000 characters";
+ input.addEventListener("input",()=>{count.textContent=input.value.length+" / 2,000 characters";});
+ const send=document.createElement("button");send.type="submit";send.className="btn dark";send.textContent="Send message";
+ const status=document.createElement("p");status.className="muted";status.setAttribute("role","status");
+ form.append(input,count,send,status);body.append(history,refresh,form);details.append(summary,body);host.append(details);
+ const endpoint="/v1/"+role+"/projects/"+encodeURIComponent(projectId)+"/messages";
+ let loaded=false;
+ async function load(){
+  refresh.disabled=true;history.textContent="Loading messages…";
+  try{
+   const data=await api(endpoint);history.replaceChildren();
+   const messages=Array.isArray(data.messages)?data.messages:[];
+   if(!messages.length){history.textContent="No messages yet. Start the conversation with CSA Support.";return;}
+   for(const item of messages){
+    const entry=document.createElement("article");entry.className="project-message"+(item.sender_label==="You"?" is-own":"");
+    const head=document.createElement("div");head.className="project-message-meta";
+    const sender=document.createElement("strong");sender.textContent=item.sender_label||"CSA Support";
+    const date=document.createElement("time");date.textContent=item.created_at?new Date(item.created_at).toLocaleString():"Time unavailable";
+    const message=document.createElement("p");message.textContent=item.body||"";entry.append(head,message);head.append(sender,date);history.append(entry);
+   }
+   loaded=true;
+  }catch(e){history.textContent=e.message.includes("permission")?"Messaging is not enabled for this Admin role.":"Messages could not be loaded: "+e.message;}
+  finally{refresh.disabled=false;}
+ }
+ details.addEventListener("toggle",()=>{if(details.open&&!loaded)load();});
+ refresh.addEventListener("click",load);
+ form.addEventListener("submit",async event=>{
+  event.preventDefault();const message=input.value.trim();if(!message){status.textContent="Write a message first.";return;}
+  send.disabled=true;status.textContent="Sending securely…";
+  try{await api(endpoint,{method:"POST",body:JSON.stringify({message})});input.value="";count.textContent="0 / 2,000 characters";status.textContent="Message sent to CSA Support.";loaded=false;await load();}
+  catch(e){status.textContent=e.message;}
+  finally{send.disabled=false;}
+ });
+}
+
 async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
  const report=state=>{try{onStatus(state);}catch{}};
  const identity=[details.purpose,details.project_id||details.assignment_id||"",file.name,file.size,file.lastModified].join("|");
@@ -470,6 +514,7 @@ async function loadClientProjects(){
      c.append(b);
     }
    }catch{}
+   await renderProjectMessages(p.id,"client",c);
    root.append(c);
   }
  }catch(e){root.textContent=e.message;}
@@ -786,6 +831,7 @@ async function loadAdmin(){
     send.onclick=async()=>{const feeValue=Number(fee.value),depositValue=Number(deposit.value),deliveryDays=Number(days.value);if(!editorSelect.value||!Number.isFinite(feeValue)||feeValue<=0||!Number.isFinite(depositValue)||depositValue<=0||!Number.isInteger(deliveryDays)||deliveryDays<1){alert("Select an active, KYC-verified editor and enter a valid positive fee, refundable deposit and delivery period of at least 1 day.");return;}send.disabled=true;try{await api("/v1/admin/projects/"+p.id+"/offers",{method:"POST",body:JSON.stringify({editor_id:editorSelect.value,proposed_fee_minor:Math.round(feeValue*100),fee_currency:p.budget_currency,deposit_amount_minor:Math.round(depositValue*100),deposit_currency:p.budget_currency,delivery_days:deliveryDays,offer_message:msg.value})});alert("Project offer sent to selected editor.");loadAdmin();}catch(e){alert(e.message);send.disabled=false;}};
     form.append(editorSelect,fee,deposit,days,msg,send);card.append(form);
    }
+   await renderProjectMessages(p.id,"admin",card);
    projects.append(card);
   }
   editors.replaceChildren();
