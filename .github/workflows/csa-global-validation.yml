@@ -30,6 +30,8 @@ jobs:
         run: python3 global-platform/scripts/test-legacy-assignment-reconciliation-migration.py
       - name: Test legacy-side assignment idempotency contract on disposable SQLite
         run: python3 global-platform/scripts/test-legacy-side-assignment-idempotency.py
+      - name: Test legacy-side assignment ledger migration on disposable SQLite
+        run: python3 global-platform/scripts/test-legacy-side-assignment-ledger-migration.py
       - name: Ensure legacy editor bridge management routes remain disabled
         run: python3 global-platform/scripts/test-legacy-editor-bridge-not-live.py
 
@@ -101,6 +103,9 @@ jobs:
           test -s global-platform/migrations/0029_legacy_assignment_reconciliation_state.sql
           test -s global-platform/scripts/test-legacy-assignment-reconciliation-migration.py
           test -s global-platform/scripts/test-legacy-side-assignment-idempotency.py
+          test -s global-platform/scripts/test-legacy-side-assignment-ledger-migration.py
+          test -s global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/migrations/0001_legacy_assignment_bridge_ledger.sql
+          test -s global-platform/docs/legacy-side-assignment-ledger-schema-proposal.md
           test -s global-platform/docs/legacy-side-assignment-idempotency-api-proposal.md
           grep -q "client_refund_requests" global-platform/migrations/0025_notifications_and_client_refunds.sql
           grep -q "whatsapp_enabled INTEGER NOT NULL DEFAULT 0" global-platform/migrations/0025_notifications_and_client_refunds.sql
