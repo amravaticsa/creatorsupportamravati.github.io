@@ -55,6 +55,7 @@ jobs:
           node --check global-platform/api/src/index.js
           node --test global-platform/api/tests/*.test.mjs
           node --test global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/tests/*.test.mjs
+          node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/*.test.mjs
           node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/*.test.mjs
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
