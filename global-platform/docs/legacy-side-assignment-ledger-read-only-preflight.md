@@ -39,3 +39,6 @@ Stop without applying anything if:
 - It does not authorize registration of the proposed bridge endpoints.
 
 After a successful read-only review, the next step is a separate backup/restore validation and an explicit staging-write approval. Production still requires a separate approval.
+
+
+The validation workflow also checks that this preflight SQL and its review instructions remain present in the staging source tree.
