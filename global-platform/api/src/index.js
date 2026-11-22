@@ -639,8 +639,8 @@ async function handle(req,env){
   return out({ok:true,submission_id:submissionId,version,status:"pending_quality_check"},201);
  }
  if(m==="GET"&&p==="/v1/admin/submissions/pending"){
-  await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,s.original_filename,s.mime_type,s.size_bytes,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' ORDER BY s.submitted_at ASC LIMIT 100").all();
+  const a=await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.notes,s.submitted_at,s.original_filename,s.mime_type,s.size_bytes,a.project_id,a.editor_id,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN editor_profiles e ON e.user_id=a.editor_id WHERE s.qc_status='pending' AND (? IS NULL OR EXISTS(SELECT 1 FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=p.id AND dr.route_key='tender' AND da.source_admin_id=?)) ORDER BY s.submitted_at ASC LIMIT 100").bind(a.source_admin_id||null,a.source_admin_id||null).all();
   return out({ok:true,submissions:r.results||[]});
  }
  const qc=p.match(/^\/v1\/admin\/submissions\/([\w-]+)\/review$/);
@@ -1093,8 +1093,8 @@ async function handle(req,env){
   return out({ok:true,editors:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/offers/ready"){
-  await user(req,env,["admin","staff"]);
-  const r=await env.DB.prepare("SELECT o.id,o.project_id,o.editor_id,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.status,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM project_offers o JOIN projects p ON p.id=o.project_id JOIN editor_profiles e ON e.user_id=o.editor_id WHERE o.status='ready_for_assignment' ORDER BY o.created_at ASC LIMIT 100").all();
+  const a=await user(req,env,["admin","staff"]);
+  const r=await env.DB.prepare("SELECT o.id,o.project_id,o.editor_id,o.proposed_fee_minor,o.fee_currency,o.delivery_days,o.deposit_amount_minor,o.deposit_currency,o.status,p.public_project_code,p.title,e.public_editor_code,e.display_name FROM project_offers o JOIN projects p ON p.id=o.project_id JOIN editor_profiles e ON e.user_id=o.editor_id WHERE o.status='ready_for_assignment' AND (? IS NULL OR EXISTS(SELECT 1 FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=p.id AND dr.route_key='tender' AND da.source_admin_id=?)) ORDER BY o.created_at ASC LIMIT 100").bind(a.source_admin_id||null,a.source_admin_id||null).all();
   return out({ok:true,offers:r.results||[]});
  }
  if(m==="GET"&&p==="/v1/admin/overview"){
