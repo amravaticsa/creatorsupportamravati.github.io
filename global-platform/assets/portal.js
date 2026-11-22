@@ -363,12 +363,26 @@ async function loadClientProjects(){
     const reviewTitle=document.createElement("h4");reviewTitle.textContent="Video review & included revisions";
     const reviewMeta=document.createElement("p");reviewMeta.className="muted";reviewMeta.textContent="Revisions used: "+policy.used+" / "+policy.included+" · Remaining: "+policy.remaining;
     review.append(reviewTitle,reviewMeta);
-    for(const request of dls.revision_requests||[]){const row=document.createElement("p");row.className="muted";row.textContent="Revision "+request.request_number+" · "+request.status+" · "+request.notes;review.append(row);}
+    const history=dls.revision_requests||[];
+    if(history.length){
+     const historyList=document.createElement("ol");historyList.className="revision-history";
+     for(const request of history){
+      const item=document.createElement("li");
+      const title=document.createElement("strong");title.textContent="Revision "+request.request_number+" · "+String(request.status||"open").replaceAll("_"," ");
+      const note=document.createElement("p");note.textContent=request.notes||"No revision notes supplied.";
+      const date=document.createElement("small");date.className="muted";date.textContent=request.created_at?"Requested "+new Date(request.created_at).toLocaleString():"Request date unavailable";
+      item.append(title,note,date);historyList.append(item);
+     }
+     review.append(historyList);
+    }else{
+     const empty=document.createElement("p");empty.className="muted";empty.textContent="No revision requests have been submitted for this project.";review.append(empty);
+    }
     if(policy.can_request&&dls.deliverables?.length){
      const notes=document.createElement("textarea");notes.required=true;notes.minLength=5;notes.maxLength=2000;notes.placeholder="Describe the exact changes you want CSA to make (minimum 5 characters).";
      const requestButton=document.createElement("button");requestButton.className="btn dark";requestButton.type="button";requestButton.textContent="Request included revision";
-     requestButton.onclick=async()=>{if(notes.value.trim().length<5){alert("Please describe the requested changes in at least 5 characters.");return;}requestButton.disabled=true;try{const result=await api("/v1/client/projects/"+p.id+"/revisions",{method:"POST",body:JSON.stringify({submission_id:dls.deliverables[0].id,notes:notes.value.trim()})});alert("Revision request submitted. Remaining included revisions: "+result.remaining_revisions);await loadClientProjects();}catch(error){alert(error.message);requestButton.disabled=false;}};
-     review.append(notes,requestButton);
+     const requestStatus=document.createElement("p");requestStatus.className="muted";requestStatus.setAttribute("role","status");
+     requestButton.onclick=async()=>{if(notes.value.trim().length<5){requestStatus.textContent="Please describe the requested changes in at least 5 characters.";return;}requestButton.disabled=true;requestStatus.textContent="Submitting your revision request…";try{const result=await api("/v1/client/projects/"+encodeURIComponent(p.id)+"/revisions",{method:"POST",body:JSON.stringify({submission_id:dls.deliverables[0].id,notes:notes.value.trim()})});requestStatus.textContent="Revision request #"+result.request_number+" submitted successfully. Remaining included revisions: "+result.remaining_revisions+".";await loadClientProjects();}catch(error){requestStatus.textContent=error.message;requestButton.disabled=false;}};
+     review.append(notes,requestButton,requestStatus);
     }else if(p.status==="client_review"&&policy.remaining===0){const limit=document.createElement("p");limit.className="muted";limit.textContent="Included revision limit reached. Contact CSA for additional changes.";review.append(limit);}
     else if(p.status==="revision"){const pending=document.createElement("p");pending.className="muted";pending.textContent="Your revision request has been sent to the assigned editor. New requests are paused until this revision is completed and reviewed.";review.append(pending);}
     else if(p.status==="client_review"){const unavailable=document.createElement("p");unavailable.className="muted";unavailable.textContent="A revision request is already open or the latest approved delivery is not available.";review.append(unavailable);}
