@@ -1476,7 +1476,7 @@ if(m==="GET"&&p==="/v1/config"){const payment=razorpayRuntime(env);return out({o
   const a=await user(req,env,["client"]),quote=await env.DB.prepare("SELECT id,project_id,total_amount_minor,currency,status,payment_status,valid_until FROM client_quotes WHERE id=? AND client_id=?").bind(clientCheckout[1],a.id).first();
   if(!quote||quote.status!=="accepted")return bad("Accept the client quotation before making payment.",409);
   if(quote.valid_until&&Date.parse(quote.valid_until)<=Date.now())return bad("This quotation has expired.",409);
-  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Client checkout is locked until Razorpay Test Mode credentials are confirmed on the staging Worker.",503,"test_mode_required");
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_WEBHOOK_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Client checkout is locked until Razorpay Test Mode API and webhook credentials are confirmed on the staging Worker.",503,"test_mode_required");
   const policy=await env.DB.prepare("SELECT client_advance_bps,status FROM csa_pricing_policies WHERE currency=?").bind(quote.currency).first();
   if(!policy||policy.status!=="active"||!Number.isInteger(policy.client_advance_bps))return bad("Client advance percentage is not configured by Super Admin for this currency.",409,"client_payment_policy_unconfigured");
   const paidRow=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS paid FROM payments WHERE quote_id=? AND payment_type IN ('client_advance','client_balance') AND status='succeeded'").bind(quote.id).first(),paid=Number(paidRow?.paid||0),remaining=quote.total_amount_minor-paid;
@@ -1591,7 +1591,7 @@ if(m==="GET"&&p==="/v1/config"){const payment=razorpayRuntime(env);return out({o
  }
  if(m==="POST"&&p.startsWith("/v1/offers/")&&p.endsWith("/deposit/checkout")){
   const offerId=p.split("/")[3],a=await user(req,env,["editor"]);
-  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Razorpay Test Mode credentials are required on the staging Worker.",503,"test_mode_required");
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_WEBHOOK_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Razorpay Test Mode API and webhook credentials are required on the staging Worker.",503,"test_mode_required");
   const offer=await env.DB.prepare("SELECT o.id,o.project_id,o.status,o.deposit_amount_minor,o.deposit_currency,p.title FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.id=? AND o.editor_id=?").bind(offerId,a.id).first();
   if(!offer||!["terms_accepted_pending_deposit","deposit_pending"].includes(offer.status))return bad("Accept the offer and project agreement before paying the deposit.",409);
   if(!Number.isSafeInteger(offer.deposit_amount_minor)||offer.deposit_amount_minor<=0)return bad("Invalid deposit amount.",409);
