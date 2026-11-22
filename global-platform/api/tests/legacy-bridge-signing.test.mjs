@@ -74,7 +74,7 @@ async function createHarness(db = makeDb()) {
 test("Global API signer remains staging-only and is not wired to order or identity transfer", () => {
   assert.match(api, /async function legacyBridgeHeaders\(env,method,path,rawBody\)/);
   assert.match(api, /env\.ENVIRONMENT!=="staging"\|\|!env\.CSA_LEGACY_BRIDGE_SECRET/);
-  assert.equal(api.split("legacyBridgeHeaders(").length - 1, 1);
+  assert.equal(api.split("legacyBridgeHeaders(").length - 1, 2); // declaration plus readiness-only invocation
 });
 
 test("signer and verifier use identical canonical HMAC components", async () => {
