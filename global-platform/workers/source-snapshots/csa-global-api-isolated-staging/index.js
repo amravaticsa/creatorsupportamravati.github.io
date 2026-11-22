@@ -164,10 +164,10 @@ async function handle(req,env){
   if(raw.length>2048)return bad("Readiness request is too large.",413,"bridge_readiness_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
   const seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
-  if(!/^\\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid readiness authentication headers.",401,"bridge_readiness_auth_invalid");
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid readiness authentication headers.",401,"bridge_readiness_auth_invalid");
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
-  const canonical="POST\\n/internal/superadmin/legacy-bridge/readiness\\n"+ts+"\\n"+nonce+"\\n"+bodyHash;
+  const canonical="POST\n/internal/superadmin/legacy-bridge/readiness\n"+ts+"\n"+nonce+"\n"+bodyHash;
   const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
   if(!constantTime(expected,sig))return bad("Readiness authentication signature is invalid.",401,"bridge_readiness_signature_invalid");
   let payload;try{payload=JSON.parse(raw)}catch{return bad("Invalid readiness request JSON.");}
