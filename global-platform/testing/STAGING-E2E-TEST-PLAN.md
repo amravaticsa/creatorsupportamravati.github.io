@@ -16,7 +16,7 @@ Status: **Prepared; interactive end-to-end execution is not yet complete.**
 
 ## Current verified baseline
 
-- The latest staging Pages deployment completed successfully (workflow run 45001308790, commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15`; immutable URL `https://2add6c07.csa-global-staging.pages.dev`).
+- The latest staging Pages deployment is `https://437b6fbc.csa-global-staging.pages.dev` (Cloudflare deployment `437b6fbc-58e3-4d2f-9c12-3ea63ff6d82e`, commit `85765d058a50416a403393a6491567ba60cf2914`). The latest strict smoke evidence remains deployment run 45001308790 on commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15`; rerun smoke against the current immutable URL before treating it as verified.
 - The deployment smoke test passed for the six core HTML routes, two portal JavaScript assets, and the staging API health endpoint.
 - The same deployment's read-only authorization-boundary step passed: unauthenticated requests to the client projects/refunds, editor tenders/assignments, admin tenders, pending editor KYC and client-refund endpoints all returned HTTP 401 or 403.
 - GitHub Actions job `Deploy only to csa-global-staging Pages` completed successfully; both frontend/API smoke checks and the API authorization-boundary step are green.
@@ -210,9 +210,9 @@ Evidence:
 
 ## Latest staging build baseline (2026-11-22)
 
-- Immutable frontend: `https://2add6c07.csa-global-staging.pages.dev`.
-- Source commit: `5ac3a7dc979424b6689a64418b49f820bdbb0e15`.
-- Deployment workflow run `45001308790`: success.
+- Current immutable frontend: `https://437b6fbc.csa-global-staging.pages.dev`.
+- Current source commit: `85765d058a50416a403393a6491567ba60cf2914`.
+- Cloudflare Pages deployment `437b6fbc-58e3-4d2f-9c12-3ea63ff6d82e`: success. Strict route/API smoke run `45001308790` remains tied to previous source commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15`.
 - API validation workflow run `45001308640`: success.
 - Strict smoke coverage: six HTML routes and two JS assets returned HTTP 200 from the same immutable deployment origin; staging API health/D1 connectivity passed; seven protected API routes denied unauthenticated requests with HTTP 401.
 - All interactive workflows E2E-01 through E2E-07 remain BLOCKED pending dedicated test identities, synthetic media, and approved test-provider execution. The deployment checks do not change those results.
@@ -305,3 +305,8 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - The 09:15:47 UTC scheduled reconciliation also succeeded with one authorization synchronized and no error code; three consecutive 15-minute runs (08:45, 09:00, 09:15 UTC) have passed.
 
 - Read-only R2 configuration check: managed public `r2.dev` access is disabled for `csa-global-media-staging` and `csa-global-video-isolated-staging`. Cross-account authorization still requires E2E testing because both API Workers share these private buckets.
+
+
+## Current deployment note (2026-11-22)
+
+The current immutable staging frontend is `https://437b6fbc.csa-global-staging.pages.dev` on commit `85765d058a50416a403393a6491567ba60cf2914`. Cloudflare Pages reports the deploy stage successful. Because this was a documentation-only deployment, the prior strict smoke evidence is not silently carried forward; re-run the route/API smoke checks on this exact URL before using it as a verified E2E baseline.
