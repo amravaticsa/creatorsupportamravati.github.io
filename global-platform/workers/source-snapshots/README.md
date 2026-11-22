@@ -1,6 +1,6 @@
 # Isolated staging Worker source snapshots
 
-Captured from Cloudflare deployed Worker module bundles on 2026-11-21.
+Initially captured from Cloudflare deployed Worker module bundles on 2026-11-21 and refreshed from deployed bundles on 2026-11-22.
 
 These files are deployment snapshots exported from the isolated staging Workers, not proof that they are the original development source or that they are already wired into a build/deploy pipeline.
 
@@ -17,7 +17,7 @@ Use these snapshots as a recoverable baseline for review and patch preparation. 
 5. Deploy only the isolated staging Worker and verify its route isolation.
 6. Record the prior deployment version for rollback.
 
-No Worker source, settings, bindings, routes, or deployments were changed by this export.
+The initial export itself was read-only. The 2026-11-22 refresh records subsequent deployed changes; it does not itself modify Cloudflare Workers, bindings, routes or deployments.
 
 ## Automated snapshot validation
 
