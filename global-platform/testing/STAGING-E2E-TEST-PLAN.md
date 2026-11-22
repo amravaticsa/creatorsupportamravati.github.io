@@ -184,3 +184,15 @@ Evidence:
 - The deployment smoke test passed for `/`, `/client-project.html`, `/editor-register.html`, `/login.html`, `/admin-login.html`, `/portal.html`, `/assets/auth.js`, and `/assets/portal.js`; staging API health and read-only authorization-boundary checks also passed.
 - These results verify source/CI, deployment, public route/asset availability, API health and unauthenticated authorization boundaries only. They do not complete any signed-in client/editor/admin business workflow.
 - E2E-01 through E2E-07 remain **BLOCKED** until their dedicated staging identities, reviewer permissions, synthetic fixtures and (for payment/refund) Razorpay Test Mode evidence are available. No test identity was created and no payment/refund was initiated by this run.
+
+
+## Latest staging CI and Pages deployment — 2026-11-22 (supersedes prior baseline)
+
+- Staging branch HEAD: `6892bfdbf8913670e62a937e05f2421774d89881`.
+- CSA Global API validation: [workflow run 44999804523](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44999804523) — completed successfully for the exact staging HEAD.
+- CSA Global staging Pages deployment: [workflow run 44999804529](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44999804529) — completed successfully for the same HEAD.
+- Immutable Pages deployment URL: https://2c5b2871.csa-global-staging.pages.dev.
+- The deployment smoke covered `/`, `/client-project.html`, `/editor-register.html`, `/login.html`, `/admin-login.html`, `/portal.html`, `/assets/auth.js`, and `/assets/portal.js`; staging API health and read-only unauthenticated authorization-boundary checks passed.
+- Validation included JavaScript/source tests, schema snapshot checks, disposable SQLite migration/idempotency/reconciliation tests, read-only preflight guard, audit-template safety guard, and the guard keeping proposed legacy bridge management routes disabled.
+- This addendum supersedes the older `7f867c03...` / `dd27e46a...` baseline above for the latest staging source/deployment. Earlier entries remain historical evidence.
+- Authenticated E2E-01 through E2E-07 remain **BLOCKED**. These CI/deployment checks do not create test identities, prove signed-in client/editor/admin workflows, or validate Razorpay Test Mode payment/refund execution. No production resource was changed by these workflows.
