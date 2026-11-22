@@ -40,3 +40,13 @@ test("health and public config expose only mode-safe Razorpay readiness", () => 
   assert.match(source, /razorpay_mode:payment\.mode/);
   assert.match(source, /razorpay_key_id:payment\.ready\?env\.RAZORPAY_KEY_ID:null/);
 });
+
+test("Staging Razorpay webhook rejects non-test key before parsing provider events", () => {
+  const start = source.indexOf('if(m==="POST"&&p==="/v1/webhooks/razorpay")');
+  assert.ok(start >= 0);
+  const route = source.slice(start, start + 700);
+  const guard = route.indexOf('env.ENVIRONMENT==="staging"');
+  const body = route.indexOf("const raw=await req.text()");
+  assert.ok(guard >= 0 && body > guard);
+  assert.match(route, /startsWith\("rzp_test_"\)/);
+});
