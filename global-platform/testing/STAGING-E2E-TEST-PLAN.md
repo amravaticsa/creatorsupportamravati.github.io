@@ -1,6 +1,6 @@
 # CSA Global — Staging End-to-End Business Workflow Test Plan
 
-Date: 2026-11-21
+Date: 2026-11-22
 Branch: `staging`
 Status: **Prepared; interactive end-to-end execution is not yet complete.**
 
@@ -16,11 +16,11 @@ Status: **Prepared; interactive end-to-end execution is not yet complete.**
 
 ## Current verified baseline
 
-- The latest staging Pages deployment completed successfully (workflow run 44921983519, commit `a4f7651faac5caa79df63b4b82e56f573caee31a`).
+- The latest staging Pages deployment completed successfully (workflow run 45001308790, commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15`; immutable URL `https://2add6c07.csa-global-staging.pages.dev`).
 - The deployment smoke test passed for the six core HTML routes, two portal JavaScript assets, and the staging API health endpoint.
 - The same deployment's read-only authorization-boundary step passed: unauthenticated requests to the client projects/refunds, editor tenders/assignments, admin tenders, pending editor KYC and client-refund endpoints all returned HTTP 401 or 403.
 - GitHub Actions job `Deploy only to csa-global-staging Pages` completed successfully; both frontend/API smoke checks and the API authorization-boundary step are green.
-- The latest API validation run completed successfully (workflow run 44920027417): JavaScript/source tests, required-file checks, schema snapshot validation and disposable-D1 safety-guard tests passed.
+- The latest API validation run completed successfully (workflow run 45001308640): JavaScript/source tests, required-file checks, schema snapshot validation and disposable-D1 safety-guard tests passed.
 - These are deployment and source/CI checks. They are **not** proof that a signed-in user can complete the business workflows below.
 - The browser-level tests require dedicated test identities and interactive Google sign-in; no user credentials or OTPs are stored in this plan.
 
@@ -206,3 +206,13 @@ Evidence:
 - The deployment workflow now treats route/asset errors as hard failures and verifies that redirects remain on the immutable staging origin. Latest evidence: all six HTML routes and both JS assets returned HTTP 200; staging API/D1 health passed; all seven unauthenticated protected-route checks returned HTTP 401.
 - This supersedes prior deployment URLs for the latest source baseline only. Historical records remain for audit traceability.
 - No authenticated client/editor/admin session was used. E2E-01…E2E-07 remain BLOCKED pending dedicated test identities/authorized reviewer and Test Mode payment provider setup. No production resources changed.
+
+
+## Latest staging build baseline (2026-11-22)
+
+- Immutable frontend: `https://2add6c07.csa-global-staging.pages.dev`.
+- Source commit: `5ac3a7dc979424b6689a64418b49f820bdbb0e15`.
+- Deployment workflow run `45001308790`: success.
+- API validation workflow run `45001308640`: success.
+- Strict smoke coverage: six HTML routes and two JS assets returned HTTP 200 from the same immutable deployment origin; staging API health/D1 connectivity passed; seven protected API routes denied unauthenticated requests with HTTP 401.
+- All interactive workflows E2E-01 through E2E-07 remain BLOCKED pending dedicated test identities, synthetic media, and approved test-provider execution. The deployment checks do not change those results.
