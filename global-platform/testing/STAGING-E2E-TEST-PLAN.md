@@ -258,7 +258,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 - Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback for canonical Admin sync. The Regional Admin data proxy still targets the isolated API/D1 6a32.
 - Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
-- The new dedicated secret binding has not been provisioned. The scheduled sync remains blocked by the existing 401 until the same new random value is added to `csa-superadmin-isolated-staging` and `csa-global-api-staging` after owner authorization.
+- The new dedicated secret binding has not been provisioned. A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is now present on both canonical Staging Workers. The next scheduled Super Admin sync is the runtime acceptance check; previous scheduled syncs had succeeded at 09:00, 09:15 and 09:30 UTC, and one earlier 08:30 UTC attempt had returned 401. Verify the first run after the 09:43 UTC secret deployment before declaring the transition fully runtime-verified.
 
 
 ### Country assignment integration — 2026-11-22 08:40 UTC
@@ -310,3 +310,10 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 ## Current deployment note (2026-11-22)
 
 The current immutable staging frontend is `https://437b6fbc.csa-global-staging.pages.dev` on commit `85765d058a50416a403393a6491567ba60cf2914`. Cloudflare Pages reports the deploy stage successful. Because this was a documentation-only deployment, the prior strict smoke evidence is not silently carried forward; re-run the route/API smoke checks on this exact URL before using it as a verified E2E baseline.
+
+
+### Dedicated HMAC secret provisioned — 2026-11-22 09:43 UTC
+
+- Cloudflare generated and stored one random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` on both canonical Staging Workers. Secret values are not recorded in source control or chat.
+- Cloudflare confirmed the binding exists on both Workers and created a 100% traffic deployment version on each.
+- The next Super Admin cron (`*/15 * * * *`) is the runtime acceptance check. The most recent recorded scheduled sync before this secret deployment was successful at 09:30:46 UTC; confirm a new post-deployment scheduled record before closing this item.
