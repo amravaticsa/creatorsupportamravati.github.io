@@ -107,6 +107,7 @@ jobs:
           test -s global-platform/scripts/test-legacy-side-assignment-idempotency.py
           test -s global-platform/scripts/test-legacy-side-assignment-ledger-migration.py
           test -s global-platform/scripts/test-legacy-side-assignment-preflight-readonly.py
+          test -s global-platform/docs/legacy-editor-d1-schema-audit-template.md
           test -s global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/migrations/0001_legacy_assignment_bridge_ledger.sql
           test -s global-platform/docs/legacy-side-assignment-ledger-schema-proposal.md
           test -s global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/migrations/0001_legacy_assignment_bridge_ledger_preflight.sql
