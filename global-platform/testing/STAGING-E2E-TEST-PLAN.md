@@ -222,8 +222,8 @@ Evidence:
 
 ### Deployed Staging infrastructure
 - Super Admin invitation preflight/final validation, atomic invitation acceptance, OTP single-use hardening, stale-session revocation, admin role/deactivation session revocation, and Finance access controls are deployed to `csa-superadmin-isolated-staging`.
-- Finance access is carried from `csa_admin_module_access` into the canonical Global API authorization snapshot. Canonical bridges include pricing policy, refund dashboard, editor sessions and admin authorization sync. The isolated Regional Admin portal continues to read from `csa-global-api-isolated-staging` / D1 6a32.
-- Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The isolated Global API cleanup Cron remains scoped to its separate isolated D1.
+- Finance access is carried from `csa_admin_module_access` into the canonical Global API authorization snapshot. Canonical bridges include pricing policy, refund dashboard, editor sessions and admin authorization sync. The Regional Admin proxy uses the compatibility hostname `csa-global-api-isolated-staging`, which currently binds canonical D1 470.
+- Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The compatibility API retains its own cleanup schedule; its Global D1 binding is 470 and legacy video data remains in `LEGACY_VIDEO_DB` 2d3.
 - Rush approvals have a separate Staging route on `superadmin-editor-staging.creatorsupportamravati.in`, backed by `csa-rush-admin-isolated-staging` and the isolated Super Admin D1. The legacy `superadmin.creatorsupportamravati.in` Rush routes remain unchanged.
 - Rush payment staging now rejects payment creation/verification unless `RAZORPAY_KEY_ID` starts with `rzp_test_`.
 
@@ -256,14 +256,14 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 ### HMAC compatibility code — 2026-11-22 08:33 UTC
 
-- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback for canonical Admin sync. The Regional Admin data proxy still targets the isolated API/D1 6a32.
+- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback for canonical Admin sync. The Regional Admin data proxy targets the compatibility API hostname, which shares canonical Global D1 470.
 - Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
 - The new dedicated secret binding has not been provisioned. A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is now present on both canonical Staging Workers. The next scheduled Super Admin sync is the runtime acceptance check; previous scheduled syncs had succeeded at 09:00, 09:15 and 09:30 UTC, and one earlier 08:30 UTC attempt had returned 401. Verify the first run after the 09:43 UTC secret deployment before declaring the transition fully runtime-verified.
 
 
 ### Country assignment integration — 2026-11-22 08:40 UTC
 
-- Canonical Global D1 470 has the immutable evidence-backed country assignment audit schema. The isolated D1 6a32 already had the same audit table, triggers and review view; Super Admin `GLOBAL_DB` remains bound to 6a32 so the isolated Regional Admin portal and country-assignment workflow use the isolated stack.
+- Canonical Global D1 470 has the immutable evidence-backed country assignment audit schema. The unbound snapshot D1 6a32 also contains the audit schema, but Super Admin `GLOBAL_DB` is bound to canonical D1 470 so country assignment matches the Global API.
 - New Client/Editor onboarding no longer writes a user-supplied country into authoritative `users.country_code`; it remains null until Super Admin evidence review.
 - The two existing active Client accounts appear in the country review view as `needs_verified_country`. No country assignments or audit rows were created.
 - Runtime country-assignment verification still needs a Super Admin browser session, an approved active country/legal review, and evidence reference. Do not mark a country verified without owner-provided evidence.
@@ -279,7 +279,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 ### Regional Admin canonical data bridge — 2026-11-22
 
-- Super Admin Regional Admin read proxy calls `csa-global-api-isolated-staging` (D1 6a32). The canonical API's duplicate Regional Admin endpoints are reserved for a future consolidation; no automatic live sync exists between D1 6a32 and D1 470.
+- Super Admin Regional Admin read proxy calls `csa-global-api-isolated-staging`, which currently shares canonical D1 470. The separate D1 6a32 is an unbound snapshot; no live replication is configured.
 - Canonical API endpoints are HMAC-authenticated, timestamp-bound, nonce-replay-protected, path-to-permission-bound and staging-only.
 - Client/editor lists filter only on verified `users.country_code`; projects/tenders use `v_project_country_scope`. No profile-country fallback is allowed. Regional finance is denied pending separate legal/finance approval.
 - Static API contract tests added. A live Regional Admin E2E test remains unavailable because there is no real Regional Admin account and India is not legally approved/active.
@@ -289,16 +289,16 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 ### Shared R2 cross-stack isolation test — pending
 
-- The canonical and isolated Global API Workers share `MEDIA` bucket `csa-global-media-staging`, `LEGACY_VIDEO_DB` 2d3... and `LEGACY_VIDEO_BUCKET` `csa-global-video-isolated-staging`, while their primary D1 databases differ.
+- The canonical and isolated Global API Workers share `MEDIA` bucket `csa-global-media-staging`, `LEGACY_VIDEO_DB` 2d3... and `LEGACY_VIDEO_BUCKET` `csa-global-video-isolated-staging`, and both bind their primary Global D1 to 470; legacy video data is kept in `LEGACY_VIDEO_DB` 2d3.
 - Before launch, use two real accounts and distinct project/assignment records to verify that neither API can fetch, overwrite, complete or abort another account's media object or multipart upload, even when a valid object key is known.
 - Do not claim physical storage isolation. Consider dedicated R2/legacy D1 resources if strict separation is required; no bucket migration has been performed.
 
-- Migration `0032_verified_country_scope.sql` is applied to canonical D1 470. It requires the full country verification evidence tuple before a project can enter `v_project_country_scope`. The isolated D1 6a32 already enforced the same rule. Read-only check: all three existing canonical projects remain `country_unassigned` and India's verified client/editor/project counts are zero.
+- Migration `0032_verified_country_scope.sql` is applied to canonical D1 470. It requires the full country verification evidence tuple before a project can enter `v_project_country_scope`. The unbound D1 6a32 snapshot also contains the same rule but is not an active Worker binding. Read-only check: all three existing canonical projects remain `country_unassigned` and India's verified client/editor/project counts are zero.
 
 
 ### Isolated Regional stack fixture inventory — read-only snapshot
 
-- Isolated Global D1 6a32 currently contains 2 active Client accounts, 3 projects owned by only one Client, 0 Editor accounts, 0 assignments, 0 work submissions, 0 revision requests and 0 verified-country users.
+- The unbound D1 6a32 snapshot retains an older copy of 2 active Client accounts and 3 projects; it is not used by the current Staging portals or APIs.
 - The Super Admin D1 contains 0 Regional Admin principals, 0 active Regional Admin assignments, 0 pending invitations and no India legal review row.
 - No synthetic accounts, assignments, projects, submissions, invitations or country approvals were inserted. Client A-to-B isolation and Editor/QC/Client end-to-end tests require real authorized accounts/data or a separately approved disposable fixture environment.
 
