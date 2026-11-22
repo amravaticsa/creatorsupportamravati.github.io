@@ -24,7 +24,7 @@ test("Global API signer is staging-only and uses the dedicated bridge secret", (
 });
 
 test("Global API signer and Editor Portal verifier use the same canonical format", () => {
-  assert.match(api, /\["CSA-BRIDGE-V1",timestamp,nonce,String\(method\)\.toUpperCase\(\),path,bodyHash\]\.join\("\\\\n"\)/);
+  assert.match(api, /\["CSA-BRIDGE-V1",timestamp,nonce,String\(method\)\.toUpperCase\(\),path,bodyHash\]\.join\("\\n"\)/);
   assert.match(editor, /\["CSA-BRIDGE-V1",timestamp,nonce,req\.method\.toUpperCase\(\),path,bodyHash\]\.join\("\\n"\)/);
 });
 
