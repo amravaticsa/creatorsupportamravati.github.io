@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Exercise country assignment migration 0031 on disposable in-memory SQLite only."""
+"""Exercise migrations 0031/0032 on disposable in-memory SQLite only."""
 from pathlib import Path
 import sqlite3
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "migrations" / "0031_country_assignment_audit.sql"
+MIGRATION_31 = ROOT / "migrations" / "0031_country_assignment_audit.sql"
+MIGRATION_32 = ROOT / "migrations" / "0032_verified_country_scope.sql"
 
 db = sqlite3.connect(":memory:")
 db.execute("PRAGMA foreign_keys=ON")
@@ -35,10 +36,38 @@ CREATE TABLE editor_kyc_documents (
   status TEXT,
   created_at TEXT
 );
+CREATE TABLE projects (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  department_id TEXT
+);
+-- Simulate the older country-scope view that trusted users.country_code alone.
+CREATE VIEW v_project_country_scope AS
+SELECT p.id AS project_id,p.client_id AS client_user_id,
+  CASE WHEN u.country_code IS NOT NULL AND length(trim(u.country_code))=2 AND u.country_code=upper(u.country_code)
+       THEN u.country_code ELSE NULL END AS country_code,
+  CASE WHEN u.country_code IS NULL OR trim(u.country_code)='' THEN 'country_unassigned'
+       WHEN length(trim(u.country_code))<>2 OR u.country_code<>upper(u.country_code) THEN 'country_code_invalid'
+       ELSE 'assigned' END AS country_scope_status,
+  p.status AS project_status,p.department_id
+FROM projects p LEFT JOIN users u ON u.id=p.client_id;
 """)
-db.executescript(MIGRATION.read_text(encoding="utf-8"))
 
-# A self-reported profile country is retained, but authoritative country remains null.
+# Legacy row: a country value existed before verification columns/triggers were introduced.
+db.execute(
+    "INSERT INTO users(id,role,account_status,email,created_at,country_code) VALUES(?,?,?,?,?,?)",
+    ("legacy_client", "client", "active", "legacy@example.test", "2026-11-22T00:00:00Z", "IN"),
+)
+db.execute("INSERT INTO client_profiles(user_id,display_name,country) VALUES(?,?,?)",
+           ("legacy_client", "Legacy Client", "India"))
+db.execute("INSERT INTO projects(id,client_id,status) VALUES(?,?,?)",
+           ("legacy_project", "legacy_client", "submitted"))
+
+db.executescript(MIGRATION_31.read_text(encoding="utf-8"))
+db.executescript(MIGRATION_32.read_text(encoding="utf-8"))
+
+# Self-reported profile country is retained, but authoritative country remains null.
 db.execute(
     "INSERT INTO users(id,role,account_status,email,created_at,country_code) VALUES(?,?,?,?,?,NULL)",
     ("client_1", "client", "active", "client@example.test", "2026-11-22T00:00:00Z"),
@@ -53,6 +82,8 @@ db.execute(
     "INSERT INTO editor_profiles(user_id,display_name,country,verification_status) VALUES(?,?,?,?)",
     ("editor_1", "Editor One", "India", "pending"),
 )
+db.execute("INSERT INTO projects(id,client_id,status) VALUES(?,?,?)",
+           ("project_1", "client_1", "submitted"))
 
 rows = db.execute(
     "SELECT user_id,profile_country_text,assignment_status FROM v_country_assignment_review ORDER BY user_id"
@@ -60,7 +91,17 @@ rows = db.execute(
 assert rows == [
     ("client_1", "India", "needs_verified_country"),
     ("editor_1", "India", "needs_verified_country"),
+    ("legacy_client", "India", "country_unverified"),
 ], rows
+
+# Self-reported or legacy country must not grant project visibility.
+scope = db.execute(
+    "SELECT project_id,country_code,country_scope_status FROM v_project_country_scope ORDER BY project_id"
+).fetchall()
+assert scope == [
+    ("legacy_project", None, "country_unverified"),
+    ("project_1", None, "country_unassigned"),
+], scope
 
 # Directly setting the authoritative country without an immutable evidence record is blocked.
 try:
@@ -84,7 +125,7 @@ try:
 except sqlite3.IntegrityError as exc:
     assert "country_assignment_audit_requires_unassigned_user_and_valid_evidence" in str(exc), str(exc)
 
-# Evidence-backed assignment succeeds and is reflected by the review view.
+# Evidence-backed assignment succeeds and is reflected by both review and project-scope views.
 db.execute(
     "INSERT INTO country_user_assignment_audit(id,user_id,country_code,actor_admin_id,evidence_reference,verification_note) "
     "VALUES(?,?,?,?,?,?)",
@@ -98,6 +139,10 @@ status = db.execute(
     "SELECT assignment_status,verified_country_code FROM v_country_assignment_review WHERE user_id='client_1'"
 ).fetchone()
 assert status == ("assigned", "IN"), status
+scope = db.execute(
+    "SELECT country_code,country_scope_status FROM v_project_country_scope WHERE project_id='project_1'"
+).fetchone()
+assert scope == ("IN", "assigned"), scope
 
 # Audit rows are immutable; verified country cannot be changed.
 for statement in [
@@ -121,4 +166,4 @@ try:
 except sqlite3.IntegrityError as exc:
     assert "new_accounts_require_post_creation_superadmin_country_assignment" in str(exc), str(exc)
 
-print("PASS: migration 0031 enforces evidence-backed, append-only, immutable country assignment.")
+print("PASS: migrations 0031/0032 enforce evidence-backed, append-only country assignment and verified project scope.")
