@@ -84,7 +84,7 @@ async function legacyBridgeHeaders(env,method,path,rawBody){
  const nonce=btoa(String.fromCharCode(...random)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(rawBody)));
  const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
- const canonical=["CSA-BRIDGE-V1",timestamp,nonce,String(method).toUpperCase(),path,bodyHash].join("\\n");
+ const canonical=["CSA-BRIDGE-V1",timestamp,nonce,String(method).toUpperCase(),path,bodyHash].join("\n");
  const signature=await hmacHex(env.CSA_LEGACY_BRIDGE_SECRET,canonical);
  return {"x-csa-bridge-timestamp":timestamp,"x-csa-bridge-nonce":nonce,"x-csa-bridge-signature":signature};
 }
