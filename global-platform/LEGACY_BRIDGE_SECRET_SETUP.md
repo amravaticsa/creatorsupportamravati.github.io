@@ -26,14 +26,16 @@ The existing `ADMIN_SYNC_HMAC_SECRET` on the Global API Worker remains present a
 - Timestamp freshness is limited to 5 minutes; signature comparison is constant-time.
 - Added POST `/editor-api/internal/legacy-bridge/health`, restricted to the dedicated staging Admin host and the `bridge-readiness` purpose.
 - Added `0027_legacy_bridge_nonces.sql` for one-time nonce storage and expiry indexing.
-- Added source regression tests for host restriction, signature components, and nonce schema.
-- CI validation passed for the current staging source commit.
+- Added a matching staging-only HMAC signer helper in the Global API Worker source. It emits the same `CSA-BRIDGE-V1` canonical signature headers as the Editor Portal verifier; the helper is not yet called by any order or identity transfer flow.
+- Editor Portal nonce-store failures now distinguish replay conflicts (409) from unavailable/missing nonce storage (503), while failing closed.
+- Added API-suite regression tests for signer/verifier canonicalization and HMAC request binding.
+- CI validation passed for the staging source changes.
 
 The nonce migration has NOT been applied to the remote legacy D1, and the Worker source has NOT been deployed as part of this step. Until the migration is applied, the endpoint fails closed. No D1 binding has been changed and no editor identity, order, assignment, credential, KYC document, or media record has been copied.
 
 ## Required next implementation gates
 
-1. Add the matching HMAC request signer to the Global API staging Worker and test a signed request against the Editor Portal verifier.
+1. Run the signer/verifier regression suite in CI, then add a disposable-D1 runtime probe that exercises a real signed request against the verifier.
 2. Execute the nonce migration against a disposable copy of the legacy Editor Portal schema, then apply it only to the isolated legacy Editor Portal D1 after explicit confirmation.
 3. Implement explicit admin-reviewed Global editor ↔ legacy editor mapping; require active account, verified profile, and verified KYC. Never match by email/name alone and never copy password credentials.
 4. Implement idempotent order/assignment bridge operations and revocation handling.
