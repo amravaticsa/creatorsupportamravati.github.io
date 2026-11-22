@@ -328,3 +328,10 @@ The current immutable staging frontend is `https://437b6fbc.csa-global-staging.p
 - The Super Admin invitation URL is restricted to `https://admin-staging.creatorsupportamravati.in`; its source snapshot and host-policy test were updated.
 - The Editor Portal snapshot now matches the deployed Staging Worker; bridge-host test was updated to the exact dedicated `editor-api-isolated-staging.creatorsupportamravati.in` custom domain.
 - Client/Editor account onboarding, revision requests, multipart upload, payment and Regional Admin runtime E2E still require real authenticated accounts and/or approved country/legal and pricing configuration. No synthetic accounts or transactions were created.
+
+
+### Razorpay mode verification — 2026-11-22 10:50 UTC
+
+- The canonical Staging Worker reports `razorpay_mode=blocked_non_test_key`. Its configured key ID does not have the Razorpay Test Mode prefix.
+- Client quote checkout, Editor security-deposit checkout and both payment-verification routes now reject non-test keys. `GET /v1/config` hides the Razorpay key ID whenever the key mode is not safe for the Worker environment.
+- The Pages smoke test treats this as a safe-but-not-ready warning, not a deployment outage. Staging payment E2E remains blocked until the owner replaces the existing key with Razorpay Test Mode credentials and confirms the matching webhook secret. The existing key was not changed or deleted.
