@@ -22,10 +22,11 @@ test("signed request binds timestamp, nonce, method, path, and body digest", () 
   assert.match(worker, /safeEq\(signature,expected\)/);
 });
 
-test("bridge probe is restricted to the admin staging host and exact POST path", () => {
+test("bridge probe is restricted to the dedicated bridge staging host and exact POST path", () => {
   assert.match(worker, /p==="\/editor-api\/internal\/legacy-bridge\/health"/);
   assert.match(worker, /req\.method!=="POST"/);
-  assert.match(worker, /!isPortalHost\(host,"admin",env\)/);
+  assert.match(worker, /!isPortalHost\(host,"bridge",env\)/);
+  assert.match(worker, /bridgeHost:"editor-api-isolated-staging\.creatorsupportamravati\.in"/);
   assert.match(worker, /payload\.purpose!=="bridge-readiness"/);
 });
 
