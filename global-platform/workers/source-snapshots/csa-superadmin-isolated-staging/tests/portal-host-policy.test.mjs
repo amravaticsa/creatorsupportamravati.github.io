@@ -35,3 +35,14 @@ test("existing Super Admin hosts retain their role policy", () => {
   assert.equal(allowed("admin.creatorsupportamravati.in", "project_admin"), true);
   assert.equal(allowed("admin.creatorsupportamravati.in", "super_admin"), false);
 });
+
+test("Admin invitation links use the role-compatible Admin dashboard host", () => {
+  const start = source.indexOf("async function invite(");
+  const end = source.indexOf("async function updateFinanceAccess(", start);
+  assert.ok(start >= 0 && end > start, "Admin invite handler must exist");
+  const invite = source.slice(start, end);
+  assert.ok(invite.includes("env.ADMIN_DASHBOARD_URL"));
+  assert.ok(invite.includes('["admin-staging.creatorsupportamravati.in","admin.creatorsupportamravati.in"]'));
+  assert.ok(invite.includes('dashboard.origin+"/?invite="'));
+  assert.doesNotMatch(invite, /csa-superadmin-isolated-staging\\.creatorsupportamravati\\.workers\\.dev/);
+});
