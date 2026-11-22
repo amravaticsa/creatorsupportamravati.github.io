@@ -7,12 +7,13 @@ $("welcome").textContent="Welcome to CSA Global";
 $("account-status").textContent="Signed in as "+user.email+" · "+user.role+" · "+user.status;
 $("logout").onclick=()=>{sessionStorage.removeItem("csa_global_token");sessionStorage.removeItem("csa_global_user");location.href="login.html";};
 async function api(path,options={}){const r=await fetch(API+path,{...options,headers:{...headers,...options.headers}});const d=await r.json();if(r.status===401){$("account-status").textContent="Session expired. Please sign in again.";sessionStorage.clear();setTimeout(()=>location.href="login.html",1200);}if(!r.ok)throw Error(d.error?.message||"Request failed");return d;}
-async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{}){
+async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=null,onStatus=()=>{},forceNew=false){
  const report=state=>{try{onStatus(state);}catch{}};
  const identity=[details.purpose,details.project_id||details.assignment_id||"",file.name,file.size,file.lastModified].join("|");
  const resumeKey="csa_multipart_"+btoa(unescape(encodeURIComponent(identity))).replace(/[^a-zA-Z0-9]/g,"").slice(0,100);
  let start=null;
- const saved=resumeUploadId||localStorage.getItem(resumeKey);
+ if(forceNew)localStorage.removeItem(resumeKey);
+ const saved=forceNew?null:(resumeUploadId||localStorage.getItem(resumeKey));
  if(resumeUploadId)localStorage.setItem(resumeKey,resumeUploadId);
  if(saved){
   const check=await fetch(API+"/v1/uploads/multipart/"+encodeURIComponent(saved),{headers:{authorization:"Bearer "+token}});
@@ -258,7 +259,7 @@ async function loadUploadHistory(targetId){
     const action=document.createElement("button");action.className="btn outline";action.textContent=canResume?"Select same file to resume":"Select same file to start a fresh upload";action.disabled=true;
     picker.onchange=()=>{const f=picker.files?.[0];action.disabled=!f||f.name!==u.original_filename||f.size!==u.total_size_bytes;};
     const msg=document.createElement("p");msg.className="muted";msg.setAttribute("role","status");
-    action.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;action.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent=(canResume?"Resuming":"Starting fresh upload")+" · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},canResume?u.id:null,state=>{if(state.type==="retry")msg.textContent="Connection issue · retry "+state.attempt+"/3 · waiting "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")msg.textContent="Verifying uploaded parts…";if(state.type==="error")msg.textContent="Upload paused: "+state.message;});msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;action.disabled=false;}};
+    action.onclick=async()=>{const f=picker.files?.[0];if(!f||f.name!==u.original_filename||f.size!==u.total_size_bytes)return;action.disabled=true;try{await multipartUpload(f,{purpose:u.purpose,project_id:u.project_id,assignment_id:u.assignment_id},(sent,total,part,count)=>{msg.textContent=(canResume?"Resuming":"Starting fresh upload")+" · "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},canResume?u.id:null,state=>{if(state.type==="retry")msg.textContent="Connection issue · retry "+state.attempt+"/3 · waiting "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")msg.textContent="Verifying uploaded parts…";if(state.type==="error")msg.textContent="Upload paused: "+state.message;},canRestart);msg.textContent="Upload completed successfully.";await loadUploadHistory(targetId);}catch(e){msg.textContent=e.message;action.disabled=false;}};
     card.append(picker,action,msg);
    }else if(u.status==="unknown"||u.status==="completing"){
     const warning=document.createElement("p");warning.className="muted";warning.textContent="CSA review required before retry. Do not upload again until the storage outcome is checked, to avoid duplicate files.";card.append(warning);
