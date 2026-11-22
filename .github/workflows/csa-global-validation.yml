@@ -122,7 +122,7 @@ jobs:
           test -s global-platform/migrations/0033_country_legal_review_registry.sql
           test -s global-platform/scripts/test-country-legal-review-migration.py
           test -s global-platform/scripts/test-country-legal-review-preflight-readonly.py
-          test -s global-platform/migrations/0033_country_legal_review_preflight.sql
+          test -s global-platform/migrations/preflight_country_legal_review_0033.sql
           test -s global-platform/docs/country-legal-review-migration-0033-preflight.md
           test -s global-platform/scripts/test-country-assignment-audit-migration.py
           test -s global-platform/compliance/INDIA-LAUNCH-LEGAL-EVIDENCE-REGISTER.md
