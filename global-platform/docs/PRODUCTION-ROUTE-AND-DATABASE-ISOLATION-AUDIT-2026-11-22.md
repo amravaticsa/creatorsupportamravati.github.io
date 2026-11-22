@@ -112,3 +112,41 @@ These checks were read-only except for the already-existing scheduled sync that 
 - Isolated Global Admin sync now has two consecutive scheduled successes: 08:45:46 UTC and 09:00:46 UTC, each with `synced_count=1`. Earlier 500, 404 and 401 failures remain in history and should stay visible in monitoring. Aggregate Global API authorization state is one active `editor_admin` and one revoked `super_admin`; no email or personal record was queried.
 - The new read-only Worker binding preflight workflow initially returned HTTP 403 because the existing GitHub Actions Cloudflare token could not read Worker settings. The workflow now uses a separate `CLOUDFLARE_WORKERS_READ_TOKEN` secret and remains manual-only. It does not require or read secret values; a successful run still needs a token with Workers Scripts Read permission.
 
+
+
+## Worker custom-domain and staging portal route audit
+
+The Worker Custom Domains API returned these additional hostname mappings:
+
+| Hostname | Worker service | Environment | Assessment |
+|---|---|---|---|
+| `admin.creatorsupportamravati.in` | `csa-superadmin-api-staging` | production custom-domain binding | **BLOCKER:** production hostname is attached to a staging-named Worker. |
+| `superadmin.creatorsupportamravati.in` | `csa-superadmin-api-staging` | production custom-domain binding | **BLOCKER:** confirmed above. |
+| `employee.creatorsupportamravati.in` | `csa-employee-gateway` | production custom-domain binding | **BLOCKER:** its backend service binding points to `csa-superadmin-api-staging`. |
+| `admin-staging.creatorsupportamravati.in` | `csa-superadmin-api-staging` custom domain | production custom-domain binding | A Worker Route for the same hostname maps to `csa-superadmin-isolated-staging`; Cloudflare documents that a matching Worker Route takes precedence over the Custom Domain. Effective staging traffic is therefore routed to the isolated Worker. |
+| `superadmin-staging.creatorsupportamravati.in` | `csa-superadmin-api-staging` | production custom-domain binding | Regular staging Worker. |
+| `regional-staging.creatorsupportamravati.in` | `csa-superadmin-isolated-staging` | production custom-domain binding | **Configured:** isolated Regional Admin portal hostname is present and enabled. |
+
+Cloudflare routing reference: <https://developers.cloudflare.com/workers/configuration/routing/routes/> (Routes take precedence over a Custom Domain on the same hostname).
+
+## Country Management and Regional Admin — live staging state
+
+The live isolated Super Admin Worker was inspected read-only. Unlike the tracked source snapshot, its deployed code already contains Country Management, Regional Admins, Country Assignments, and the V2 Regional Admin Portal. The `regional-staging.creatorsupportamravati.in` Custom Domain is enabled and points to this isolated Worker. Do not redeploy the older GitHub source snapshot over this deployed Worker until the source-of-truth drift is reconciled.
+
+### Separate country registries
+
+- Isolated Super Admin D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` has 249 rows in `csa_country_registry`, plus its own `csa_country_legal_reviews`, assignment, invitation, permissions and audit tables.
+- Global API isolated D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` has 249 rows in `countries`, and separate `regional_admins`, `regional_admin_permissions`, and `regional_admin_audit_logs` tables.
+- India is `setup` / `not_started` in the Super Admin country registry, with orders, payments and payouts disabled. In the Global API registry it is `planned`, with payments and payouts disabled. There are no India legal-review records in either checked registry.
+- The isolated Super Admin D1 currently has zero Regional Admin principals, assignments, invitations, permissions and Regional Admin audit rows. The Global API isolated D1 has zero `regional_admins` and zero `regional_admin_permissions`.
+- The two country registries are separate databases. No country update or Regional Admin assignment was made during this audit.
+
+### Remaining cross-Worker integration gate
+
+The deployed isolated Super Admin Worker maintains its own country registry and uses a signed `regionalGlobalProxy` for Regional Admin read requests. The currently deployed isolated Global API Worker contains the `/internal/regional/` read endpoints, but does not contain the Super Admin country/assignment synchronization route `/internal/superadmin/regional-admin-data` present in the tracked API source. The deployed isolated Super Admin Worker also does not call that missing route. Consequently, local Super Admin assignments are not yet proven to create matching Global API `regional_admins` and permission records. The Global API isolated D1 is also missing `country_legal_reviews`, which the tracked country-management API source requires.
+
+A new additive migration `0033_country_legal_review_registry.sql` and disposable SQLite test have been added to source and CI. They are **not applied remotely**. Before enabling Regional Admin access, the isolated integration must be reconciled, the missing Global API schema must be applied with explicit staging-write approval, and an end-to-end country assignment/read-scope test must pass.
+
+### Source-of-truth warning
+
+The deployed `csa-superadmin-isolated-staging` Worker includes more country and Regional Admin functionality than `workers/source-snapshots/csa-superadmin-isolated-staging/*` in the repository. The live Worker source must be exported/reconciled into maintainable tracked modules before any Worker deployment from the repository. Do not overwrite the deployed UI with the older snapshot.
