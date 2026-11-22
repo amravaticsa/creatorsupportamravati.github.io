@@ -40,12 +40,17 @@ jobs:
             printf '%s' "${response}" > "${worker}.json"
           done
 
-      - name: Warn if an alternate Global API sync secret overrides the canonical binding
+      - name: Verify dedicated and legacy HMAC secret bindings on canonical staging Workers
         run: |
           set -euo pipefail
-          if jq -e '(.result.bindings // []) | any(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text")' csa-superadmin-isolated-staging.json >/dev/null; then
-            echo "::warning::GLOBAL_API_SYNC_HMAC_SECRET is present on the Super Admin Worker. The Global API verifier uses ADMIN_SYNC_HMAC_SECRET. Confirm both values are identical or remove the alternate override; this check never reads secret values."
-          fi
+          for file in csa-superadmin-isolated-staging.json csa-global-api-staging.json; do
+            jq -e '
+              (.result.bindings // []) as $b
+              | ([ $b[] | select(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+              and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+            ' "$file" >/dev/null
+          done
+          echo "PASS: both canonical Staging Workers have dedicated and legacy HMAC secret bindings; values remain hidden."
 
       - name: Verify current D1, R2 and secret-name bindings
         run: |
@@ -75,7 +80,9 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
+            and ([ $b[] | select(.name == "GLOBAL_DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
             and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+            and ([ $b[] | select(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
           ' csa-superadmin-isolated-staging.json >/dev/null
 
           jq -e '
