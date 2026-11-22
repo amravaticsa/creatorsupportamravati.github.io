@@ -112,3 +112,5 @@ A read-only aggregate/schema check was performed against the regular Global Plat
 - The country assignment audit table, insert guard, no-update/no-delete triggers, user assignment-required trigger, and review view are present in both regular staging D1 (`470a...`) and isolated Global API staging D1 (`6a32...`).
 
 This confirms the technical guardrails are present and India is not commercially enabled in the checked staging registry. It does not create legal approval, establish the legal classification of CSA, or authorise country activation. The two client records must remain unassigned until verified evidence is reviewed through the approved workflow.
+
+- Canonical Global D1 migration `0032_verified_country_scope.sql` now requires verified timestamp, reviewer identity and evidence reference before a Client project appears in country-scoped Regional Admin queries. The isolated Regional Admin D1 already had the same view logic. The three existing canonical projects are still `country_unassigned`; no India scope is enabled.
