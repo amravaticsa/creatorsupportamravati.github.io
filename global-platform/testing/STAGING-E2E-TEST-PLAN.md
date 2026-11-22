@@ -303,3 +303,5 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - No synthetic accounts, assignments, projects, submissions, invitations or country approvals were inserted. Client A-to-B isolation and Editor/QC/Client end-to-end tests require real authorized accounts/data or a separately approved disposable fixture environment.
 
 - The 09:15:47 UTC scheduled reconciliation also succeeded with one authorization synchronized and no error code; three consecutive 15-minute runs (08:45, 09:00, 09:15 UTC) have passed.
+
+- Read-only R2 configuration check: managed public `r2.dev` access is disabled for `csa-global-media-staging` and `csa-global-video-isolated-staging`. Cross-account authorization still requires E2E testing because both API Workers share these private buckets.
