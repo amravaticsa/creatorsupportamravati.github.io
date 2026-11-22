@@ -78,6 +78,16 @@ async function user(req,env,roles){
  if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role,source_admin_id FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role,source_admin_id:a.source_admin_id};}return u;
 }
 async function hmacHex(secret,message){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(message)));return [...sig].map(x=>x.toString(16).padStart(2,"0")).join("");}
+async function legacyBridgeHeaders(env,method,path,rawBody){
+ if(env.ENVIRONMENT!=="staging"||!env.CSA_LEGACY_BRIDGE_SECRET)throw Error("Legacy editor bridge is not configured.");
+ const timestamp=String(Math.floor(Date.now()/1000)),random=crypto.getRandomValues(new Uint8Array(24));
+ const nonce=btoa(String.fromCharCode(...random)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+ const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(rawBody)));
+ const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const canonical=["CSA-BRIDGE-V1",timestamp,nonce,String(method).toUpperCase(),path,bodyHash].join("\\n");
+ const signature=await hmacHex(env.CSA_LEGACY_BRIDGE_SECRET,canonical);
+ return {"x-csa-bridge-timestamp":timestamp,"x-csa-bridge-nonce":nonce,"x-csa-bridge-signature":signature};
+}
 function constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length)return false;let v=0;for(let i=0;i<a.length;i++)v|=a.charCodeAt(i)^b.charCodeAt(i);return v===0;}
 async function log(env,actor,action,type,entity,meta={}){
  await env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,?,?,?,?)").bind(uid("log"),actor,action,type,entity,JSON.stringify(meta)).run();
