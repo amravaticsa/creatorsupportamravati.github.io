@@ -26,6 +26,8 @@ jobs:
         run: python3 global-platform/scripts/test-legacy-bridge-nonces-migration.py
       - name: Test legacy assignment transfer idempotency and reconciliation safety
         run: python3 global-platform/scripts/test-legacy-assignment-transfer-safety.py
+      - name: Test durable assignment reconciliation migration on disposable SQLite
+        run: python3 global-platform/scripts/test-legacy-assignment-reconciliation-migration.py
       - name: Ensure legacy editor bridge management routes remain disabled
         run: python3 global-platform/scripts/test-legacy-editor-bridge-not-live.py
 
@@ -94,6 +96,8 @@ jobs:
           test -s global-platform/migrations/0026_legacy_editor_identity_bridge.sql
           test -s global-platform/migrations/0027_legacy_bridge_nonces.sql
           test -s global-platform/migrations/0028_legacy_editor_link_lifecycle_guards.sql
+          test -s global-platform/migrations/0029_legacy_assignment_reconciliation_state.sql
+          test -s global-platform/scripts/test-legacy-assignment-reconciliation-migration.py
           grep -q "client_refund_requests" global-platform/migrations/0025_notifications_and_client_refunds.sql
           grep -q "whatsapp_enabled INTEGER NOT NULL DEFAULT 0" global-platform/migrations/0025_notifications_and_client_refunds.sql
           grep -q "multipart_upload_incidents" global-platform/api/src/index.js
