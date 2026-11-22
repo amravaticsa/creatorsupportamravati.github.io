@@ -294,3 +294,10 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - Do not claim physical storage isolation. Consider dedicated R2/legacy D1 resources if strict separation is required; no bucket migration has been performed.
 
 - Migration `0032_verified_country_scope.sql` is applied to canonical D1 470. It requires the full country verification evidence tuple before a project can enter `v_project_country_scope`. The isolated D1 6a32 already enforced the same rule. Read-only check: all three existing canonical projects remain `country_unassigned` and India's verified client/editor/project counts are zero.
+
+
+### Isolated Regional stack fixture inventory — read-only snapshot
+
+- Isolated Global D1 6a32 currently contains 2 active Client accounts, 3 projects owned by only one Client, 0 Editor accounts, 0 assignments, 0 work submissions, 0 revision requests and 0 verified-country users.
+- The Super Admin D1 contains 0 Regional Admin principals, 0 active Regional Admin assignments, 0 pending invitations and no India legal review row.
+- No synthetic accounts, assignments, projects, submissions, invitations or country approvals were inserted. Client A-to-B isolation and Editor/QC/Client end-to-end tests require real authorized accounts/data or a separately approved disposable fixture environment.
