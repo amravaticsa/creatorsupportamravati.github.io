@@ -151,3 +151,15 @@ test("Winning tender bid can be converted into a managed offer with an explicit 
   assert.match(portal, /deposit_amount_minor:Math\.round\(deposit\*100\)/);
   assert.match(portal, /The editor must accept the offer, agreement and deposit before assignment/);
 });
+
+
+test("QC pending queue and ready-for-assignment queue are scoped to each admin's authorized project department", () => {
+  const pending = api.slice(api.indexOf('if(m==="GET"&&p==="/v1/admin/submissions/pending")'), api.indexOf('const qc=p.match', api.indexOf('if(m==="GET"&&p==="/v1/admin/submissions/pending")')));
+  const ready = api.slice(api.indexOf('if(m==="GET"&&p==="/v1/admin/offers/ready")'), api.indexOf('if(m==="GET"&&p==="/v1/admin/overview")', api.indexOf('if(m==="GET"&&p==="/v1/admin/offers/ready")')));
+  for (const route of [pending, ready]) {
+    assert.match(route, /project_department_routes dr JOIN global_admin_department_access da/);
+    assert.match(route, /dr\.route_key='tender'/);
+    assert.match(route, /da\.source_admin_id=\?/);
+    assert.match(route, /\.bind\(a\.source_admin_id\|\|null,a\.source_admin_id\|\|null\)/);
+  }
+});
