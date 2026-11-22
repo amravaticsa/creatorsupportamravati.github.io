@@ -124,3 +124,16 @@ test("stale timestamps are rejected (401)", async () => {
   const result = await h.verify(stale);
   assert.equal(result.code, "bridge_timestamp_invalid");
 });
+
+
+test("Super Admin readiness route is staging-only, HMAC-authenticated, replay-protected, and never exposes peer details", () => {
+  const route = api.slice(api.indexOf('if(m==="POST"&&p==="/internal/superadmin/legacy-bridge/readiness"){'), api.indexOf('if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){'));
+  assert.notEqual(route.indexOf("env.ENVIRONMENT!==\\"staging\\""), -1);
+  assert.match(route, /env\\.ADMIN_SYNC_HMAC_SECRET/);
+  assert.match(route, /env\\.CSA_LEGACY_BRIDGE_SECRET/);
+  assert.match(route, /admin_sync_nonces/);
+  assert.match(route, /legacyBridgeHeaders\\(env,"POST",bridgePath,bridgeBody\\)/);
+  assert.match(route, /superadmin-editor-staging\\.creatorsupportamravati\\.in/);
+  assert.match(route, /legacy_bridge_peer_unavailable/);
+  assert.doesNotMatch(route, /legacy_editor_identity_links|video_editing_orders|assignments/);
+});
