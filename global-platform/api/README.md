@@ -113,3 +113,8 @@ The canonical staging database has `global_admin_authorizations.finance_access_l
 - `csa-global-api-staging`: hourly multipart cleanup for the canonical Global staging D1/R2.
 - `csa-global-api-isolated-staging`: separate 15-minute cleanup for its own isolated D1/R2; it is not the Client/Editor Portal API database.
 - `csa-superadmin-isolated-staging`: 15-minute Global Admin authorization reconciliation.
+
+
+### HMAC secret transition
+
+The canonical staging API accepts either `GLOBAL_API_SYNC_HMAC_SECRET` (preferred for the isolated Super Admin Worker) or the legacy `ADMIN_SYNC_HMAC_SECRET`. The isolated Super Admin Worker prefers the dedicated binding and falls back to the legacy binding. The legacy `csa-superadmin-api-staging` continues to use the old secret. Keep the old binding unchanged until that legacy Worker is retired. The dedicated secret must be generated once and bound only to `csa-superadmin-isolated-staging` and `csa-global-api-staging`; never commit or paste its value into chat or source control.
