@@ -358,6 +358,21 @@ async function loadClientProjects(){
      b.onclick=async()=>{const r=await fetch(API+"/v1/files/"+file.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Download failed");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=file.original_filename;a.click();URL.revokeObjectURL(url);};
      c.append(b);
     }
+    const policy=dls.revision_policy||{included:Number(p.revisions_included||0),used:0,remaining:0,can_request:false};
+    const review=document.createElement("section");review.className="panel";
+    const reviewTitle=document.createElement("h4");reviewTitle.textContent="Video review & included revisions";
+    const reviewMeta=document.createElement("p");reviewMeta.className="muted";reviewMeta.textContent="Revisions used: "+policy.used+" / "+policy.included+" · Remaining: "+policy.remaining;
+    review.append(reviewTitle,reviewMeta);
+    for(const request of dls.revision_requests||[]){const row=document.createElement("p");row.className="muted";row.textContent="Revision "+request.request_number+" · "+request.status+" · "+request.notes;review.append(row);}
+    if(policy.can_request&&dls.deliverables?.length){
+     const notes=document.createElement("textarea");notes.required=true;notes.minLength=5;notes.maxLength=2000;notes.placeholder="Describe the exact changes you want CSA to make (minimum 5 characters).";
+     const requestButton=document.createElement("button");requestButton.className="btn dark";requestButton.type="button";requestButton.textContent="Request included revision";
+     requestButton.onclick=async()=>{if(notes.value.trim().length<5){alert("Please describe the requested changes in at least 5 characters.");return;}requestButton.disabled=true;try{const result=await api("/v1/client/projects/"+p.id+"/revisions",{method:"POST",body:JSON.stringify({submission_id:dls.deliverables[0].id,notes:notes.value.trim()})});alert("Revision request submitted. Remaining included revisions: "+result.remaining_revisions);await loadClientProjects();}catch(error){alert(error.message);requestButton.disabled=false;}};
+     review.append(notes,requestButton);
+    }else if(p.status==="client_review"&&policy.remaining===0){const limit=document.createElement("p");limit.className="muted";limit.textContent="Included revision limit reached. Contact CSA for additional changes.";review.append(limit);}
+    else if(p.status==="revision"){const pending=document.createElement("p");pending.className="muted";pending.textContent="Your revision request has been sent to the assigned editor. New requests are paused until this revision is completed and reviewed.";review.append(pending);}
+    else if(p.status==="client_review"){const unavailable=document.createElement("p");unavailable.className="muted";unavailable.textContent="A revision request is already open or the latest approved delivery is not available.";review.append(unavailable);}
+    c.append(review);
    }catch{}
    root.append(c);
   }
@@ -479,6 +494,7 @@ async function loadAssignments(){
    const brief=document.createElement("p");brief.textContent=assignment.brief||"No additional brief supplied.";
    const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+assignment.due_at+" · Status: "+assignment.status+" · Delivery window: "+assignment.delivery_days+" day(s)";
    card.append(heading,brief,meta);
+   if(assignment.revision_notes){const revision=document.createElement("section");revision.className="panel";const label=document.createElement("h4");label.textContent="Client revision request · "+assignment.revisions_used+"/"+assignment.revisions_included+" included";const details=document.createElement("p");details.textContent=assignment.revision_notes;revision.append(label,details);card.append(revision);}
    const sourceHeading=document.createElement("h4");sourceHeading.textContent="Project source files";card.append(sourceHeading);
    try{
     const sourceFiles=await api("/v1/projects/"+assignment.project_id+"/files");
