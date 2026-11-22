@@ -25,8 +25,9 @@ async function claims(req,env){
 const GLOBAL_ROLE_PERMISSIONS={
  project_admin:["projects.manage"],
  editor_admin:["content.manage"],
- finance_admin:["finance.read","finance.refunds"],
- support_admin:["support.manage"]
+ finance_admin:[],
+ support_admin:["support.manage"],
+ regional_admin:[]
 };
 function adminPermissionFor(req){
  const p=new URL(req.url).pathname.replace(/\/$/,""),m=req.method;
@@ -52,7 +53,17 @@ function adminPermissionFor(req){
  if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&p==="/v1/admin/notifications")return "support.manage";
  if(m==="GET"&&p==="/v1/admin/client-refunds")return "finance.read";
+ if(m==="GET"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.read";
+ if(m==="GET"&&p==="/v1/admin/finance/overview")return "finance.read";
+ if(m==="GET"&&p==="/v1/admin/finance/client-balances")return "finance.read";
+ if(m==="GET"&&p==="/v1/admin/finance/refund-summary")return "finance.read";
+ if(m==="GET"&&p==="/v1/admin/finance/refund-dashboard")return "finance.read";
+ if(m==="GET"&&p==="/v1/admin/finance/reconciliation")return "finance.read";
+ if(m==="GET"&&p==="/v1/admin/finance/editor-payouts")return "finance.read";
+ if(m==="POST"&&p==="/v1/admin/finance/editor-payouts")return "finance.payouts";
+ if(m==="POST"&&/^\/v1\/admin\/finance\/editor-payouts\/[\w-]+\/(approve|mark-paid)$/.test(p))return "finance.payouts";
  if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";
+ if(m==="POST"&&/^\/v1\/admin\/client-refunds\/[\w-]+\/process$/.test(p))return "finance.refunds";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/editors/pending")return "content.manage";
@@ -75,7 +86,7 @@ async function user(req,env,roles){
  try{const c=await claims(req,env);u=await env.DB.prepare("SELECT id,role,account_status,email FROM users WHERE auth_subject=? AND email=? COLLATE NOCASE").bind(c.sub,c.email).first();if(u?.role==="editor")throw Error("Editor Panel access requires CSA-issued User ID and Password.");}
  catch(identityError){if(!bearer)throw identityError;const th=await hmacHex("csa-editor-session-v1",bearer),x=await env.DB.prepare("SELECT u.id,u.role,u.account_status,u.email,e.verification_status,c.must_change_password FROM editor_sessions s JOIN users u ON u.id=s.user_id JOIN editor_profiles e ON e.user_id=u.id JOIN editor_credentials c ON c.user_id=u.id WHERE s.token_hash=? AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(th).first();if(!x)throw identityError;if(x.role!=="editor"||x.account_status!=="active"||x.verification_status!=="verified")throw Error("Editor account is inactive.");if(x.must_change_password&&new URL(req.url).pathname!=="/v1/editor/password/change")throw Error("Change your temporary password before accessing the Editor Panel.");u=x;}
  if(!u||u.account_status!=="active")throw Error("Account is pending or inactive.");if(!roles.includes(u.role))throw Error("Role is not permitted.");
- if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role,source_admin_id FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[]).includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role,source_admin_id:a.source_admin_id};}return u;
+ if(u.role==="admin"){const a=await env.DB.prepare("SELECT source_role,source_admin_id,finance_access_level FROM global_admin_authorizations WHERE email=? COLLATE NOCASE AND status='active'").bind(u.email).first();if(!a||!GLOBAL_ROLE_PERMISSIONS[a.source_role])throw Error("CSA Super Admin authorization is inactive.");if(a.source_role==="regional_admin")throw Error("Regional Admin access is restricted to the country-scoped Regional Admin portal.");const required=adminPermissionFor(req);if(required==="__deny__")throw Error("No Global permission is defined for this admin route.");const rolePermissions=[...(GLOBAL_ROLE_PERMISSIONS[a.source_role]||[])];if(a.source_role==="finance_admin"&&["read","write","manage"].includes(a.finance_access_level))rolePermissions.push("finance.read");if(a.source_role==="finance_admin"&&["write","manage"].includes(a.finance_access_level))rolePermissions.push("finance.refunds","finance.payouts");if(required!==null){const needs=Array.isArray(required)?required:[required];if(!needs.some(permission=>rolePermissions.includes(permission)))throw Error("Global admin permission denied.");}return {...u,source_role:a.source_role,source_admin_id:a.source_admin_id,finance_access_level:a.finance_access_level||"none"};}return u;
 }
 async function hmacHex(secret,message){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(message)));return [...sig].map(x=>x.toString(16).padStart(2,"0")).join("");}
 function constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length)return false;let v=0;for(let i=0;i<a.length;i++)v|=a.charCodeAt(i)^b.charCodeAt(i);return v===0;}
@@ -138,25 +149,120 @@ async function handle(req,env){
   if(!Array.isArray(snapshot)||snapshot.length>100)return bad("Snapshot must be an array of at most 100 admin records.");
   const seenIds=new Set(),seenEmails=new Set(),records=[];
   for(const item of snapshot){
-   const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20);
-   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status))return bad("Snapshot contains an invalid admin record.");
+   const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20),financeAccess=txt(item?.finance_access_level,10)||"none";
+   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin","regional_admin"].includes(role)||!["active","suspended","revoked"].includes(status)||!["none","read","write","manage"].includes(financeAccess))return bad("Snapshot contains an invalid admin record.");
    if(seenIds.has(sourceId)||seenEmails.has(email))return bad("Snapshot contains duplicate admin identities.");
-   seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status});
+   seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status,financeAccess});
   }
   try{
    await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();
   }catch{return bad("Sync nonce was already used.",409,"sync_replay");}
   const statements=[env.DB.prepare("UPDATE global_admin_authorizations SET status='revoked',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')")];
   for(const a of records){
-   statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status) VALUES(?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status));
+   statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status,finance_access_level) VALUES(?,?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,finance_access_level=excluded.finance_access_level,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status,a.financeAccess));
    statements.push(env.DB.prepare("DELETE FROM global_admin_department_access WHERE source_admin_id=?").bind(a.sourceId));
+   if(a.role!=="regional_admin")statements.push(env.DB.prepare("DELETE FROM regional_admins WHERE source_admin_id=?").bind(a.sourceId));
+   else if(a.status!=="active")statements.push(env.DB.prepare("UPDATE regional_admins SET status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE source_admin_id=? AND status IN ('active','pending')").bind(a.status==="suspended"?"suspended":"revoked",a.sourceId));
    const departmentIds=({editor_admin:["dept-content-video","dept-hr-admin"],project_admin:["dept-operations-events"],finance_admin:["dept-finance-accounts"],support_admin:["dept-sales-client"]})[a.role]||[];
-   if(a.status==="active")for(const departmentId of departmentIds)statements.push(env.DB.prepare("INSERT INTO global_admin_department_access(id,source_admin_id,department_id,access_level,granted_by) VALUES(?,?,?,'manage','superadmin_role_sync')").bind(uid("deptaccess"),a.sourceId,departmentId));
+   if(a.status==="active")for(const departmentId of departmentIds){const level=a.role==="finance_admin"?(a.financeAccess==="read"?"read":(["write","manage"].includes(a.financeAccess)?"manage":"none")):"manage";if(level!=="none")statements.push(env.DB.prepare("INSERT INTO global_admin_department_access(id,source_admin_id,department_id,access_level,granted_by) VALUES(?,?,?,?,?)").bind(uid("deptaccess"),a.sourceId,departmentId,level,"superadmin_role_sync"));}
   }
   statements.push(env.DB.prepare("DELETE FROM admin_sync_nonces WHERE expires_at<?").bind(nowSeconds));
   await env.DB.batch(statements);
   return out({ok:true,synced:records.length,revoked_if_absent:true},200);
  }
+ 
+ if(m==="POST"&&p==="/internal/superadmin/regional-admin-data"){
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Regional Admin bridge unavailable.",503,"regional_bridge_unavailable");
+  const raw=await req.text();if(raw.length>4096)return bad("Regional Admin request too large.",413,"regional_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid regional bridge authentication headers.",401,"regional_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const canonical="POST\n/internal/superadmin/regional-admin-data\n"+ts+"\n"+nonce+"\n"+bodyHash,expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  if(!constantTime(expected,sig))return bad("Regional bridge signature is invalid.",401,"regional_signature_invalid");
+  let b;try{b=JSON.parse(raw)}catch{return bad("Invalid regional bridge JSON.",400,"regional_json_invalid");}
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}catch{return bad("Regional bridge nonce was already used.",409,"regional_replay");}
+  const actorId=String(b.actor_admin_id||""),actorRole=String(b.actor_role||"");
+  if(!actorId)return bad("Regional bridge actor missing.",400,"regional_actor_missing");
+  if(b.action!=="list"&&actorRole!=="super_admin")return bad("Only Super Admin may change country or regional access.",403,"regional_write_forbidden");
+  const audit=async(action,target,country,details)=>env.DB.prepare("INSERT INTO regional_admin_audit_logs(id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),actorId,action,target||null,country||null,JSON.stringify(details||{}));
+  if(b.action==="country_update"){
+   const cc=String(b.country_code||"").toUpperCase(),status=b.commercial_status;
+   if(!/^[A-Z]{2}$/.test(cc)||!["planned","review","active","restricted","disabled"].includes(status))return bad("Invalid country update.",400,"country_update_invalid");
+   const country=await env.DB.prepare("SELECT country_code FROM countries WHERE country_code=?").bind(cc).first();if(!country)return bad("Country not found.",404,"country_not_found");
+   const legal=await env.DB.prepare("SELECT review_status FROM country_legal_reviews WHERE country_code=? ORDER BY created_at DESC LIMIT 1").bind(cc).first();
+   const payment=b.payment_enabled===true||b.payment_enabled===1?1:0,payout=b.payout_enabled===true||b.payout_enabled===1?1:0;
+   if(status==="active"&&legal?.review_status!=="approved")return bad("Country cannot be activated before legal approval.",409,"country_legal_approval_required");
+   if((payment||payout)&&(status!=="active"||legal?.review_status!=="approved"))return bad("Payments and payouts require an active, legally approved country.",409,"country_payment_approval_required");
+   const currency=b.currency_code===undefined?null:b.currency_code,timezone=b.timezone===undefined?null:b.timezone;
+   if(currency!==null&&currency!==undefined&&(typeof currency!=="string"||!/^[A-Z]{3}$/.test(currency)))return bad("Invalid currency code.",400,"country_currency_invalid");
+   if(timezone!==null&&timezone!==undefined&&(typeof timezone!=="string"||!timezone.trim()||timezone.length>80))return bad("Invalid timezone.",400,"country_timezone_invalid");
+   const r=await env.DB.prepare("UPDATE countries SET commercial_status=?,payment_enabled=?,payout_enabled=?,currency_code=COALESCE(?,currency_code),timezone=COALESCE(?,timezone),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE country_code=?").bind(status,payment,payout,currency,timezone,cc).run();
+   await audit("country.settings_updated",null,cc,{commercial_status:status,payment_enabled:payment,payout_enabled:payout,currency_code:currency,timezone});
+   return out({ok:true,updated:!!(r.meta?.changes||0),country_code:cc},200);
+  }
+  if(b.action==="legal_review_list"){if(actorRole!=="super_admin")return bad("Only Super Admin may read legal review history.",403,"legal_review_forbidden");const cc=String(b.country_code||"").toUpperCase();if(!/^[A-Z]{2}$/.test(cc))return bad("Invalid country code.",400,"country_code_invalid");const r=await env.DB.prepare("SELECT id,country_code,review_status,reviewer_source_admin_id,evidence_reference,legal_notes,reviewed_at,created_at,updated_at FROM country_legal_reviews WHERE country_code=? ORDER BY created_at DESC LIMIT 100").bind(cc).all();return out({ok:true,country_code:cc,reviews:r.results||[]},200);}
+  if(b.action==="legal_review_create"){
+   const cc=String(b.country_code||"").toUpperCase(),status=String(b.review_status||""),evidence=String(b.evidence_reference||"").trim(),notes=String(b.legal_notes||"").trim();
+   if(!/^[A-Z]{2}$/.test(cc)||!["pending","approved","rejected"].includes(status)||evidence.length>1000||notes.length>5000||(status==="approved"&&!evidence))return bad("Invalid legal review or missing approval evidence.",400,"legal_review_invalid");
+   const exists=await env.DB.prepare("SELECT country_code FROM countries WHERE country_code=?").bind(cc).first();if(!exists)return bad("Country not found.",404,"country_not_found");
+   const id=crypto.randomUUID(),reviewedAt=status==="pending"?null:new Date().toISOString();
+   await env.DB.batch([env.DB.prepare("INSERT INTO country_legal_reviews(id,country_code,review_status,reviewer_source_admin_id,evidence_reference,legal_notes,reviewed_at) VALUES(?,?,?,?,?,?,?)").bind(id,cc,status,actorId,evidence||null,notes||null,reviewedAt),audit("country.legal_review."+status,null,cc,{review_id:id,evidence_reference:evidence||null})]);
+   return out({ok:true,review:{id,country_code:cc,review_status:status,reviewed_at:reviewedAt}},201);
+  }
+  if(b.action==="regional_assignment_set"){
+   const sid=String(b.source_admin_id||""),cc=String(b.country_code||"").toUpperCase(),status=String(b.status||"pending"),primary=b.is_primary===false||b.is_primary===0?0:1;
+   if(!sid||sid.length>128||!/^[A-Z]{2}$/.test(cc)||!["pending","active","suspended","revoked"].includes(status))return bad("Invalid Regional Admin assignment.",400,"regional_assignment_invalid");
+   const admin=await env.DB.prepare("SELECT source_admin_id,status,source_role FROM global_admin_authorizations WHERE source_admin_id=?").bind(sid).first();
+   if(!admin||admin.source_role!=="regional_admin"||admin.status!=="active")return bad("An active authorized Regional Admin account is required.",409,"regional_admin_identity_required");
+   const country=await env.DB.prepare("SELECT commercial_status FROM countries WHERE country_code=?").bind(cc).first();if(!country)return bad("Country not found.",404,"country_not_found");
+   const legal=await env.DB.prepare("SELECT review_status FROM country_legal_reviews WHERE country_code=? ORDER BY created_at DESC LIMIT 1").bind(cc).first();
+   if(status==="active"&&(admin.status!=="active"||country.commercial_status!=="active"||legal?.review_status!=="approved"))return bad("Active assignment requires an active identity and an active, legally approved country.",409,"regional_assignment_readiness_required");
+   if(primary&&status==="active"){const other=await env.DB.prepare("SELECT source_admin_id FROM regional_admins WHERE country_code=? AND is_primary=1 AND status='active' AND source_admin_id<>?").bind(cc,sid).first();if(other)return bad("A primary active Regional Admin already exists for this country.",409,"primary_regional_admin_exists");}
+   await env.DB.batch([env.DB.prepare("INSERT INTO regional_admins(source_admin_id,country_code,is_primary,status,assigned_by) VALUES(?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET country_code=excluded.country_code,is_primary=excluded.is_primary,status=excluded.status,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(sid,cc,primary,status,actorId),audit("regional_admin.assignment_"+status,sid,cc,{is_primary:primary})]);
+   return out({ok:true,source_admin_id:sid,country_code:cc,status,is_primary:primary},200);
+  }
+  if(b.action==="regional_permissions_replace"){
+   const sid=String(b.source_admin_id||""),keys=b.permission_keys;
+   const allowed=["projects.manage","content.manage","finance.read","finance.refunds","support.manage","clients.read","editors.manage","tenders.manage"];
+   if(!sid||!Array.isArray(keys)||keys.length>allowed.length||keys.some(k=>!allowed.includes(k))||new Set(keys).size!==keys.length)return bad("Invalid Regional Admin permission set.",400,"regional_permissions_invalid");
+   const assignment=await env.DB.prepare("SELECT r.country_code,r.status,a.status AS account_status FROM regional_admins r JOIN global_admin_authorizations a ON a.source_admin_id=r.source_admin_id WHERE r.source_admin_id=?").bind(sid).first();if(!assignment||assignment.status!=="active"||assignment.account_status!=="active")return bad("An active Regional Admin account and assignment are required.",409,"regional_assignment_required");
+   const statements=[env.DB.prepare("DELETE FROM regional_admin_permissions WHERE source_admin_id=?").bind(sid),...keys.map(k=>env.DB.prepare("INSERT INTO regional_admin_permissions(source_admin_id,permission_key,granted_by) VALUES(?,?,?)").bind(sid,k,actorId)),audit("regional_admin.permissions_replaced",sid,assignment.country_code,{permission_keys:keys})];
+   await env.DB.batch(statements);return out({ok:true,source_admin_id:sid,permission_keys:keys},200);
+  }
+  if(b.action==="regional_audit_list"){if(actorRole!=="super_admin")return bad("Only Super Admin may read Regional Admin audit logs.",403,"regional_audit_forbidden");const r=await env.DB.prepare("SELECT id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json,created_at FROM regional_admin_audit_logs ORDER BY created_at DESC LIMIT 200").all();return out({ok:true,logs:r.results||[]},200);}
+  if(b.action==="regional_identity_list"){
+   if(actorRole!=="super_admin")return bad("Only Super Admin may list Regional Admin identities.",403,"regional_write_forbidden");
+   const r=await env.DB.prepare("SELECT a.source_admin_id,a.email,a.status,(SELECT r.country_code FROM regional_admins r WHERE r.source_admin_id=a.source_admin_id) AS assigned_country,(SELECT r.status FROM regional_admins r WHERE r.source_admin_id=a.source_admin_id) AS assignment_status,COALESCE((SELECT GROUP_CONCAT(p.permission_key, ',') FROM regional_admin_permissions p WHERE p.source_admin_id=a.source_admin_id),'') AS permission_keys FROM global_admin_authorizations a WHERE a.source_role='regional_admin' AND a.status IN ('active','suspended') ORDER BY a.email").all();
+   return out({ok:true,identities:r.results||[]},200);
+  }
+  if(b.action!=="list")return bad("Unsupported regional bridge action.",400,"regional_action_invalid");
+  try{
+   const countrySql="SELECT c.country_code,c.country_name,c.currency_code,c.timezone,c.commercial_status,c.payment_enabled,c.payout_enabled,(SELECT r.review_status FROM country_legal_reviews r WHERE r.country_code=c.country_code ORDER BY r.created_at DESC LIMIT 1) AS legal_review_status,(SELECT r.evidence_reference FROM country_legal_reviews r WHERE r.country_code=c.country_code ORDER BY r.created_at DESC LIMIT 1) AS legal_evidence_reference,(SELECT r.reviewed_at FROM country_legal_reviews r WHERE r.country_code=c.country_code ORDER BY r.created_at DESC LIMIT 1) AS legal_reviewed_at FROM countries c "+(actorRole==="regional_admin"?"WHERE c.country_code=(SELECT country_code FROM regional_admins WHERE source_admin_id=? AND status='active') ":"")+"ORDER BY c.country_name"; const countries=actorRole==="regional_admin"?await env.DB.prepare(countrySql).bind(actorId).all():await env.DB.prepare(countrySql).all();
+   const assignmentSql="SELECT r.source_admin_id,r.source_admin_id AS user_id,a.email,a.email AS display_name,a.source_role,a.status AS account_status,r.country_code,c.country_name,CASE WHEN r.is_primary=1 THEN 'primary' ELSE 'secondary' END AS assignment_type,r.status AS assignment_status,r.assigned_at,r.updated_at,COALESCE((SELECT GROUP_CONCAT(permission_key, ', ') FROM regional_admin_permissions p WHERE p.source_admin_id=r.source_admin_id),'') AS enabled_permissions FROM regional_admins r JOIN global_admin_authorizations a ON a.source_admin_id=r.source_admin_id JOIN countries c ON c.country_code=r.country_code "+(actorRole==="regional_admin"?"WHERE r.source_admin_id=? ":"")+"ORDER BY c.country_name,a.email"; const assignments=actorRole==="regional_admin"?await env.DB.prepare(assignmentSql).bind(actorId).all():await env.DB.prepare(assignmentSql).all();
+   const invitations=[];
+   const permissionSql="SELECT permission_key,module_key,description,default_access_level,is_sensitive FROM regional_admin_permission_catalog "+(actorRole==="regional_admin"?"WHERE permission_key IN (SELECT permission_key FROM regional_admin_permissions WHERE source_admin_id=?) ":"")+"ORDER BY module_key,permission_key"; const permissions=actorRole==="regional_admin"?await env.DB.prepare(permissionSql).bind(actorId).all():await env.DB.prepare(permissionSql).all();
+   const eligible=actorRole==="regional_admin"?{n:0}:await env.DB.prepare("SELECT COUNT(*) AS n FROM countries c WHERE c.commercial_status='active' AND (SELECT r.review_status FROM country_legal_reviews r WHERE r.country_code=c.country_code ORDER BY r.created_at DESC LIMIT 1)='approved'").first();
+   const pending=actorRole==="regional_admin"?{n:0}:await env.DB.prepare("SELECT COUNT(*) AS n FROM regional_admins WHERE status='pending'").first();
+   const regional={country_scope:null,clients:[],projects:[],editors:[],tenders:[],submissions:[],support_messages:[],finance_summary:[],refunds:[]};
+   if(actorRole==="regional_admin"){
+    const country=(countries.results||[])[0],cc=country?.country_code||null,granted=new Set((permissions.results||[]).map(x=>x.permission_key));
+    regional.country_scope=cc;
+    if(cc){
+     if(granted.has("clients.read")){const r=await env.DB.prepare("SELECT u.id AS user_id,u.email,u.account_status,u.created_at,cp.display_name,cp.company_name FROM users u LEFT JOIN client_profiles cp ON cp.user_id=u.id WHERE u.role='client' AND u.country_code=? ORDER BY u.created_at DESC LIMIT 50").bind(cc).all();regional.clients=r.results||[];}
+     if(granted.has("projects.manage")){const r=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.status,p.client_visible_status,p.preferred_deadline,p.created_at,cp.display_name AS client_name,cp.company_name FROM projects p JOIN users cu ON cu.id=p.client_id LEFT JOIN client_profiles cp ON cp.user_id=cu.id WHERE cu.country_code=? ORDER BY p.created_at DESC LIMIT 50").bind(cc).all();regional.projects=r.results||[];}
+     if(granted.has("editors.manage")){const r=await env.DB.prepare("SELECT u.id AS user_id,u.email,u.account_status,e.public_editor_code,e.display_name,e.city,e.verification_status,e.reliability_score,e.created_at FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND COALESCE(e.country_code,u.country_code)=? ORDER BY e.created_at DESC LIMIT 50").bind(cc).all();regional.editors=r.results||[];}
+     if(granted.has("tenders.manage")){const r=await env.DB.prepare("SELECT t.id,t.title,t.status,t.bid_deadline,t.published_at,p.public_project_code,p.title AS project_title FROM project_tenders t JOIN projects p ON p.id=t.project_id JOIN users cu ON cu.id=p.client_id WHERE cu.country_code=? ORDER BY t.created_at DESC LIMIT 50").bind(cc).all();regional.tenders=r.results||[];}
+     if(granted.has("content.manage")){const r=await env.DB.prepare("SELECT ws.id,ws.assignment_id,ws.version_number,ws.qc_status,ws.submitted_at,p.public_project_code,p.title AS project_title,e.display_name AS editor_name FROM work_submissions ws JOIN assignments a ON a.id=ws.assignment_id JOIN projects p ON p.id=a.project_id JOIN users cu ON cu.id=p.client_id LEFT JOIN editor_profiles e ON e.user_id=ws.submitted_by WHERE cu.country_code=? ORDER BY ws.submitted_at DESC LIMIT 50").bind(cc).all();regional.submissions=r.results||[];}
+     if(granted.has("support.manage")){const r=await env.DB.prepare("SELECT m.id,m.project_id,p.public_project_code,p.title AS project_title,u.email AS sender_email,COALESCE(cp.display_name,ep.display_name) AS sender_name,m.recipient_role,m.body,m.created_at FROM messages m JOIN projects p ON p.id=m.project_id JOIN users cu ON cu.id=p.client_id LEFT JOIN users u ON u.id=m.sender_id LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id WHERE cu.country_code=? ORDER BY m.created_at DESC LIMIT 50").bind(cc).all();regional.support_messages=r.results||[];}
+     if(granted.has("finance.read")){const r=await env.DB.prepare("SELECT p.payment_type,p.currency,p.status,COUNT(*) AS payment_count,COALESCE(SUM(p.amount_minor),0) AS total_minor FROM payments p WHERE p.project_id IN (SELECT pr.id FROM projects pr JOIN users cu ON cu.id=pr.client_id WHERE cu.country_code=?) OR p.user_id IN (SELECT eu.id FROM users eu LEFT JOIN editor_profiles ep ON ep.user_id=eu.id WHERE eu.role='editor' AND COALESCE(ep.country_code,eu.country_code)=?) GROUP BY p.payment_type,p.currency,p.status ORDER BY p.currency,p.payment_type,p.status").bind(cc,cc).all();regional.finance_summary=r.results||[];}
+     if(granted.has("finance.refunds")){const r=await env.DB.prepare("SELECT rr.id,rr.project_id,rr.amount_minor,rr.currency,rr.status,rr.reason,rr.created_at,cp.display_name AS client_name FROM client_refund_requests rr JOIN users cu ON cu.id=rr.client_id LEFT JOIN client_profiles cp ON cp.user_id=cu.id WHERE cu.country_code=? ORDER BY rr.created_at DESC LIMIT 50").bind(cc).all();regional.refunds=r.results||[];}
+    }
+   }
+   const regional_summary={clients:regional.clients.length,projects:regional.projects.length,editors:regional.editors.length,tenders:regional.tenders.length,submissions:regional.submissions.length,support_messages:regional.support_messages.length,refunds:regional.refunds.length};
+   return out({ok:true,countries:countries.results||[],assignments:assignments.results||[],invitations,pending_assignments:pending?.n||0,pending_invitations:0,eligible_countries:eligible?.n||0,permissions:permissions.results||[],regional,regional_summary},200);
+  }catch(e){console.error("Regional bridge read failed",String(e&&e.message||e));return bad("Regional data unavailable.",503,"regional_data_unavailable");}
+ }
+ 
  if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){
   // Dedicated Super Admin bridge. Never accepts Global Admin JWT/session roles.
   if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin pricing bridge is not configured.",503,"pricing_bridge_unavailable");
@@ -188,8 +294,75 @@ async function handle(req,env){
   }
   return bad("Unsupported pricing action.");
  }
- if(m==="GET"&&p==="/health"){const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests"];let d1=false,schemaReady=false,missingTables=requiredTables;try{const row=await env.DB.prepare("SELECT 1 AS ok").first();d1=row?.ok===1;if(d1){const tableRows=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+requiredTables.map(()=>"?").join(",")+")").bind(...requiredTables).all();const found=new Set((tableRows?.results||[]).map(x=>x.name));missingTables=requiredTables.filter(name=>!found.has(name));schemaReady=missingTables.length===0;}}catch{}return out({ok:true,service:"CSA Global API",status:d1&&schemaReady?"healthy":"degraded",d1_connected:d1,schema_ready:schemaReady,missing_tables:missingTables,google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});}
- if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
+ 
+ if(m==="POST"&&p==="/internal/superadmin/finance/refund-dashboard"){
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin finance bridge is not configured.",503,"finance_bridge_unavailable");
+  const raw=await req.text();
+  if(raw.length>8192)return bad("Finance dashboard request is too large.",413,"finance_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
+  const seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid finance bridge authentication headers.",401,"finance_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
+  const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const canonical="POST\n/internal/superadmin/finance/refund-dashboard\n"+ts+"\n"+nonce+"\n"+bodyHash;
+  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  if(!constantTime(expected,sig))return bad("Finance bridge signature is invalid.",401,"finance_signature_invalid");
+  let actor;try{actor=JSON.parse(raw)}catch{return bad("Invalid finance dashboard request JSON.");}
+  const actorId=txt(actor?.actor_admin_id,100),actorEmail=txt(actor?.actor_email,254).toLowerCase(),actorRole=txt(actor?.actor_role,40);
+  if(!actorId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)||!["super_admin","finance_admin"].includes(actorRole))return bad("Finance dashboard actor is not permitted.",403,"finance_actor_denied");
+  if(actorRole==="finance_admin"){
+   const authorized=await env.DB.prepare("SELECT 1 AS ok FROM global_admin_authorizations WHERE source_admin_id=? AND email=? COLLATE NOCASE AND source_role='finance_admin' AND status='active' LIMIT 1").bind(actorId,actorEmail).first();
+   if(!authorized)return bad("Finance administrator authorization is inactive.",403,"finance_actor_inactive");
+  }
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}
+  catch{return bad("Finance bridge nonce was already used.",409,"finance_replay");}
+  const results=await env.DB.batch([
+   env.DB.prepare("SELECT status,currency,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor FROM client_refund_requests GROUP BY status,currency ORDER BY currency,status"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS total_requests,COALESCE(SUM(amount_minor),0) AS total_amount_minor,COALESCE(SUM(CASE WHEN status='processed' THEN amount_minor ELSE 0 END),0) AS processed_amount_minor,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN amount_minor ELSE 0 END),0) AS pending_amount_minor,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN 1 ELSE 0 END),0) AS pending_records,COALESCE(SUM(CASE WHEN status IN ('failed','unknown') THEN 1 ELSE 0 END),0) AS attention_records FROM client_refund_requests GROUP BY currency ORDER BY currency"),
+   env.DB.prepare("SELECT COUNT(*) AS total_records,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN 1 ELSE 0 END),0) AS pending_records,COALESCE(SUM(CASE WHEN status='processed' THEN 1 ELSE 0 END),0) AS processed_records,COALESCE(SUM(CASE WHEN status IN ('failed','unknown') THEN 1 ELSE 0 END),0) AS attention_records FROM client_refund_requests"),
+   env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.review_note,r.provider_refund_id,r.created_at,r.updated_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 WHEN 'approved' THEN 2 WHEN 'processing' THEN 3 WHEN 'unknown' THEN 4 WHEN 'failed' THEN 5 ELSE 6 END,r.created_at DESC LIMIT 10")
+  ]);
+  const rows=results.map(x=>x.results||[]);
+  try{const actorUser=await env.DB.prepare("SELECT id FROM users WHERE email=? COLLATE NOCASE LIMIT 1").bind(actorEmail).first();if(actorUser?.id)await log(env,actorUser.id,"finance_refund_dashboard_viewed","finance","refund_dashboard",{source:"superadmin_bridge",source_admin_id:actorId,source_role:actorRole});}catch{}
+  return out({ok:true,dashboard:{status_and_currency:rows[0],currency_totals:rows[1],record_counts:rows[2][0]||{total_records:0,pending_records:0,processed_records:0,attention_records:0},priority_queue:rows[3]},meta:{queue_limit:10,amount_unit:"minor currency units",pending_statuses:["requested","under_review","approved","processing","unknown"],attention_statuses:["failed","unknown"],read_only:true,source:"superadmin_bridge"},note:"Read-only Global refund dashboard. Currency totals remain separate. No refund, transfer, or payment mutation is initiated."});
+ }
+ 
+ if(m==="POST"&&p==="/internal/superadmin/editor-sessions"){
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin editor session bridge is not configured.",503,"editor_session_bridge_unavailable");
+  const raw=await req.text();if(raw.length>8192)return bad("Editor session request is too large.",413,"editor_session_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid editor session bridge authentication headers.",401,"editor_session_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const canonical="POST\n/internal/superadmin/editor-sessions\n"+ts+"\n"+nonce+"\n"+bodyHash,expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  if(!constantTime(expected,sig))return bad("Editor session bridge signature is invalid.",401,"editor_session_signature_invalid");
+  let body;try{body=JSON.parse(raw)}catch{return bad("Invalid editor session request JSON.");}
+  const actorId=txt(body?.actor_admin_id,100),actorEmail=txt(body?.actor_email,254).toLowerCase(),actorRole=txt(body?.actor_role,40),editorId=txt(body?.editor_id,100),action=txt(body?.action,20),allow=(env.ADMIN_EMAILS||"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
+  if(!actorId||!actorEmail||actorRole!=="super_admin"||!allow.includes(actorEmail))return bad("Super Admin identity is not permitted.",403,"editor_session_actor_denied");
+  if(!editorId||!["list","revoke_one","revoke_all"].includes(action))return bad("Editor ID and a supported session action are required.");
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}catch{return bad("Editor session bridge nonce was already used.",409,"editor_session_replay");}
+  const target=await env.DB.prepare("SELECT id,role FROM users WHERE id=?").bind(editorId).first();if(!target||target.role!=="editor")return bad("Editor account not found.",404,"editor_not_found");
+  if(action==="list"){
+   const rows=await env.DB.prepare("SELECT created_at,expires_at FROM editor_sessions WHERE user_id=? AND expires_at>? ORDER BY created_at DESC LIMIT 50").bind(editorId,new Date().toISOString()).all();
+   const sessions=(rows.results||[]).map(x=>({session_ref:btoa(x.created_at+"\n"+x.expires_at).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_"),created_at:x.created_at,expires_at:x.expires_at}));
+   return out({ok:true,editor_id:editorId,active_sessions:sessions.length,sessions});
+  }
+  let actorUser=null;try{actorUser=await env.DB.prepare("SELECT id FROM users WHERE email=? COLLATE NOCASE LIMIT 1").bind(actorEmail).first();}catch{}
+  if(action==="revoke_one"){
+   const ref=txt(body.session_ref,300);if(!ref)return bad("Session reference is required.");
+   let decoded;try{decoded=atob(ref.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-ref.length%4)%4));}catch{return bad("Invalid session reference.");}
+   const parts=decoded.split("\n");if(parts.length!==2||!parts[0]||!parts[1])return bad("Invalid session reference.");
+   const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM editor_sessions WHERE user_id=? AND created_at=? AND expires_at=? AND expires_at>?").bind(editorId,parts[0],parts[1],new Date().toISOString()).first();
+   if(Number(count?.n||0)!==1)return bad(Number(count?.n||0)>1?"Session reference is ambiguous.":"Session is no longer active.",409,"session_not_unique");
+   await env.DB.prepare("DELETE FROM editor_sessions WHERE user_id=? AND created_at=? AND expires_at=?").bind(editorId,parts[0],parts[1]).run();
+   await log(env,actorUser?.id||null,"superadmin_editor_session_revoked","editor",editorId,{scope:"single_session",source_admin_id:actorId});
+   return out({ok:true,revoked:true});
+  }
+  const result=await env.DB.prepare("DELETE FROM editor_sessions WHERE user_id=?").bind(editorId).run(),revoked=Number(result.meta?.changes||0);
+  await log(env,actorUser?.id||null,"superadmin_editor_sessions_force_revoked","editor",editorId,{revoked_sessions:revoked,source_admin_id:actorId});
+  return out({ok:true,revoked_sessions:revoked});
+ }
+ if(m==="GET"&&p==="/health"){const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests","countries","country_legal_reviews","regional_admins","regional_admin_permissions","regional_admin_permission_catalog","regional_admin_audit_logs","editor_payouts"];let d1=false,schemaReady=false,missingTables=requiredTables;try{const row=await env.DB.prepare("SELECT 1 AS ok").first();d1=row?.ok===1;if(d1){const tableRows=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+requiredTables.map(()=>"?").join(",")+")").bind(...requiredTables).all();const found=new Set((tableRows?.results||[]).map(x=>x.name));missingTables=requiredTables.filter(name=>!found.has(name));schemaReady=missingTables.length===0;}}catch{}const legacyRequired=["video_editing_orders","video_editing_files","video_editing_status_history"];let legacyDb=false,legacySchemaReady=false,missingLegacyTables=legacyRequired;try{if(env.LEGACY_VIDEO_DB){const row=await env.LEGACY_VIDEO_DB.prepare("SELECT 1 AS ok").first();legacyDb=row?.ok===1;if(legacyDb){const rows=await env.LEGACY_VIDEO_DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+legacyRequired.map(()=>"?").join(",")+")").bind(...legacyRequired).all();const found=new Set((rows?.results||[]).map(x=>x.name));missingLegacyTables=legacyRequired.filter(name=>!found.has(name));legacySchemaReady=missingLegacyTables.length===0;}}}catch{}const mediaBucket=!!env.MEDIA,legacyVideoBucket=!!env.LEGACY_VIDEO_BUCKET,healthy=d1&&schemaReady&&legacyDb&&legacySchemaReady&&mediaBucket&&legacyVideoBucket;return out({ok:true,service:"CSA Global API",status:healthy?"healthy":"degraded",d1_connected:d1,schema_ready:schemaReady,missing_tables:missingTables,legacy_video_db_connected:legacyDb,legacy_video_schema_ready:legacySchemaReady,missing_legacy_video_tables:missingLegacyTables,media_bucket_configured:mediaBucket,legacy_video_bucket_configured:legacyVideoBucket,google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});}
+if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
  if(m==="POST"&&p==="/v1/auth/editor-password"){
  const b=await req.json(),username=txt(b.username,80).toUpperCase(),password=typeof b.password==="string"?b.password:"";if(!username||!password||password.length>256)return bad("CSA Editor ID and password are required.");
  const row=await env.DB.prepare("SELECT c.user_id,c.password_salt,c.password_hash,c.failed_attempts,c.locked_until,c.must_change_password,u.email,u.account_status,e.verification_status FROM editor_credentials c JOIN users u ON u.id=c.user_id JOIN editor_profiles e ON e.user_id=u.id WHERE c.username=? COLLATE NOCASE").bind(username).first();if(!row)return bad("Invalid CSA Editor ID or password.",401,"credentials_invalid");if(row.locked_until&&row.locked_until>new Date().toISOString())return bad("Login temporarily locked.",429,"login_locked");
