@@ -146,7 +146,7 @@ test("Super Admin bridge readiness action is admin-only and staging-only", () =>
   assert.ok(route.includes("adminOnly(u)"));
   assert.ok(route.includes('env.ENVIRONMENT!=="staging"'));
   assert.ok(route.includes("callGlobalLegacyBridgeReadiness(env)"));
-  assert.ok(route.includes("legacy_bridge_readiness_check"));
+  assert.ok(route.includes("legacy_bridge.readiness_check"));
 });
 
 test("Super Admin readiness client signs the fixed staging probe using the shared admin HMAC", () => {
