@@ -142,3 +142,10 @@ The canonical API (D1 470) and isolated API (D1 6a32) share the same R2 `MEDIA` 
 - Cloudflare generated and stored one random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` on both canonical Staging Workers. Secret values are not recorded in source control or chat.
 - Cloudflare confirmed the binding exists on both Workers and created a 100% traffic deployment version on each.
 - The next Super Admin cron (`*/15 * * * *`) is the runtime acceptance check. The most recent recorded scheduled sync before this secret deployment was successful at 09:30:46 UTC; confirm a new post-deployment scheduled record before closing this item.
+
+
+### Latest HMAC and observability acceptance — 2026-11-22 10:40 UTC
+
+- The canonical Global API accepts `GLOBAL_API_SYNC_HMAC_SECRET` and the legacy `ADMIN_SYNC_HMAC_SECRET` for the eight private Super Admin bridge endpoints. The isolated sender prefers the dedicated secret; old bindings remain unchanged for compatibility.
+- Scheduled Global Admin sync succeeded at 10:15:46 and 10:30:46 UTC, each synchronizing one active non-Super-Admin authorization with no error.
+- Isolated Super Admin, Editor Portal and Rush Admin Workers have persisted Logs and sampled Traces enabled. Exception objects/messages are not written into Staging logs.
