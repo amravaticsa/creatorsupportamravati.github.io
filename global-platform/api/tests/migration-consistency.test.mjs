@@ -12,7 +12,7 @@ const versions = names.map((name) => Number(name.slice(0, 4)));
 assert.equal(new Set(versions).size, versions.length, "Duplicate migration version found");
 const reservedGaps = new Set([30]);
 const gapDocumentation = await readFile(new URL("../../migrations/MIGRATION-NUMBER-GAPS.md", import.meta.url), "utf8");
-assert.match(gapDocumentation, /0030[\\s\\S]*reserved/i, "Reserved migration gaps must be documented");
+assert.ok(gapDocumentation.includes("0030") && gapDocumentation.toLowerCase().includes("reserved"), "Reserved migration gaps must be documented");
 for (let version = 1; version <= Math.max(...versions); version++) {
   if (reservedGaps.has(version)) {
     assert.ok(!versions.includes(version), "Reserved migration number must not be backfilled retroactively");
