@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const worker = readFileSync(new URL("../worker.js", import.meta.url), "utf8");
-const migration = readFileSync(new URL("../../../../../migrations/0027_legacy_bridge_nonces.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../../../migrations/0027_legacy_bridge_nonces.sql", import.meta.url), "utf8");
 
 test("legacy bridge verifier is staging-only and requires the dedicated secret", () => {
   assert.match(worker, /ENVIRONMENT[^\n]*staging/);
