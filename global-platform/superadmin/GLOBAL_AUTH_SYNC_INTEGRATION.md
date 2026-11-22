@@ -499,3 +499,19 @@ Read-only inspection of `global_admin_sync_logs` in isolated Super Admin D1 `c2b
 **No secret value was read or compared.** The binding names and deployed script source were inspected only. Do not rotate, copy, expose, or add a secret as an automatic workaround. Before changing anything, decide which target is authoritative for the isolated Super Admin: (a) keep the isolated API and make the sender use the existing shared `ADMIN_SYNC_HMAC_SECRET`, or (b) deliberately redirect to canonical `csa-global-api-staging` and validate that its D1/data ownership is intended. Any secret installation/rotation requires separate security approval.
 
 Until the target and signer/verifier pair are reconciled, keep Global Admin sync status **DEGRADED / NOT VERIFIED**. Do not use a manual retry to mask the mismatch. After an approved correction, require a new scheduled success and a controlled test admin lifecycle transition before closing the item.
+
+
+## Canonical staging bridge alignment — 2026-11-22 10:05 UTC
+
+- The deployed isolated Super Admin Worker now routes all five Global API bridges (admin authorization sync, pricing, refund dashboard, editor sessions and legacy links) to `csa-global-api-staging`, the API used by the Client/Editor Staging portal and bound to canonical D1 `470a81b8-b8c5-413c-9f51-58f0a9fa0712`? (see the database ID below).
+- The Regional Admin proxy in the Super Admin Worker also targets the canonical Global API. The isolated API Worker remains a separate test/legacy surface and is no longer the destination for Super Admin Global API bridges.
+- A new random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` was generated and set on `csa-superadmin-isolated-staging` and `csa-global-api-staging`. The value is not exposed or stored in GitHub. Both Workers have 100% traffic deployments.
+- The canonical API accepts the dedicated secret and retains `ADMIN_SYNC_HMAC_SECRET` fallback. The Super Admin sender prefers the dedicated secret and retains legacy fallback.
+- Scheduled sync at 10:00:46 UTC still failed. Its diagnostic was redacted as `internal_error`; the Super Admin Worker now records only an allowlisted HTTP status for the next scheduled run. Do not mark sync healthy until a post-change scheduled success is recorded.
+- The 10:04 UTC source snapshot is synchronized with all five deployed Super Admin Worker modules. All five Super Admin bridges now contain the canonical API hostname and no isolated API hostname.
+
+### Remaining acceptance checks
+
+1. Confirm the next scheduled sync succeeds and updates canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
+2. Confirm the same authorization snapshot is not required on the isolated Regional API database; keep that database isolated and do not assume replication.
+3. Run a controlled Admin lifecycle test only after a real authorized Admin action; no test account or invitation has been created.
