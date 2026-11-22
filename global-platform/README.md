@@ -234,7 +234,7 @@ A fresh read-only inventory enumerated all 10 D1 databases, all deployed Workers
 This update supersedes earlier staging-boundary notes above where the current Cloudflare configuration has since changed:
 
 - Canonical Client/Editor Portal remains `csa-global-api-staging` on D1 `csa-global-platform-staging` (`470a81b8-3d36-4e2d-942c-5cbb2746a473`). The Pages portal's `portal.js` targets this API.
-- The legacy compatibility API `csa-global-api-isolated-staging` and canonical API `csa-global-api-staging` both bind Global `DB` to canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`. Regional Admin data reads use the compatibility hostname but the same canonical D1. Legacy video records remain in `LEGACY_VIDEO_DB` `2d3f97a0-fa32-46ef-9913-972a59a410e4`. D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` is an unbound snapshot, not an active backend.
+- The canonical API `csa-global-api-staging` uses Global D1 470 and legacy video D1 2d3. The isolated legacy-link API `csa-global-api-isolated-staging` uses Global D1 6a32 and video D1 b611. Regional Admin data uses the canonical API; only Legacy Links uses the isolated API.
 - Canonical staging API exposes HMAC-protected internal bridges for admin authorization sync, pricing policy, refund dashboard, editor sessions, and a Regional Admin read bridge for future consolidation. Finance access is sourced from `csa_admin_module_access` and persisted as `global_admin_authorizations.finance_access_level`. The active isolated Regional Admin portal currently uses `csa-global-api-isolated-staging`.
 - Super Admin authorization reconciliation runs every 15 minutes; canonical Global API multipart cleanup runs hourly. The isolated API retains its own 15-minute cleanup for its separate D1/R2 resources.
 - A separate `csa-rush-admin-isolated-staging` Worker was created. It uses Rush D1 `csa-video-rush-staging` (`198a0604-af4d-4671-8053-5df245ea754c`) and isolated Super Admin D1 `csa-superadmin-isolated-staging` (`c2bb3fb5-db22-4ed5-9283-161df57ebac2`). Routes: `superadmin-editor-staging.creatorsupportamravati.in/rush-approvals*` and `superadmin-editor-staging.creatorsupportamravati.in/rush-api/*`. Open the staging approvals page at `https://superadmin-editor-staging.creatorsupportamravati.in/rush-approvals` after signing in to the isolated Super Admin portal.
@@ -284,11 +284,11 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 ### Staging storage isolation boundary
 
-- Global Client/Editor and Regional Admin data currently share canonical D1 470; Super Admin identities/sessions remain in separate D1 c2bb. D1 6a32 is an unbound snapshot.
+- Global Client/Editor and Regional Admin data use canonical D1 470; Super Admin identities/sessions remain in separate D1 c2bb. Legacy Links and the isolated Editor Portal use Global D1 6a32 with video D1 b611.
 - Object storage is **not fully isolated**: both Global API Workers currently bind `MEDIA` to `csa-global-media-staging`, and both share `LEGACY_VIDEO_DB` 2d3... plus `LEGACY_VIDEO_BUCKET` `csa-global-video-isolated-staging`. These buckets are accessed through Worker bindings, not a public bucket hostname; per-record ownership/assignment checks are the security boundary.
 - Before public launch, cross-account media access must be tested using real Client/Editor accounts. If strict physical isolation is required, provision separate R2 buckets and a separate legacy-video D1, then plan a controlled object/record migration. Do not switch bindings without that migration plan.
 
-- Canonical Global D1 migration `0032_verified_country_scope.sql` now makes `v_project_country_scope` require verified country timestamp, reviewer ID and evidence reference. The unbound snapshot D1 6a32 also has the same rule but is not an active Worker binding. The three existing canonical projects remain `country_unassigned`; no India project data is exposed to a Regional Admin before verification.
+- Canonical Global D1 migration `0032_verified_country_scope.sql` requires verified country timestamp, reviewer ID and evidence reference. The isolated legacy Global D1 6a32 retains its own matching scope guard for legacy Editor workflows. The three canonical projects remain `country_unassigned`; no India project data is exposed to a Regional Admin before verification.
 
 - Read-only R2 check on 22 November 2026: managed `r2.dev` public access is disabled for both `csa-global-media-staging` and `csa-global-video-isolated-staging`; neither bucket has a public managed R2 endpoint enabled. The buckets remain shared by the two API Workers through private bindings.
 
@@ -297,4 +297,4 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 - Verified live settings after the latest Super Admin deployment: `csa-superadmin-isolated-staging` uses `DB=c2bb3fb5-db22-4ed5-9283-161df57ebac2` for Super Admin identities/sessions and `GLOBAL_DB=470a81b8-3d36-4e2d-942c-5cbb2746a473` for country review/assignment against the canonical Global Platform D1.
 - Both `csa-global-api-staging` and the legacy-link compatibility Worker `csa-global-api-isolated-staging` currently bind `DB=470a81b8-3d36-4e2d-942c-5cbb2746a473`. The latter keeps its legacy video data in `LEGACY_VIDEO_DB=2d3f97a0-fa32-46ef-9913-972a59a410e4`.
-- D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` remains an unbound isolated snapshot; do not treat it as the active Global API database. The Staging preflight now checks the canonical `GLOBAL_DB` binding.
+- D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` is the active isolated legacy-link API database, not the canonical Client/Editor or Regional Admin database. The Staging preflight checks the canonical `GLOBAL_DB` binding.
