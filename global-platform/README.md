@@ -62,7 +62,7 @@ Migrations `0001` through `0010` are present in `global-platform/migrations/`. S
 
 ## Remaining release gates
 - Confirm the full deployed frontend (not only the homepage) and API are reachable, then complete browser-level tests for Google sign-in, client project submission, file upload/download, editor workflow, QC and refund status.
-- Integrate CSA Global admin access with the approved single-Super-Admin model. The separate `csa-superadmin-api-staging` service already provides Access-protected first-Super-Admin bootstrap, password + email OTP login, and Super-Admin-only admin invitations/role management. However, it uses a separate D1 identity store and is not yet connected to CSA Global's `users` table or portal session. Meanwhile, this Global API still auto-creates an `admin` account for any Google email in its `ADMIN_EMAILS` allowlist during `/v1/auth/google`. This split identity model is an integration gap: do not add further admin emails, use the Global API admin signup as the production admin path, or assume Super Admin invitations automatically grant CSA Global portal access until a secure, tested identity bridge is implemented.
+- Integrate CSA Global admin access with the approved single-Super-Admin model. The separate `csa-superadmin-api-staging` service already provides Access-protected first-Super-Admin bootstrap, password + email OTP login, and Super-Admin-only admin invitations/role management. However, it uses a separate D1 identity store and is not yet connected to CSA Global's `users` table or portal session. Meanwhile, this Global API still auto-creates an `admin` account for any Google email in its `ADMIN_EMAILS` allowlist during `/v1/auth/google`. The identity stores remain separate by design. The HMAC authorization bridge now synchronizes permitted non-Super-Admin roles into the Global API; Super Admin country assignment and Regional Admin data use the canonical Global D1 binding. A shared browser session across the two portals is not implemented.
 - Run payment/refund tests only with explicit approval and Razorpay Test Mode; no real-money payment or refund has been initiated.
 - Complete legal review and approval of client/editor agreements before activating them.
 - Complete end-to-end tests for resumable/multipart upload, including resume, checksum verification, completion reconciliation and expired-session cleanup.
@@ -234,7 +234,7 @@ A fresh read-only inventory enumerated all 10 D1 databases, all deployed Workers
 This update supersedes earlier staging-boundary notes above where the current Cloudflare configuration has since changed:
 
 - Canonical Client/Editor Portal remains `csa-global-api-staging` on D1 `csa-global-platform-staging` (`470a81b8-3d36-4e2d-942c-5cbb2746a473`). The Pages portal's `portal.js` targets this API.
-- A separate isolated D1 `csa-global-platform-isolated-staging` (`6a32dda3-b8c5-413c-9f51-58f0a9fa0712`) is bound to `csa-global-api-isolated-staging` and the isolated Super Admin Worker's `GLOBAL_DB`. The canonical Client/Editor Portal remains on D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`. Global Admin authorization, pricing, refund and editor-session bridges target the canonical API; Regional Admin data reads intentionally remain on the isolated API/D1. There is no automatic live data replication between the two D1 databases.
+- The legacy compatibility API `csa-global-api-isolated-staging` and canonical API `csa-global-api-staging` both bind Global `DB` to canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`. Regional Admin data reads use the compatibility hostname but the same canonical D1. Legacy video records remain in `LEGACY_VIDEO_DB` `2d3f97a0-fa32-46ef-9913-972a59a410e4`. D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` is an unbound snapshot, not an active backend.
 - Canonical staging API exposes HMAC-protected internal bridges for admin authorization sync, pricing policy, refund dashboard, editor sessions, and a Regional Admin read bridge for future consolidation. Finance access is sourced from `csa_admin_module_access` and persisted as `global_admin_authorizations.finance_access_level`. The active isolated Regional Admin portal currently uses `csa-global-api-isolated-staging`.
 - Super Admin authorization reconciliation runs every 15 minutes; canonical Global API multipart cleanup runs hourly. The isolated API retains its own 15-minute cleanup for its separate D1/R2 resources.
 - A separate `csa-rush-admin-isolated-staging` Worker was created. It uses Rush D1 `csa-video-rush-staging` (`198a0604-af4d-4671-8053-5df245ea754c`) and isolated Super Admin D1 `csa-superadmin-isolated-staging` (`c2bb3fb5-db22-4ed5-9283-161df57ebac2`). Routes: `superadmin-editor-staging.creatorsupportamravati.in/rush-approvals*` and `superadmin-editor-staging.creatorsupportamravati.in/rush-api/*`. Open the staging approvals page at `https://superadmin-editor-staging.creatorsupportamravati.in/rush-approvals` after signing in to the isolated Super Admin portal.
@@ -246,18 +246,18 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 ### Country assignment integration — 2026-11-22 08:40 UTC
 
-- The isolated Super Admin Worker's `GLOBAL_DB` binding points to isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`; its `DB` binding remains Super Admin identity/session D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`. The canonical Client/Editor API D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` is separate.
+- The isolated Super Admin Worker's `GLOBAL_DB` binding points to canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`; its `DB` binding remains Super Admin identity/session D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
 - Canonical Global D1 now includes the evidence-backed immutable country assignment audit table, verification columns, insert/update/delete guards, and the extended country assignment review view (migration `0031_country_assignment_audit.sql`).
 - Client/Editor onboarding now leaves authoritative `users.country_code` null. Self-reported country remains in profile fields; Super Admin verification with evidence is required before country scoping is activated.
 - Two existing active Client accounts currently appear as `needs_verified_country`. No country was assigned automatically and no audit rows were created.
-- The separate `csa-global-api-isolated-staging` D1 6a32 is used by the isolated Super Admin/Regional Admin staging portal, not by the canonical Client/Editor Portal.
+- The `csa-global-api-isolated-staging` hostname is a compatibility bridge for legacy links and Regional Admin proxy calls; it shares canonical Global D1 470 and uses the separate legacy video D1 2d3.
 
 
 ### Super Admin Staging route and canonical database correction — 2026-11-22 09:05 UTC
 
 - `admin-staging.creatorsupportamravati.in/*` route ID `106b1cfa87ce411d99ef77b328b1b39e` now targets `csa-superadmin-isolated-staging` (previously it incorrectly targeted the legacy Worker).
 - The isolated Super Admin Worker's `ADMIN_DASHBOARD_URL` is now `https://admin-staging.creatorsupportamravati.in`, which is the host allowed for non-super-admin administrator roles. `superadmin-editor-staging.creatorsupportamravati.in` remains super-admin-only.
-- The isolated Super Admin Worker's `GLOBAL_DB` points to isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`; its separate `DB` binding remains `c2bb3fb5-db22-4ed5-9283-161df57ebac2` for Super Admin accounts/sessions.
+- The isolated Super Admin Worker's `GLOBAL_DB` points to canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`; its separate `DB` binding remains `c2bb3fb5-db22-4ed5-9283-161df57ebac2` for Super Admin accounts/sessions.
 - Cloudflare Access remains scoped only to `admin-staging.creatorsupportamravati.in/api/bootstrap` and allows the owner email for the one-time first-Super-Admin bootstrap. It does not protect the ordinary login route. The application login still enforces password, email OTP, session expiry and RBAC.
 - Production-looking hostnames and legacy Worker routes were not changed.
 
@@ -273,10 +273,10 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 ### Regional Admin data path and staging isolation — 2026-11-22
 
-- The isolated Super Admin Worker's Regional Admin read proxy targets `csa-global-api-isolated-staging` and D1 6a32. This is intentional Staging isolation; it is not the canonical Client/Editor API database.
+- The isolated Super Admin Worker's Regional Admin read proxy targets `csa-global-api-isolated-staging`, which currently binds canonical Global D1 470. The hostname is a compatibility bridge, not a separate user/project database.
 - The canonical Global API also has HMAC-authenticated, replay-protected Regional Admin read endpoints for future consolidation. They are not the current Regional Admin portal's data path.
 - All Regional Admin queries use verified `users.country_code` or `v_project_country_scope`; self-reported `editor_profiles.country_code` is not used for access scoping. Finance/refund endpoints remain explicitly denied.
-- Super Admin Worker `GLOBAL_DB` remains isolated D1 6a32; its `DB` remains Super Admin identity/session D1 c2bb. The canonical Client/Editor API remains on D1 470. No Production host or Worker was changed.
+- Super Admin Worker `GLOBAL_DB` is canonical D1 470; its `DB` remains Super Admin identity/session D1 c2bb. No Production host or Worker was changed.
 - Runtime Regional Admin login/E2E remains blocked until an actual Regional Admin identity exists and the country legal review is approved.
 
 - The Regional Admin portal is served at `https://regional-staging.creatorsupportamravati.in`; the Super Admin Worker rejects this hostname unless `ENVIRONMENT=staging`. The custom domain maps to `csa-superadmin-isolated-staging`. Its unauthenticated dashboard endpoint returns 401; login requires the separate password + email OTP session.
@@ -284,7 +284,7 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 ### Staging storage isolation boundary
 
-- D1 data is separated: canonical Client/Editor API uses D1 470; isolated Super Admin/Regional Admin API uses D1 6a32.
+- Global Client/Editor and Regional Admin data currently share canonical D1 470; Super Admin identities/sessions remain in separate D1 c2bb. D1 6a32 is an unbound snapshot.
 - Object storage is **not fully isolated**: both Global API Workers currently bind `MEDIA` to `csa-global-media-staging`, and both share `LEGACY_VIDEO_DB` 2d3... plus `LEGACY_VIDEO_BUCKET` `csa-global-video-isolated-staging`. These buckets are accessed through Worker bindings, not a public bucket hostname; per-record ownership/assignment checks are the security boundary.
 - Before public launch, cross-account media access must be tested using real Client/Editor accounts. If strict physical isolation is required, provision separate R2 buckets and a separate legacy-video D1, then plan a controlled object/record migration. Do not switch bindings without that migration plan.
 
