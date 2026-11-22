@@ -32,16 +32,16 @@ The existing `ADMIN_SYNC_HMAC_SECRET` on the Global API Worker remains present a
 - Added a disposable in-memory SQLite test for migration `0027`, covering nonce uniqueness, expiry cleanup, and the expiry index; the staging CI workflow now runs it without touching remote D1.
 - CI validation passed for the staging source changes.
 
-The nonce migration has NOT been applied to the remote legacy D1, and the Worker source has NOT been deployed as part of this step. Until the migration is applied, the endpoint fails closed. No D1 binding has been changed and no editor identity, order, assignment, credential, KYC document, or media record has been copied.
+The nonce migration `0027` was applied on 2026-11-22 only to the isolated Editor Portal staging D1 (`csa-video-isolated-staging`, binding `CSA_VIDEO_DB`). The table `legacy_bridge_nonces` and index `idx_legacy_bridge_nonces_expiry` were read back from `sqlite_master` and verified. The disposable SQLite migration test also passed in CI. The Editor Portal Worker source has NOT been deployed, so the live health endpoint is not yet available. No D1 binding was changed and no editor identity, order, assignment, credential, KYC document, or media record was copied.
 
 ## Required next implementation gates
 
-1. Run the signer/verifier regression suite in CI, then add a disposable-D1 runtime probe that exercises a real signed request against the verifier.
-2. Execute the nonce migration against a disposable copy of the legacy Editor Portal schema, then apply it only to the isolated legacy Editor Portal D1 after explicit confirmation.
+1. Deploy the updated Editor Portal Worker source to the isolated staging Worker only, after separate deployment approval; keep the existing production Worker untouched.
+2. Run a real signed health request through the deployed staging endpoint, then verify nonce replay rejection and fail-closed behavior against the migrated D1.
 3. Implement explicit admin-reviewed Global editor ↔ legacy editor mapping; require active account, verified profile, and verified KYC. Never match by email/name alone and never copy password credentials.
 4. Implement idempotent order/assignment bridge operations and revocation handling.
 5. Only after the above tests pass, revisit the isolated Global API `LEGACY_VIDEO_DB` binding. Preserve all existing bindings and keep production untouched.
-6. Deploy to isolated staging only after the runtime and end-to-end acceptance suite passes.
+6. Deploy Global API bridge source only after the runtime and end-to-end acceptance suite passes.
 
 ## Safety note
 
