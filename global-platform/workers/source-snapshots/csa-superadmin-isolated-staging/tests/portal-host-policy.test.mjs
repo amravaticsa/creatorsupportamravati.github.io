@@ -21,8 +21,11 @@ test("dedicated editor-management auth host is staging-only", () => {
 
 
 test("admin staging and workers.dev hosts are restricted to staging", () => {
+  assert.equal(allowed("admin-isolated-staging.creatorsupportamravati.in", "project_admin", "staging"), true);
   assert.equal(allowed("admin-staging.creatorsupportamravati.in", "project_admin", "staging"), true);
+  assert.equal(allowed("admin-isolated-staging.creatorsupportamravati.in", "super_admin", "staging"), false);
   assert.equal(allowed("admin-staging.creatorsupportamravati.in", "super_admin", "staging"), false);
+  assert.equal(allowed("admin-isolated-staging.creatorsupportamravati.in", "project_admin", "production"), false);
   assert.equal(allowed("admin-staging.creatorsupportamravati.in", "project_admin", "production"), false);
   assert.equal(allowed("csa-superadmin-isolated-staging.creatorsupportamravati.workers.dev", "super_admin", "staging"), true);
   assert.equal(allowed("csa-superadmin-isolated-staging.creatorsupportamravati.workers.dev", "super_admin", "production"), false);
@@ -42,7 +45,7 @@ test("Admin invitation links use the role-compatible Admin dashboard host", () =
   assert.ok(start >= 0 && end > start, "Admin invite handler must exist");
   const invite = source.slice(start, end);
   assert.ok(invite.includes("env.ADMIN_DASHBOARD_URL"));
-  assert.ok(invite.includes('dashboard.hostname!=="admin-staging.creatorsupportamravati.in"'));
+  assert.ok(invite.includes('dashboard.hostname!=="admin-isolated-staging.creatorsupportamravati.in"'));
   assert.ok(invite.includes('dashboard.protocol!=="https:"'));
   assert.doesNotMatch(invite, /admin\\.creatorsupportamravati\\.in/);
   assert.ok(invite.includes('dashboard.origin+"/?invite="'));
