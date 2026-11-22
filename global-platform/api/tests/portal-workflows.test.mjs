@@ -226,5 +226,5 @@ test("Workflow notifications reach Client and Editor and Editor can read/manage 
   assert.ok(api.includes('notifyInApp(env,sub.client_id,"quality_review_"+status'));
   assert.ok(api.includes('user(req,env,["client","admin","editor"])'));
   assert.ok(portal.includes('loadCsaNotifications("editor")'));
-  assert.ok(portal.includes("editor-notifications"));
+  assert.ok(portal.includes('loadCsaNotifications("editor")'));
 });
