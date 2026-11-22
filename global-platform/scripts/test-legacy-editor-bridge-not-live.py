@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKER = ROOT / "global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js"
-API = ROOT / "api/src/index.js"
+API = ROOT / "global-platform/api/src/index.js"
 PROPOSAL = ROOT / "global-platform/docs/legacy-editor-bridge-api-contract-proposal.md"
 
 PROPOSED_ROUTES = (
