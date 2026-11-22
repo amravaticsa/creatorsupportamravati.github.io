@@ -484,3 +484,18 @@ This is a source-control implementation specification, not a deployed code chang
 - Cloudflare generated and stored one random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` on both canonical Staging Workers. Secret values are not recorded in source control or chat.
 - Cloudflare confirmed the binding exists on both Workers and created a 100% traffic deployment version on each.
 - The next Super Admin cron (`*/15 * * * *`) is the runtime acceptance check. The most recent recorded scheduled sync before this secret deployment was successful at 09:30:46 UTC; confirm a new post-deployment scheduled record before closing this item.
+
+## Post-provisioning runtime verification — 2026-11-22
+
+Read-only inspection of `global_admin_sync_logs` in isolated Super Admin D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` shows the scheduled sync at 09:45:46 UTC failed with `global_authorization_sync_failed_401` and `synced_count=0`. The three preceding scheduled runs at 09:00, 09:15 and 09:30 UTC succeeded with one authorization synchronized each. Do not describe the post-provisioning sync as healthy until a later scheduled run succeeds.
+
+### Verified target / binding mismatch to resolve
+
+- The currently deployed `csa-superadmin-isolated-staging` script's `global-admin-sync.js` signs with `GLOBAL_API_SYNC_HMAC_SECRET || ADMIN_SYNC_HMAC_SECRET` and sends the authorization snapshot to `csa-global-api-isolated-staging`.
+- Live Worker settings show `GLOBAL_API_SYNC_HMAC_SECRET` is present on `csa-superadmin-isolated-staging` and `csa-global-api-staging`, but is **not** present on `csa-global-api-isolated-staging`.
+- The isolated API has `ADMIN_SYNC_HMAC_SECRET`; the isolated Super Admin also retains `ADMIN_SYNC_HMAC_SECRET`. The helper currently prefers the dedicated key, so the sender and receiver can calculate different signatures. This is consistent with the observed HTTP 401.
+- The canonical staging API `csa-global-api-staging` has both `ADMIN_SYNC_HMAC_SECRET` and `GLOBAL_API_SYNC_HMAC_SECRET`, but it is not the endpoint targeted by the currently deployed isolated helper.
+
+**No secret value was read or compared.** The binding names and deployed script source were inspected only. Do not rotate, copy, expose, or add a secret as an automatic workaround. Before changing anything, decide which target is authoritative for the isolated Super Admin: (a) keep the isolated API and make the sender use the existing shared `ADMIN_SYNC_HMAC_SECRET`, or (b) deliberately redirect to canonical `csa-global-api-staging` and validate that its D1/data ownership is intended. Any secret installation/rotation requires separate security approval.
+
+Until the target and signer/verifier pair are reconciled, keep Global Admin sync status **DEGRADED / NOT VERIFIED**. Do not use a manual retry to mask the mismatch. After an approved correction, require a new scheduled success and a controlled test admin lifecycle transition before closing the item.
