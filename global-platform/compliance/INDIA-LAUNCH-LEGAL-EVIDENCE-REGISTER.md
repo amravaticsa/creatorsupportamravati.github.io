@@ -98,3 +98,17 @@ The platform should be designed now for the full regime rather than waiting for 
 - **Removal of Difficulties Order:** S.O. 5458(E), dated 5 October 2026 and published in the Gazette on 6 October 2026, corrects wording in Act section 9(1) (children and persons with disability) and section 10(2)(c)(ii) (data audit terminology). It does not change the phased commencement dates. Gazette copy: https://egazette.gov.in/WriteReadData/2026/276885.pdf.
 - **Consent Manager phase:** Rule 4 and Act section 6(9) / section 27(1)(d) entered into force on 13 November 2026. CSA should not assume it must register as a Consent Manager; counsel should confirm that CSA is not offering a Consent Manager service to Data Principals. The platform's ordinary consent capture does not by itself make it a registered Consent Manager.
 - The main Data Fiduciary notice, consent, security, breach, rights and retention provisions remain scheduled for 13 May 2027 under the phased notifications. Begin implementation now and have counsel confirm the operative position at the time of launch.
+
+
+## 10. Live staging country-registry evidence checked on 22 November 2026
+
+A read-only aggregate/schema check was performed against the regular Global Platform staging D1 (`470a81b8-3d36-4e2d-942c-5cbb2746a473`); no personal identifiers or legal notes were retrieved.
+
+- India registry row: `country_code=IN`, `commercial_status=planned`, `payment_enabled=0`, `payout_enabled=0`.
+- India legal-review records: **0**.
+- India Regional Admin assignments: **0**; related Regional Admin permission rows: **0**.
+- Country assignment audit rows: **0**.
+- Active users with `role=client` and `country_code IS NULL`: **2**.
+- The country assignment audit table, insert guard, no-update/no-delete triggers, user assignment-required trigger, and review view are present in both regular staging D1 (`470a...`) and isolated Global API staging D1 (`6a32...`).
+
+This confirms the technical guardrails are present and India is not commercially enabled in the checked staging registry. It does not create legal approval, establish the legal classification of CSA, or authorise country activation. The two client records must remain unassigned until verified evidence is reviewed through the approved workflow.
