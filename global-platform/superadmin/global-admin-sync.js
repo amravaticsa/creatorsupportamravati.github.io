@@ -80,3 +80,61 @@ export async function syncGlobalAdminAuthorizations(env) {
   }
   return { synced: Number(payload.synced || 0) };
 }
+
+export async function callGlobalPricingPolicy(env,payload){
+ if(env.ENVIRONMENT!=="staging")throw new Error("pricing_bridge_staging_only");
+ if(!(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET))throw new Error("pricing_bridge_secret_missing");
+ const path="/internal/superadmin/pricing-policy",body=JSON.stringify(payload),timestamp=String(Math.floor(Date.now()/1000)),nonce=crypto.randomUUID();
+ const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
+ const signature=await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET,canonical);
+ const response=await fetch("https://csa-global-api-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||data.ok!==true)throw new Error("global_pricing_bridge_failed_"+response.status);
+ return data;
+}
+
+
+export async function callGlobalRefundDashboard(env, actor, request={}) {
+  if (env.ENVIRONMENT !== 'staging') throw new Error('refund_dashboard_bridge_staging_only');
+  if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET)) throw new Error('refund_dashboard_bridge_secret_missing');
+  const path = '/internal/superadmin/finance/refund-dashboard';
+  const body = JSON.stringify({...request,actor_admin_id:String(actor?.id||''),actor_email:String(actor?.email||'').trim().toLowerCase(),actor_role:String(actor?.role||'')});
+  const timestamp = String(Math.floor(Date.now()/1000));
+  const nonce = crypto.randomUUID();
+  const canonical = ['POST',path,timestamp,nonce,await sha256Hex(body)].join('\n');
+  const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  const response = await fetch('https://csa-global-api-staging.creatorsupportamravati.workers.dev'+path,{method:'POST',headers:{'content-type':'application/json','x-csa-sync-timestamp':timestamp,'x-csa-sync-nonce':nonce,'x-csa-sync-signature':signature},body});
+  const data = await response.json().catch(()=>({}));
+  if (!response.ok || data.ok !== true) throw new Error('global_refund_dashboard_bridge_failed_'+response.status);
+  return data;
+}
+
+
+export async function callGlobalEditorSessions(env, actor, request) {
+ if (env.ENVIRONMENT !== "staging") throw new Error("editor_sessions_bridge_staging_only");
+ if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET)) throw new Error("editor_sessions_bridge_secret_missing");
+ const path = "/internal/superadmin/editor-sessions";
+ const body = JSON.stringify({actor_admin_id:String(actor?.id||""),actor_email:String(actor?.email||"").trim().toLowerCase(),actor_role:String(actor?.role||""),editor_id:String(request?.editor_id||""),action:String(request?.action||""),session_ref:String(request?.session_ref||"")});
+ const timestamp = String(Math.floor(Date.now()/1000));
+ const nonce = crypto.randomUUID();
+ const canonical = ["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
+ const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET,canonical);
+ const response = await fetch("https://csa-global-api-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
+ const data = await response.json().catch(()=>({}));
+ if (!response.ok || data.ok !== true) throw new Error("global_editor_sessions_bridge_failed_"+response.status);
+ return data;
+}
+
+export async function callGlobalLegacyLinks(env,actor,request){
+ if(env.ENVIRONMENT!=="staging")throw new Error("legacy_links_bridge_staging_only");
+ if(!(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET))throw new Error("legacy_links_bridge_secret_missing");
+ const path="/internal/superadmin/legacy-links";
+ const body=JSON.stringify({...request,actor_admin_id:String(actor?.id||""),actor_email:String(actor?.email||"").trim().toLowerCase(),actor_role:String(actor?.role||"")});
+ const timestamp=String(Math.floor(Date.now()/1000)),nonce=crypto.randomUUID();
+ const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
+ const signature=await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET,canonical);
+ const response=await fetch("https://csa-global-api-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||data.ok!==true)throw new Error("global_legacy_links_bridge_failed_"+response.status);
+ return data;
+}
