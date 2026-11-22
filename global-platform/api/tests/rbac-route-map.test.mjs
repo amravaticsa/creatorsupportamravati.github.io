@@ -28,14 +28,19 @@ const adminPermissionFor = Function("URL", resolverSource + "; return adminPermi
 function required(method, path) {
   return adminPermissionFor({ method, url: "https://csa.test" + path });
 }
-function can(role, permission) {
+function can(role, permission, financeAccessLevel = "none") {
+  if (role === "finance_admin") {
+    if (["read", "write", "manage"].includes(financeAccessLevel) && permission === "finance.read") return true;
+    if (["write", "manage"].includes(financeAccessLevel) && ["finance.refunds", "finance.payouts"].includes(permission)) return true;
+    return false;
+  }
   return (rolePermissions[role] || []).includes(permission);
 }
-function permits(role, method, path) {
+function permits(role, method, path, financeAccessLevel = "none") {
   const requirement = required(method, path);
   if (requirement === null) return true;
   if (requirement === "__deny__") return false;
-  return (Array.isArray(requirement) ? requirement : [requirement]).some(p => can(role, p));
+  return (Array.isArray(requirement) ? requirement : [requirement]).some(p => can(role, p, financeAccessLevel));
 }
 function financePermissions(level) {
   const permissions = [...(rolePermissions.finance_admin || [])];
@@ -58,6 +63,12 @@ test("five delegated role mappings exist; Super Admin is separate and Regional A
   assert.equal(rolePermissions.super_admin, undefined);
   assert.deepEqual(rolePermissions.regional_admin, []);
   assert.equal(permits("regional_admin", "GET", "/v1/admin/overview"), false);
+});
+
+test("Regional Admin remains isolated from the global admin API", () => {
+  assert.equal(permits("regional_admin", "GET", "/v1/admin/departments"), false);
+  assert.equal(permits("regional_admin", "GET", "/v1/admin/overview"), false);
+  assert.ok(source.includes('if(a.source_role==="regional_admin")throw Error("Regional Admin access is restricted to the country-scoped Regional Admin portal.")'));
 });
 
 test("Project Admin can access project workflow but not finance/editor review", () => {
@@ -130,6 +141,7 @@ test("pricing policy remains explicitly locked to the separate Super Admin bound
   assert.equal(required("POST", "/v1/admin/pricing-policy"), "__deny__");
   assert.match(source, /Only Super Admin can (manage|change) CSA pricing policy/);
   assert.equal(rolePermissions.super_admin, undefined);
+  assert.deepEqual(rolePermissions.regional_admin, []);
 });
 
 test("Super Admin pricing bridge is signed, replay-protected and staging-only", () => {
