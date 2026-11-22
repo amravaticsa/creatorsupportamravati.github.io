@@ -131,7 +131,61 @@ async function handle(req,env){
   const rl=await rateLimit(env,req,policy.scope,policy.limit,policy.window);
   if(!rl.allowed)return new Response(JSON.stringify({ok:false,error:{code:"rate_limited",message:"Too many requests. Please wait before trying again."}}),{status:429,headers:{...H,"retry-after":String(rl.retryAfter)}});
  }
- if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
+ if(m==="POST"&&p.startsWith("/internal/regional/")){
+  // Signed server-to-server Regional Admin data bridge. The caller validates the live
+  // Regional Admin session, active assignment, country legal status and permission level.
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Regional data bridge is not configured.",503,"regional_bridge_unavailable");
+  const raw=await req.text();if(raw.length>12000)return bad("Regional request is too large.",413,"regional_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/i.test(sig))return bad("Invalid regional bridge authentication headers.",401,"regional_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join(""),canonical="POST\n"+p+"\n"+ts+"\n"+nonce+"\n"+bodyHash,validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  if(!validSignature)return bad("Regional bridge signature is invalid.",401,"regional_signature_invalid");
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}catch{return bad("Regional request nonce was already used.",409,"regional_replay");}
+  let b;try{b=JSON.parse(raw)}catch{return bad("Invalid regional request JSON.");}
+  const cc=txt(b.country_code,2).toUpperCase(),level=txt(b.access_level,10),permission=txt(b.permission_key,60);
+  if(!/^[A-Z]{2}$/.test(cc)||!txt(b.regional_admin_id,100)||!txt(b.assignment_id,100)||!["read","write","manage"].includes(level))return bad("Regional scope or permission is invalid.",400,"regional_scope_invalid");
+  const expectedPermission={"/internal/regional/dashboard":"overview.read","/internal/regional/projects":"projects.read","/internal/regional/clients":"clients.read","/internal/regional/editors":"editors.read","/internal/regional/tenders":"tenders.read"}[p];
+  if(!expectedPermission||permission!==expectedPermission)return bad("Regional permission does not match the requested resource.",403,"permission_denied");
+  const country=await env.DB.prepare("SELECT country_code FROM countries WHERE country_code=?").bind(cc).first();
+  if(!country)return bad("Country not found.",404,"country_not_found");
+  const rank={none:0,read:1,write:2,manage:3},has=(need)=>rank[level]>=rank[need];
+  try{
+   if(p==="/internal/regional/dashboard"){
+    if(!has("read"))return bad("Regional overview permission denied.",403,"permission_denied");
+    const [clients,editors,projects]=await Promise.all([
+     env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role='client' AND country_code=? AND account_status<>'closed'").bind(cc).first(),
+     env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role='editor' AND country_code=? AND account_status<>'closed'").bind(cc).first(),
+     env.DB.prepare("SELECT COUNT(*) AS n FROM v_project_country_scope WHERE country_code=? AND country_scope_status='assigned'").bind(cc).first()
+    ]);
+    const statuses=await env.DB.prepare("SELECT project_status AS status,COUNT(*) AS count FROM v_project_country_scope WHERE country_code=? AND country_scope_status='assigned' GROUP BY project_status ORDER BY project_status").bind(cc).all();
+    return out({ok:true,summary:{clients:clients?.n||0,editors:editors?.n||0,projects:projects?.n||0,project_statuses:statuses.results||[]}},200);
+   }
+   if(p==="/internal/regional/projects"){
+    if(!has("read"))return bad("Regional projects permission denied.",403,"permission_denied");
+    const r=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.category,p.status,p.priority,p.created_at,cp.display_name AS client_name FROM projects p JOIN v_project_country_scope s ON s.project_id=p.id LEFT JOIN client_profiles cp ON cp.user_id=p.client_id WHERE s.country_code=? AND s.country_scope_status='assigned' ORDER BY p.created_at DESC LIMIT 100").bind(cc).all();
+    return out({ok:true,country_code:cc,items:r.results||[],count:(r.results||[]).length},200);
+   }
+   if(p==="/internal/regional/clients"){
+    if(!has("read"))return bad("Regional clients permission denied.",403,"permission_denied");
+    const r=await env.DB.prepare("SELECT u.id,u.email,u.account_status,u.created_at,cp.display_name,cp.company_name FROM users u LEFT JOIN client_profiles cp ON cp.user_id=u.id WHERE u.role='client' AND u.country_code=? AND u.account_status<>'closed' ORDER BY u.created_at DESC LIMIT 100").bind(cc).all();
+    return out({ok:true,country_code:cc,items:r.results||[],count:(r.results||[]).length},200);
+   }
+   if(p==="/internal/regional/editors"){
+    if(!has("read"))return bad("Regional editors permission denied.",403,"permission_denied");
+    const r=await env.DB.prepare("SELECT u.id,u.email,u.account_status,u.created_at,ep.display_name,ep.verification_status,ep.city,ep.state FROM users u LEFT JOIN editor_profiles ep ON ep.user_id=u.id WHERE u.role='editor' AND u.country_code=? AND u.account_status<>'closed' ORDER BY u.created_at DESC LIMIT 100").bind(cc).all();
+    return out({ok:true,country_code:cc,items:r.results||[],count:(r.results||[]).length},200);
+   }
+   if(p==="/internal/regional/tenders"){
+    if(!has("read"))return bad("Regional tender permission denied.",403,"permission_denied");
+    const r=await env.DB.prepare("SELECT t.id,t.project_id,t.title,t.scope_summary,t.bid_deadline,t.status,t.created_at FROM project_tenders t JOIN v_project_country_scope s ON s.project_id=t.project_id WHERE s.country_code=? AND s.country_scope_status='assigned' ORDER BY t.created_at DESC LIMIT 100").bind(cc).all();
+    return out({ok:true,country_code:cc,items:r.results||[],count:(r.results||[]).length},200);
+   }
+   if(p==="/internal/regional/finance")return bad("Sensitive finance access requires separate legal and finance approval.",403,"sensitive_permission_locked");
+   return bad("Regional endpoint not found.",404,"not_found");
+  }catch(e){console.error("Regional data query failed",String(e&&e.message||e));return bad("Regional data is temporarily unavailable.",503,"regional_data_unavailable");}
+}
+
+if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   // Private server-to-server snapshot from the CSA Super Admin Worker only.
   if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Admin authorization sync is not configured.",503,"sync_unavailable");
   const raw=await req.text();
