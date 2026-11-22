@@ -1,0 +1,37 @@
+# CSA Legacy Editor Bridge Secret Setup (Staging)
+
+Date: 2026-11-22  
+Scope: isolated staging Workers only.
+
+## Secret provisioned
+
+A new, independent 256-bit random secret has been created directly in Cloudflare Worker Secrets under the binding name:
+
+`CSA_LEGACY_BRIDGE_SECRET`
+
+It is present on both:
+- `csa-global-api-isolated-staging`
+- `csa-editor-portal-isolated-staging`
+
+The secret value is intentionally not recorded in Git, logs, chat, or this document.
+
+## Existing authorization secret preserved
+
+The existing `ADMIN_SYNC_HMAC_SECRET` on the Global API Worker remains present and was not changed. It continues to serve the existing Super Admin/Admin authorization synchronization contract. The Editor Portal does not currently have that secret, and no change was made to it.
+
+## Current activation state
+
+This secret is provisioned but is not yet consumed by application code. No bridge endpoint has been enabled, no D1 binding has been changed, no remote migration has been applied, and no editor identity, order, assignment, credential, KYC document, or media record has been copied.
+
+## Required next implementation gates
+
+1. Add a staging-only HMAC request verifier in both Worker source snapshots using `CSA_LEGACY_BRIDGE_SECRET`, with timestamp freshness, request-body digest, constant-time signature comparison, unique nonce replay protection, and strict path/method binding.
+2. Add the replay-nonce schema to the isolated legacy Editor Portal D1 and apply it only after disposable-database tests pass.
+3. Implement explicit admin-reviewed Global editor ↔ legacy editor mapping; require active account, verified profile, and verified KYC. Never match by email/name alone and never copy password credentials.
+4. Implement idempotent order/assignment bridge operations and revocation handling.
+5. Only after the above tests pass, revisit the isolated Global API `LEGACY_VIDEO_DB` binding. Preserve all existing bindings and keep production untouched.
+6. Deploy to isolated staging only after the runtime and end-to-end acceptance suite passes.
+
+## Safety note
+
+Do not rotate or reuse `ADMIN_SYNC_HMAC_SECRET` for this bridge. Do not enable the legacy order claim/import path by repointing the D1 binding before the bridge and its authorization controls are ready.
