@@ -32,12 +32,12 @@ The existing `ADMIN_SYNC_HMAC_SECRET` on the Global API Worker remains present a
 - Added a disposable in-memory SQLite test for migration `0027`, covering nonce uniqueness, expiry cleanup, and the expiry index; the staging CI workflow now runs it without touching remote D1.
 - CI validation passed for the staging source changes.
 
-The nonce migration `0027` was applied on 2026-11-22 only to the isolated Editor Portal staging D1 (`csa-video-isolated-staging`, binding `CSA_VIDEO_DB`). The table `legacy_bridge_nonces` and index `idx_legacy_bridge_nonces_expiry` were read back from `sqlite_master` and verified. The disposable SQLite migration test also passed in CI. The Editor Portal Worker source has NOT been deployed, so the live health endpoint is not yet available. No D1 binding was changed and no editor identity, order, assignment, credential, KYC document, or media record was copied.
+The nonce migration `0027` was applied on 2026-11-22 only to the isolated Editor Portal staging D1 (`csa-video-isolated-staging`, binding `CSA_VIDEO_DB`). The table `legacy_bridge_nonces` and index `idx_legacy_bridge_nonces_expiry` were read back from `sqlite_master` and verified. The disposable SQLite migration test also passed in CI. The updated Editor Portal Worker source was deployed to the isolated staging Worker on 2026-11-22. Cloudflare confirmed deployment ID `9fe7b3aeea9f43e3b2f5162f06359be0` and script tag `f017245bc5644052af0069a28b57ab4e`. The post-deploy settings read-back confirmed that `CSA_LEGACY_BRIDGE_SECRET`, both D1 bindings, the R2 binding, and `ENVIRONMENT=staging` were preserved. External HTTPS runtime probing is still pending; the web access check could not reach the hostname, so no live health-response or signed-request success is claimed. No D1 binding was changed and no editor identity, order, assignment, credential, KYC document, or media record was copied.
 
 ## Required next implementation gates
 
-1. Deploy the updated Editor Portal Worker source to the isolated staging Worker only, after separate deployment approval; keep the existing production Worker untouched.
-2. Run a real signed health request through the deployed staging endpoint, then verify nonce replay rejection and fail-closed behavior against the migrated D1.
+1. Run a real signed health request through the deployed staging endpoint, then verify nonce replay rejection and fail-closed behavior against the migrated D1. The endpoint is `/editor-api/internal/legacy-bridge/health` on the dedicated staging Admin host.
+2. Implement an authenticated test harness or controlled staging request path to verify the live signer/verifier interaction without exposing the shared secret.
 3. Implement explicit admin-reviewed Global editor ↔ legacy editor mapping; require active account, verified profile, and verified KYC. Never match by email/name alone and never copy password credentials.
 4. Implement idempotent order/assignment bridge operations and revocation handling.
 5. Only after the above tests pass, revisit the isolated Global API `LEGACY_VIDEO_DB` binding. Preserve all existing bindings and keep production untouched.
