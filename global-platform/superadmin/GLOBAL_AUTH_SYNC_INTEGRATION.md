@@ -475,3 +475,5 @@ This is a source-control implementation specification, not a deployed code chang
 - `GLOBAL_API_SYNC_HMAC_SECRET` is optional for a future controlled secret rotation, not a current blocker. Existing `ADMIN_SYNC_HMAC_SECRET` remains unchanged.
 
 - Follow-up verification: the 09:00:46 UTC scheduled run also succeeded with `synced_count=1` and no error code. Two consecutive scheduled runs (08:45 and 09:00 UTC) have now succeeded after the compatibility deployment.
+
+- Third consecutive verification: the 09:15:47 UTC scheduled run also succeeded with `synced_count=1` and no error code. The 08:45, 09:00 and 09:15 UTC runs all succeeded after the dual-secret compatibility deployment.
