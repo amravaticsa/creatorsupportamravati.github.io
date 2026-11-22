@@ -85,7 +85,7 @@ BEFORE UPDATE OF bridge_status,remote_result_state ON legacy_assignment_links
 WHEN
   (OLD.bridge_status='created' AND NEW.bridge_status<>'created')
   OR (OLD.bridge_status='revoked' AND NEW.bridge_status<>'revoked')
-  OR (OLD.bridge_status='failed' AND NEW.bridge_status NOT IN ('failed','revoked'))
+  OR (OLD.bridge_status='failed' AND NEW.bridge_status<>'failed')
   OR (OLD.bridge_status='reconciliation_required'
       AND NEW.bridge_status NOT IN ('reconciliation_required','created','failed','revoked'))
   OR (OLD.bridge_status='pending'
