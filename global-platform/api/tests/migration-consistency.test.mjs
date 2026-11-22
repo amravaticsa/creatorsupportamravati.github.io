@@ -9,8 +9,16 @@ const names = (await readdir(dir)).filter((name) => /^\d{4}_.+\.sql$/.test(name)
 assert.ok(names.length > 0, "No numbered SQL migrations found");
 
 const versions = names.map((name) => Number(name.slice(0, 4)));
-for (let i = 0; i < versions.length; i++) {
-  assert.equal(versions[i], i + 1, "Migration sequence gap or duplicate at " + names[i]);
+assert.equal(new Set(versions).size, versions.length, "Duplicate migration version found");
+const reservedGaps = new Set([30]);
+const gapDocumentation = await readFile(new URL("../../migrations/MIGRATION-NUMBER-GAPS.md", import.meta.url), "utf8");
+assert.match(gapDocumentation, /0030[\\s\\S]*reserved/i, "Reserved migration gaps must be documented");
+for (let version = 1; version <= Math.max(...versions); version++) {
+  if (reservedGaps.has(version)) {
+    assert.ok(!versions.includes(version), "Reserved migration number must not be backfilled retroactively");
+    continue;
+  }
+  assert.ok(versions.includes(version), "Migration sequence gap at " + String(version).padStart(4, "0"));
 }
 
 const sql = new Map();
