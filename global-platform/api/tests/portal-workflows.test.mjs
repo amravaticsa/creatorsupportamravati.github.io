@@ -211,3 +211,9 @@ test("Client dashboard displays revision allowance and editor assignment shows t
   assert.ok(portal.includes("revision_notes"));
   assert.ok(portal.includes("Client revision request"));
 });
+
+test("A client revision stays open through editor re-upload and closes only after revised submission passes QC", () => {
+  assert.ok(api.includes("UPDATE client_revision_requests SET status='completed'"));
+  assert.ok(api.includes("submission_id<>? AND ?='approved'"));
+  assert.ok(api.includes("handled_by=?"));
+});
