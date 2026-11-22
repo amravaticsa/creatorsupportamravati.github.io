@@ -60,6 +60,7 @@ jobs:
             and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-global-video-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
             and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
+            and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "CF_ACCESS_CLIENT_ID" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "CF_ACCESS_CLIENT_SECRET" and .type == "secret_text") ] | length == 1)
           ' csa-global-api-isolated-staging.json >/dev/null
