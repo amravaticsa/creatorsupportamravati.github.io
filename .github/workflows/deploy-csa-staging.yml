@@ -118,5 +118,31 @@ jobs:
             exit 1
           fi
           echo "PASS Regional Admin bridge rejects unsigned requests (HTTP 401)."
+      - name: Verify admin and Regional Admin Staging portals are routed and session-protected
+        run: |
+          set -euo pipefail
+          admin_status="$(curl --location --silent --show-error --max-time 30 -o /tmp/csa-admin-staging.html -w '%{http_code}' https://admin-staging.creatorsupportamravati.in/)"
+          if [ "$admin_status" != "200" ] || ! grep -qi '<html' /tmp/csa-admin-staging.html; then
+            echo "::error::Admin Staging portal route did not return HTML 200 (HTTP $admin_status)"
+            exit 1
+          fi
+          admin_api_status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-admin-me.json -w '%{http_code}' https://admin-staging.creatorsupportamravati.in/api/me)"
+          if [ "$admin_api_status" != "401" ]; then
+            echo "::error::Unauthenticated Admin Staging session should return 401; received $admin_api_status"
+            cat /tmp/csa-admin-me.json
+            exit 1
+          fi
+          regional_status="$(curl --location --silent --show-error --max-time 30 -o /tmp/csa-regional-staging.html -w '%{http_code}' https://regional-staging.creatorsupportamravati.in/)"
+          if [ "$regional_status" != "200" ] || ! grep -qi 'Regional Admin Portal' /tmp/csa-regional-staging.html; then
+            echo "::error::Regional Admin Staging portal route did not return its login page (HTTP $regional_status)"
+            exit 1
+          fi
+          regional_api_status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-regional-me.json -w '%{http_code}' https://regional-staging.creatorsupportamravati.in/api/regional/dashboard)"
+          if [ "$regional_api_status" != "401" ]; then
+            echo "::error::Unauthenticated Regional Admin dashboard should return 401; received $regional_api_status"
+            cat /tmp/csa-regional-me.json
+            exit 1
+          fi
+          echo "PASS Admin and Regional Admin Staging routes respond and require authenticated sessions."
       - name: Verify staging API authorization boundaries (read-only)
         run: bash global-platform/testing/staging-auth-boundary-smoke.sh
