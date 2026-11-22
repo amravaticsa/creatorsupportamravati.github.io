@@ -22,9 +22,9 @@
 - Admin sign-in: `/admin-login.html`
 - Operations portal: `/portal.html`
 
-**Current staging status (2026-11-19):** the deployed staging homepage has been opened successfully in a connected browser. This confirms the homepage renders, but does not prove Google sign-in or client/editor/admin workflows pass end-to-end. Keep the site marked as staging until those tests are completed.
+**Current staging status (2026-11-22):** the latest immutable staging deployment is `https://2add6c07.csa-global-staging.pages.dev` (commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15`). Automated deployment and validation workflows completed successfully. The deployment smoke gate requires all six HTML routes and both portal JavaScript assets to return HTTP 200 from the same immutable deployment origin; cross-origin redirects fail the workflow. The staging API health check also verifies D1 connectivity. This confirms deploy-time availability and unauthenticated route-denial behavior, not successful completion of authenticated client/editor/admin workflows.
 
-**Automated post-deploy smoke check:** the staging deployment workflow now requests the published Pages homepage and the staging API `/health` endpoint after each deployment. It requires a valid HTML response for the homepage and a successful `CSA Global API` health response. When the deployed health response includes `d1_connected`, it must be `true`; older deployed responses may omit that field, but `status: healthy` is only returned after the API's read-only D1 query succeeds. The workflow also probes the client/editor/admin HTML routes and portal JS assets; non-200 responses are emitted as visible CI warnings (not silently treated as passed) while the core homepage/API health gate remains separate. A route warning must be investigated before public launch. This does not replace browser-level authentication, uploads, tender, editor, QC, payment or refund end-to-end tests.
+**Automated post-deploy smoke check:** every deployment checks `/`, `/client-project.html`, `/editor-register.html`, `/login.html`, `/admin-login.html`, `/portal.html`, `/assets/auth.js` and `/assets/portal.js`. Any non-200 response, invalid HTML response, or redirect outside the immutable deployment origin fails the deployment workflow. The staging API `/health` endpoint must report a healthy service and must not report a disconnected D1. Seven protected API routes are also checked for unauthenticated denial (HTTP 401). These checks do not replace browser-level authentication, uploads, tender, editor, QC, payment or refund end-to-end tests.
 
 ## Isolated Cloudflare staging resources
 - Worker: `csa-global-api-staging`
@@ -214,3 +214,16 @@ A fresh read-only inventory enumerated all 10 D1 databases, all deployed Workers
 - The read-only authorization-boundary check passed: unauthenticated requests to client projects/refunds, editor tenders/assignments, admin tenders, pending editor KYC and client-refund queues were denied with HTTP 401/403.
 - This verifies unauthenticated denial only. It does not prove that valid client, editor or admin identities can complete their authorized workflows.
 - Next staging gate: provision dedicated test identities through the normal Google sign-in and editor KYC process, then execute the seven workflows in `global-platform/testing/STAGING-E2E-TEST-PLAN.md`. Do not place credentials, OTPs or KYC documents in GitHub.
+
+
+### Latest staging validation evidence (2026-11-22)
+
+- Staging commit: `5ac3a7dc979424b6689a64418b49f820bdbb0e15`.
+- Immutable Pages deployment: `https://2add6c07.csa-global-staging.pages.dev`.
+- Deployment workflow run `45001308790` completed successfully; API validation workflow run `45001308640` completed successfully.
+- All six HTML routes and both JavaScript assets passed strict HTTP 200 and same-origin checks.
+- Staging API health and D1 connectivity passed.
+- Seven protected client/editor/admin API routes returned HTTP 401 without authentication.
+- Disposable migration, schema, idempotency, reconciliation and read-only preflight safety tests passed in CI. These are isolated test runs and do not authorize remote D1 writes.
+- The legacy editor bridge management endpoints remain intentionally disabled. Canonical legacy D1 identity, separate staging-write approval, service-token installation and authenticated end-to-end test identities remain release gates.
+- No production Worker, route, database, R2 bucket, DNS record or live payment setting was changed by this validation.
