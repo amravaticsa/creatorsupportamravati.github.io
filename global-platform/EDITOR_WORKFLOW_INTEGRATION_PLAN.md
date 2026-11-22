@@ -94,3 +94,8 @@ It defines:
 A source-level regression test is at `global-platform/api/tests/legacy-editor-bridge-schema.test.mjs`. CI is configured to require the migration file.
 
 Important: this is schema preparation only. The migration has **not** been applied to any remote D1 database. No legacy editor accounts, credentials, orders, or assignments were copied. The runtime adapter endpoints and end-to-end bridge are not implemented yet.
+
+
+### 7.1. Migration execution test added
+
+The migration is now exercised against a disposable in-memory SQLite database by `global-platform/scripts/test-legacy-editor-bridge-migration.py`. The test checks actual SQL execution, foreign-key compatibility, unique editor/order mappings, reviewer requirements for activation, and the created-assignment invariant. The staging validation workflow runs this test. It performs no remote D1 writes.
