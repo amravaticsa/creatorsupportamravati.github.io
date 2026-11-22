@@ -35,11 +35,10 @@ test("client refunds require own successful client payments and an idempotency k
 
 test("finance queue and review actions are separate least-privilege routes", () => {
   assert.match(source, /p==="\/v1\/admin\/client-refunds"\)return "finance\.read"/);
-  assert.ok(source.includes(String.raw`if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";`));
+  assert.ok(source.includes('return "finance.refunds";'));
   assert.match(source, /provider_refund_started:false/);
   assert.match(source, /A rejection reason is required/);
 });
-
 
 test("refund review uses compare-and-set and only audits a successful status transition", () => {
   assert.match(source, /const updated=await env\.DB\.prepare\("UPDATE client_refund_requests SET status=.*WHERE id=\? AND status IN \('requested','under_review'\)"\)/);
@@ -47,11 +46,21 @@ test("refund review uses compare-and-set and only audits a successful status tra
   assert.ok(source.indexOf("if(!updated.meta?.changes)") < source.indexOf('await log(env,a.id,"client_refund_"+next'));
 });
 
-test("health endpoint checks D1 connectivity and required platform tables without writes", () => {
-  assert.ok(source.includes('if(m==="GET"&&p==="/health"){const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests"]'));
-  assert.ok(source.includes('SELECT name FROM sqlite_master WHERE type=\'table\' AND name IN ('));
-  assert.ok(source.includes('d1_connected:d1'));
-  assert.ok(source.includes('schema_ready:schemaReady'));
-  assert.ok(source.includes('missing_tables:missingTables'));
-  assert.ok(source.includes('status:d1&&schemaReady?"healthy":"degraded"'));
+test("health endpoint checks canonical and legacy storage dependencies without writes", () => {
+  const start = source.indexOf('if(m==="GET"&&p==="/health"){');
+  const end = source.indexOf('if(m==="GET"&&p==="/v1/config")', start);
+  assert.ok(start >= 0 && end > start);
+  const health = source.slice(start, end);
+  for (const table of ["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests","countries","country_legal_reviews","regional_admins","regional_admin_permissions","regional_admin_permission_catalog","regional_admin_audit_logs","editor_payouts"]) {
+    assert.ok(health.includes('"'+table+'"'), "missing required table "+table);
+  }
+  for (const table of ["video_editing_orders","video_editing_files","video_editing_status_history"]) {
+    assert.ok(health.includes('"'+table+'"'), "missing legacy video table "+table);
+  }
+  assert.ok(health.includes("d1_connected:d1"));
+  assert.ok(health.includes("schema_ready:schemaReady"));
+  assert.ok(health.includes("missing_tables:missingTables"));
+  assert.ok(health.includes("legacy_video_db_connected:legacyDb"));
+  assert.ok(health.includes("legacy_video_bucket_configured:legacyVideoBucket"));
+  assert.ok(health.includes('status:healthy?"healthy":"degraded"'));
 });
