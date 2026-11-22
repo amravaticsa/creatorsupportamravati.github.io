@@ -14,39 +14,70 @@ jobs:
     steps:
       - name: Require Cloudflare credentials
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${CF_API_TOKEN}" ]; then
+          if [ -z "\${CF_API_TOKEN}" ]; then
             echo "::error::Add CLOUDFLARE_API_TOKEN in GitHub Actions secrets. Use a scoped token with Workers Scripts Read permission only."
             exit 1
           fi
 
-      - name: Read staging Worker settings
+      - name: Read isolated and regular staging Worker settings
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
-          WORKER_NAME: "csa-global-api-staging"
         run: |
           set -euo pipefail
-          response="$(curl --fail --silent --show-error --max-time 30 \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/settings")"
-          printf '%s' "${response}" | jq -e '.success == true' >/dev/null
-          printf '%s' "${response}" > worker-settings.json
+          for worker in \
+            csa-global-api-staging \
+            csa-global-api-isolated-staging \
+            csa-superadmin-isolated-staging \
+            csa-editor-portal-isolated-staging; do
+            response="$(curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer \${CF_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/\${CF_ACCOUNT_ID}/workers/scripts/\${worker}/settings")"
+            printf '%s' "\${response}" | jq -e '.success == true' >/dev/null
+            printf '%s' "\${response}" > "\${worker}.json"
+          done
 
-      - name: Verify staging environment and expected database bindings
+      - name: Verify current D1, R2 and secret-name bindings
         run: |
           set -euo pipefail
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
             and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
-            and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "69f070a4-b71f-4448-973f-31993715b781") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "2d3f97a0-fa32-46ef-9913-972a59a410e4") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-global-video-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
-          ' worker-settings.json >/dev/null || {
-            echo "::error::Worker settings do not match the recorded staging environment/bindings. No deployment was attempted."
-            exit 1
-          }
-          echo "PASS: csa-global-api-staging is configured for staging and its current D1/R2 bindings match the audited staging resources."
-          echo "NOTE: this is a read-only configuration check. It does not prove OAuth/payment flows or database isolation."
+          ' csa-global-api-staging.json >/dev/null
+
+          jq -e '
+            (.result.bindings // []) as $b
+            | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
+            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "2d3f97a0-fa32-46ef-9913-972a59a410e4") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-global-video-isolated-staging") ] | length == 1)
+            and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
+            and ([ $b[] | select(.name == "CF_ACCESS_CLIENT_ID" and .type == "secret_text") ] | length == 1)
+            and ([ $b[] | select(.name == "CF_ACCESS_CLIENT_SECRET" and .type == "secret_text") ] | length == 1)
+          ' csa-global-api-isolated-staging.json >/dev/null
+
+          jq -e '
+            (.result.bindings // []) as $b
+            | ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
+            and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+          ' csa-superadmin-isolated-staging.json >/dev/null
+
+          jq -e '
+            (.result.bindings // []) as $b
+            | ([ $b[] | select(.name == "CSA_SUPERADMIN_DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_VIDEO_DB" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
+          ' csa-editor-portal-isolated-staging.json >/dev/null
+
+          echo "PASS: all four staging Worker binding maps match the current read-only audit."
+          echo "NOTE: the regular and isolated Global API Workers currently share LEGACY_VIDEO_DB and LEGACY_VIDEO_BUCKET; isolated staging is only partially isolated."
+          echo "NOTE: secret names are present; secret values, equality, and token validity are not read or verified."
+          echo "NOTE: this preflight is read-only. It does not deploy code, call readiness endpoints, or modify D1/R2 resources."
