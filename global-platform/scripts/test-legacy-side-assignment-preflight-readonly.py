@@ -15,8 +15,11 @@ FORBIDDEN = {
 
 
 def strip_comments(sql):
-    sql = re.sub(r"/\\*.*?\\*/", "", sql, flags=re.S)
     return re.sub(r"(?m)--.*$", "", sql)
+
+
+def inspection_pragma(statement):
+    return re.match(r"(?is)^PRAGMA[ ]+([A-Za-z_]+)[ ]*[(][ ]*[A-Za-z_]+[ ]*[)]$", statement)
 
 
 class ReadOnlyPreflightTests(unittest.TestCase):
@@ -31,7 +34,7 @@ class ReadOnlyPreflightTests(unittest.TestCase):
             if command == "SELECT":
                 pass
             elif command == "PRAGMA":
-                match = re.match(r"(?is)^PRAGMA\\s+([A-Za-z_]+)\\s*\\(\\s*[A-Za-z_]+\\s*\\)$", statement)
+                match = inspection_pragma(statement)
                 self.assertIsNotNone(match, f"unsupported or mutating PRAGMA: {statement}")
                 self.assertIn(match.group(1).lower(), ALLOWED_PRAGMAS)
             else:
@@ -46,7 +49,7 @@ class ReadOnlyPreflightTests(unittest.TestCase):
             command = re.match(r"([A-Za-z]+)", statement).group(1).upper()
             self.assertNotIn(command, {"SELECT", "PRAGMA"} if command != "PRAGMA" else {"SELECT"})
             if command == "PRAGMA":
-                self.assertIsNone(re.match(r"(?is)^PRAGMA\\s+([A-Za-z_]+)\\s*\\(\\s*[A-Za-z_]+\\s*\\)$", statement))
+                self.assertIsNone(inspection_pragma(statement))
 
 
 if __name__ == "__main__":
