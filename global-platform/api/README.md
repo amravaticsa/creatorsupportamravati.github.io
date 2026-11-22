@@ -123,3 +123,10 @@ The canonical staging API accepts either `GLOBAL_API_SYNC_HMAC_SECRET` (preferre
 ### Current HMAC sync status — 2026-11-22
 
 The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` binding is optional for a future controlled rotation. The existing `ADMIN_SYNC_HMAC_SECRET` fallback is currently working: the scheduled Super Admin sync recorded success with one authorization synchronized at 2026-11-22 08:45 UTC. Do not rotate or remove the existing secret until a coordinated two-Worker rotation has been tested.
+
+
+### Canonical Regional Admin read bridge
+
+The staging API exposes the signed, private routes `POST /internal/regional/dashboard`, `/projects`, `/clients`, `/editors` and `/tenders`. Requests are timestamp-bound, HMAC-SHA256 authenticated using the dedicated/legacy secret verifier, nonce-replay protected, limited to 12 KB, and restricted to an exact path-to-permission mapping. The Super Admin Worker is the trusted caller and checks the live Regional Admin session, active assignment, country legal state and permission level before signing.
+
+All client/editor rows are filtered on authoritative `users.country_code`; project/tender rows use `v_project_country_scope`, which derives scope from the verified Client `users.country_code`. Self-reported profile country is never an authorization key. Regional finance/refund endpoints remain denied pending separate legal and finance approval. The Super Admin Worker now calls the canonical `csa-global-api-staging` Worker; the isolated API copy is not used for Regional Admin data.
