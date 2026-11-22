@@ -29,6 +29,7 @@ The existing `ADMIN_SYNC_HMAC_SECRET` on the Global API Worker remains present a
 - Added a matching staging-only HMAC signer helper in the Global API Worker source. It emits the same `CSA-BRIDGE-V1` canonical signature headers as the Editor Portal verifier; the helper is not yet called by any order or identity transfer flow.
 - Editor Portal nonce-store failures now distinguish replay conflicts (409) from unavailable/missing nonce storage (503), while failing closed.
 - Added API-suite regression tests for signer/verifier canonicalization and HMAC request binding.
+- Added a disposable in-memory SQLite test for migration `0027`, covering nonce uniqueness, expiry cleanup, and the expiry index; the staging CI workflow now runs it without touching remote D1.
 - CI validation passed for the staging source changes.
 
 The nonce migration has NOT been applied to the remote legacy D1, and the Worker source has NOT been deployed as part of this step. Until the migration is applied, the endpoint fails closed. No D1 binding has been changed and no editor identity, order, assignment, credential, KYC document, or media record has been copied.
