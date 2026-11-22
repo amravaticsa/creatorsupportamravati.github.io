@@ -1,5 +1,17 @@
 # Super Admin → CSA Global authorization sync integration
 
+> **Deployment update — 22 November 2026 (supersedes earlier staging-boundary and permission-gap notes below).**
+>
+> - The canonical Client/Editor Portal API is `csa-global-api-staging`, backed by D1 `csa-global-platform-staging` (`470a81b8-3d36-4e2d-942c-5cbb2746a473`). The published `global-platform/assets/portal.js` points to this API.
+> - `csa-global-api-isolated-staging` uses a separate isolated D1 copy (`6a32dda3-b8c5-413c-9f51-58f0a9fa0712`) and is not the canonical Client/Editor Portal database. Super Admin bridge calls have been redirected to the canonical staging API so permissions and finance settings apply to the same records used by the portal.
+> - Canonical staging bridge routes now include admin authorization sync, pricing policy, read-only finance refund dashboard, editor-session management, and Regional Admin data. Each server-to-server request uses the shared HMAC secret, timestamp, and one-use nonce.
+> - Authorization snapshots include `finance_access_level` from `csa_admin_module_access`. The Global API persists it in `global_admin_authorizations`. `none` grants no Finance permission; `read` grants `finance.read`; `write` and `manage` currently grant `finance.read`, `finance.refunds`, and `finance.payouts`. Unknown admin routes remain denied by default. The `super_admin` account is never copied into the Global authorization registry.
+> - Cron configuration: Super Admin authorization reconciliation runs every 15 minutes; canonical Global API multipart cleanup runs hourly. The isolated API's 15-minute cleanup remains scoped to its own isolated D1.
+> - The 08:15 UTC scheduled sync attempt failed with HTTP 500 while the sender still targeted the isolated D1 schema. The sender has since been redirected to the canonical API; the next scheduled run is the runtime confirmation point. No manual authorization rows were inserted.
+> - The canonical Global authorization registry currently contains one active and one revoked record. No new test invitation or account was created during this setup. Browser-based invitation, finance-role, refund, and editor-session E2E tests remain pending.
+> - Production Workers, Production D1/R2, and Production DNS were not changed.
+
+
 Status: sender and receiver are deployed to the two staging Workers. The shared HMAC secret is configured on both staging Workers. Migration 0012 is applied to staging D1. Static deployment checks passed; an end-to-end sync using a real test admin invitation is still pending.
 
 ## Source helper
