@@ -174,3 +174,13 @@ Evidence:
 - Final approval API regression validation passed in runs 44981519724 and 44981526739; schema snapshot validation passed in both runs.
 - Cloudflare staging API Worker deployed as Version 81 (version ID 8e9c3241-62d7-42dc-9d71-c3141751406a; deployment ID bc52e81f-15c5-4997-a810-db807ba2ae2b; 100% traffic). Source commit: 3671913eb82d808408b4f2f94ca0c500dd8d5a5e. Staging ENVIRONMENT and D1/R2 bindings unchanged; existing secret binding names unchanged and secret values not accessed.
 - Post-Version-81 staging Pages deploy and smoke run 44981526725 passed: Pages deployment, route/asset/API health checks, and read-only API authorization boundary checks all succeeded.
+
+
+## Latest verified staging baseline — 2026-11-22
+
+- Staging branch commit: `7f867c03cf018a2712271ee6f1fa04f318489eab`.
+- CSA Global API validation run: [44999571826](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44999571826) — success. Both validation jobs passed, including schema snapshot checks, all disposable SQLite migration/idempotency/reconciliation tests, the read-only preflight guard, the new audit-template safety test, route-disabled guard, JavaScript syntax and API tests.
+- Staging Pages deployment run: [44999569554](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44999569554) — success. Immutable deployment: https://dd27e46a.csa-global-staging.pages.dev.
+- The deployment smoke test passed for `/`, `/client-project.html`, `/editor-register.html`, `/login.html`, `/admin-login.html`, `/portal.html`, `/assets/auth.js`, and `/assets/portal.js`; staging API health and read-only authorization-boundary checks also passed.
+- These results verify source/CI, deployment, public route/asset availability, API health and unauthenticated authorization boundaries only. They do not complete any signed-in client/editor/admin business workflow.
+- E2E-01 through E2E-07 remain **BLOCKED** until their dedicated staging identities, reviewer permissions, synthetic fixtures and (for payment/refund) Razorpay Test Mode evidence are available. No test identity was created and no payment/refund was initiated by this run.
