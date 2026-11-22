@@ -623,6 +623,20 @@ async function handle(req,env){
   const used=(history.results||[]).length,remaining=Math.max(0,Number(project.revisions_included||0)-used),open=(history.results||[]).some(x=>x.status==="open"||x.status==="in_progress");
   return out({ok:true,deliverables:r.results||[],revision_requests:history.results||[],revision_policy:{included:Number(project.revisions_included||0),used,remaining,can_request:project.status==="client_review"&&remaining>0&&!open}});
  }
+ if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/approve")){
+  const projectId=p.split("/")[4],a=await user(req,env,["client"]);
+  const current=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.status,p.client_id,x.id AS assignment_id,x.editor_id,s.id AS submission_id FROM projects p JOIN assignments x ON x.project_id=p.id JOIN work_submissions s ON s.assignment_id=x.id WHERE p.id=? AND p.client_id=? AND p.status='client_review' AND x.status='approved' AND s.qc_status='approved' AND s.id=(SELECT s2.id FROM work_submissions s2 JOIN assignments x2 ON x2.id=s2.assignment_id WHERE x2.project_id=p.id AND s2.qc_status='approved' ORDER BY s2.submitted_at DESC LIMIT 1) AND NOT EXISTS(SELECT 1 FROM client_revision_requests rr WHERE rr.project_id=p.id AND rr.status IN ('open','in_progress')) LIMIT 1").bind(projectId,a.id).first();
+  if(!current)return bad("Only the latest QC-approved delivery with no open revision request can be approved.",409,"delivery_not_approvable");
+  const results=await env.DB.batch([
+   env.DB.prepare("UPDATE projects SET status='completed',client_visible_status='completed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND client_id=? AND status='client_review' AND EXISTS(SELECT 1 FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=projects.id AND x.status='approved' AND s.qc_status='approved' AND s.id=(SELECT s2.id FROM work_submissions s2 JOIN assignments x2 ON x2.id=s2.assignment_id WHERE x2.project_id=projects.id AND s2.qc_status='approved' ORDER BY s2.submitted_at DESC LIMIT 1)) AND NOT EXISTS(SELECT 1 FROM client_revision_requests rr WHERE rr.project_id=projects.id AND rr.status IN ('open','in_progress'))").bind(projectId,a.id),
+   env.DB.prepare("UPDATE assignments SET status='completed' WHERE id=? AND status='approved' AND EXISTS(SELECT 1 FROM projects WHERE id=? AND status='completed')").bind(current.assignment_id,projectId)
+  ]);
+  if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("The delivery state changed before approval. Refresh your dashboard.",409,"delivery_approval_conflict");
+  if(Number(results?.[1]?.meta?.changes||0)!==1)return bad("Project approval was recorded but assignment completion needs CSA reconciliation.",500,"assignment_completion_mismatch");
+  await log(env,a.id,"client_final_delivery_approved","project",projectId,{submission_id:current.submission_id,assignment_id:current.assignment_id});
+  await notifyInApp(env,current.editor_id,"client_final_delivery_approved","Client approved final video · "+current.public_project_code,"The client has approved the final delivery. The project is marked complete; any outstanding client balance and editor payout remain subject to CSA finance reconciliation.",{project_id:projectId,submission_id:current.submission_id});
+  return out({ok:true,status:"completed",project_code:current.public_project_code,finance_reconciliation_required:true});
+ }
  if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions")){
   const projectId=p.split("/")[4],a=await user(req,env,["client"]),b=await req.json(),notes=txt(b.notes,2000),submissionId=txt(b.submission_id,100);
   if(notes.length<5)return bad("Please describe the requested changes in at least 5 characters.");
