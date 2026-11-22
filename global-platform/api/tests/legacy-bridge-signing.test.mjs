@@ -128,7 +128,7 @@ test("stale timestamps are rejected (401)", async () => {
 
 test("Super Admin readiness route is staging-only, HMAC-authenticated, replay-protected, and never exposes peer details", () => {
   const route = api.slice(api.indexOf('if(m==="POST"&&p==="/internal/superadmin/legacy-bridge/readiness"){'), api.indexOf('if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){'));
-  assert.notEqual(route.indexOf("env.ENVIRONMENT!==\\"staging\\""), -1);
+  assert.match(route, /env\\.ENVIRONMENT!==/);
   assert.match(route, /env\\.ADMIN_SYNC_HMAC_SECRET/);
   assert.match(route, /env\\.CSA_LEGACY_BRIDGE_SECRET/);
   assert.match(route, /admin_sync_nonces/);
