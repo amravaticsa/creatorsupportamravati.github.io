@@ -118,3 +118,8 @@ The canonical staging database has `global_admin_authorizations.finance_access_l
 ### HMAC secret transition
 
 The canonical staging API accepts either `GLOBAL_API_SYNC_HMAC_SECRET` (preferred for the isolated Super Admin Worker) or the legacy `ADMIN_SYNC_HMAC_SECRET`. The isolated Super Admin Worker prefers the dedicated binding and falls back to the legacy binding. The legacy `csa-superadmin-api-staging` continues to use the old secret. Keep the old binding unchanged until that legacy Worker is retired. The dedicated secret must be generated once and bound only to `csa-superadmin-isolated-staging` and `csa-global-api-staging`; never commit or paste its value into chat or source control.
+
+
+### Current HMAC sync status — 2026-11-22
+
+The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` binding is optional for a future controlled rotation. The existing `ADMIN_SYNC_HMAC_SECRET` fallback is currently working: the scheduled Super Admin sync recorded success with one authorization synchronized at 2026-11-22 08:45 UTC. Do not rotate or remove the existing secret until a coordinated two-Worker rotation has been tested.
