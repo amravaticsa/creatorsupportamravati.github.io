@@ -58,7 +58,7 @@ Do not rotate or reuse `ADMIN_SYNC_HMAC_SECRET` for this bridge. Do not enable t
 - The Global API peer request now expects `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` secrets and sends them only as Cloudflare Access service-token headers.
 - Created a dedicated Access self-hosted application scoped to the single path `/editor-api/internal/legacy-bridge/health` on the isolated staging hostname, with a policy allowing only one dedicated service token. This is separate from the broader human Super Admin Access app.
 - Created service token `CSA Legacy Bridge Staging Health Probe v2` with a one-year expiry. The unused first token was deleted. The service-token secret is not stored in Git or exposed in documentation.
-- **Pending prerequisite:** the Cloudflare Access service-token Client ID and Client Secret still need to be installed as Worker secrets `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` on `csa-global-api-isolated-staging`. Until then, the peer health call will fail closed. No Worker deployment or live bridge request has been performed in this step.
+- **Secret-binding read-back (2026-11-22):** Cloudflare Worker settings now list `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`, and `CSA_LEGACY_BRIDGE_SECRET` on `csa-global-api-isolated-staging`; `CSA_LEGACY_BRIDGE_SECRET` is also listed on `csa-editor-portal-isolated-staging`. The Super Admin isolated Worker lists `ADMIN_SYNC_HMAC_SECRET`. Secret values were not read, compared, logged, or exposed; matching secret values and token validity are therefore **not** proven by binding presence alone.
 - Automated source regression tests cover the Super Admin route guard, signed request helper, fixed target, Access header usage and dashboard control. Latest API validation run `44986744131` and Pages staging workflow `44986744132` both passed on commit `7f81a06b7ba1a8c31f24b1214f2dd1dfe79a9dcd`.
 
 
@@ -70,3 +70,18 @@ Do not rotate or reuse `ADMIN_SYNC_HMAC_SECRET` for this bridge. Do not enable t
 - Staging Pages deployment run [44999569554](https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/44999569554) passed, including frontend routes/assets, staging API health and read-only authorization-boundary smoke checks. Immutable Pages URL: https://dd27e46a.csa-global-staging.pages.dev.
 - The audit template remains **not executed**. No remote D1 schema inspection, backup/export, ledger migration, Worker binding change, secret change, editor identity link, assignment transfer, or production operation was performed.
 - Remaining prerequisites are unchanged: install the dedicated Cloudflare Access service-token Client ID/Secret as Worker secrets on the isolated Global API Worker (the secret value is only available from the original token creation/rotation flow); confirm the canonical isolated Editor Portal D1 UUID; then separately authorize the read-only schema audit and backup/write sequence. A general request to continue setup does not identify a canonical database or authorize those remote writes.
+
+
+## Deployment parity audit — 2026-11-22
+
+A read-only download of the currently deployed Worker script contents was compared against the readiness-route markers in the tracked source snapshots.
+
+- Current Global API isolated Worker deployment observed: `a1e35468-7f99-4edf-a905-6ec913d531aa`, version `f3d371da-c725-4236-920f-f11cd526d0f7`, created 2026-11-22 08:57:57 UTC.
+- Current Super Admin isolated Worker deployment observed: `9745f96a-6c21-4bdb-b0be-9f4464931ade`, version `a4292c06-dc3c-417d-99ce-339ebfa63017`, created 2026-11-22 08:57:59 UTC.
+- The deployed Global API script did **not** contain `/internal/superadmin/legacy-bridge/readiness`.
+- The deployed Super Admin script did **not** contain `/api/admins/legacy-bridge-readiness` or the `callGlobalLegacyBridgeReadiness` helper.
+- The deployed Editor Portal isolated Worker did contain `/editor-api/internal/legacy-bridge/health` and `verifyLegacyBridgeRequest`.
+
+**Conclusion:** the Editor Portal peer health endpoint is deployed, but the Global API → Super Admin readiness chain is not deployed in the current live isolated Worker versions. Secret binding presence does not make the missing routes live. No readiness request was sent and no nonce rows were written during this audit.
+
+The source snapshots contain the missing Global API and Super Admin readiness code. A dedicated Worker-source regression test has been corrected and added to the staging validation workflow. Wait for that validation to pass before considering a staging-only code deployment. Do not change D1 bindings or activate identity/order/assignment transfer routes as part of this readiness-only deployment.
