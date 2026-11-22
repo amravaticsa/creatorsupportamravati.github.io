@@ -83,3 +83,15 @@ The two Global Platform D1 databases are not schema-identical: the isolated data
 ## Evidence interpretation
 
 This audit is a point-in-time read-only inspection of Cloudflare route records, Worker settings/binding metadata, D1 database metadata, and schema object names. It does not prove all application workflows or production data correctness. Re-run the route and binding audit immediately before the approved remediation window.
+
+
+## Isolated staging operational spot-check
+
+A read-only query of the isolated Super Admin sync log and isolated Global API authorization counts found:
+
+- Latest recorded scheduled sync: **success**, 2026-11-22 08:45:47 UTC, 1 authorization record synchronized.
+- Earlier historical failures in the same log included HTTP 401, 404 and 500. The latest success is encouraging, but a longer sequence of scheduled successes and a reviewed authorization reconciliation are still needed.
+- Isolated Global API currently has 1 active and 1 revoked authorization record; the count query did not retrieve email addresses or other user details.
+- The isolated Super Admin dashboard's Central Control and HR/Finance panels load on tab selection. Their initial HTML contains placeholder text such as "Loading…"; that text in a full-page DOM extraction alone is not evidence of a live API failure. The UI code calls `loadCentral()`, `loadHR()` and `loadFinance()` when those tabs are selected.
+
+These checks were read-only except for the already-existing scheduled sync that had completed before the query. No manual sync was triggered.
