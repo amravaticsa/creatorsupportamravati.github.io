@@ -122,7 +122,7 @@ The canonical staging API accepts either `GLOBAL_API_SYNC_HMAC_SECRET` (preferre
 
 ### Current HMAC sync status — 2026-11-22
 
-The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` binding is optional for a future controlled rotation. The existing `ADMIN_SYNC_HMAC_SECRET` fallback is currently working: the scheduled Super Admin sync recorded success with one authorization synchronized at 2026-11-22 08:45 UTC. Do not rotate or remove the existing secret until a coordinated two-Worker rotation has been tested.
+The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is provisioned on both canonical Staging Workers (`csa-superadmin-isolated-staging` sender and `csa-global-api-staging` receiver). The sender prefers the dedicated secret; the legacy `ADMIN_SYNC_HMAC_SECRET` remains as compatibility fallback and is unchanged. Scheduled syncs through 2026-11-22 12:00:04 UTC succeeded with one authorization synchronized per run and no error. Do not remove the legacy binding until the legacy Super Admin Worker is retired.
 
 
 ### Canonical Regional Admin read bridge
