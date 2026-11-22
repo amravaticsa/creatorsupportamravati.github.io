@@ -291,3 +291,10 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Canonical Global D1 migration `0032_verified_country_scope.sql` now makes `v_project_country_scope` require verified country timestamp, reviewer ID and evidence reference. The isolated D1 already had the same rule. The three existing canonical projects remain `country_unassigned`; no India project data is exposed to a Regional Admin before verification.
 
 - Read-only R2 check on 22 November 2026: managed `r2.dev` public access is disabled for both `csa-global-media-staging` and `csa-global-video-isolated-staging`; neither bucket has a public managed R2 endpoint enabled. The buckets remain shared by the two API Workers through private bindings.
+
+
+### Binding topology correction — 2026-11-22 10:53 UTC
+
+- Verified live settings after the latest Super Admin deployment: `csa-superadmin-isolated-staging` uses `DB=c2bb3fb5-db22-4ed5-9283-161df57ebac2` for Super Admin identities/sessions and `GLOBAL_DB=470a81b8-3d36-4e2d-942c-5cbb2746a473` for country review/assignment against the canonical Global Platform D1.
+- Both `csa-global-api-staging` and the legacy-link compatibility Worker `csa-global-api-isolated-staging` currently bind `DB=470a81b8-3d36-4e2d-942c-5cbb2746a473`. The latter keeps its legacy video data in `LEGACY_VIDEO_DB=2d3f97a0-fa32-46ef-9913-972a59a410e4`.
+- D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` remains an unbound isolated snapshot; do not treat it as the active Global API database. The Staging preflight now checks the canonical `GLOBAL_DB` binding.
