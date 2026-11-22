@@ -251,3 +251,12 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Client/Editor onboarding now leaves authoritative `users.country_code` null. Self-reported country remains in profile fields; Super Admin verification with evidence is required before country scoping is activated.
 - Two existing active Client accounts currently appear as `needs_verified_country`. No country was assigned automatically and no audit rows were created.
 - The separate `csa-global-api-isolated-staging` D1 6a32 remains an isolated copy and is not used by the canonical portal or the Super Admin `GLOBAL_DB` binding.
+
+
+### Super Admin Staging route and canonical database correction — 2026-11-22 09:05 UTC
+
+- `admin-staging.creatorsupportamravati.in/*` route ID `106b1cfa87ce411d99ef77b328b1b39e` now targets `csa-superadmin-isolated-staging` (previously it incorrectly targeted the legacy Worker).
+- The isolated Super Admin Worker's `ADMIN_DASHBOARD_URL` is now `https://admin-staging.creatorsupportamravati.in`, which is the host allowed for non-super-admin administrator roles. `superadmin-editor-staging.creatorsupportamravati.in` remains super-admin-only.
+- The isolated Super Admin Worker's `GLOBAL_DB` now points to canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`; its separate `DB` binding remains `c2bb3fb5-db22-4ed5-9283-161df57ebac2` for Super Admin accounts/sessions.
+- Cloudflare Access remains scoped only to `admin-staging.creatorsupportamravati.in/api/bootstrap` and allows the owner email for the one-time first-Super-Admin bootstrap. It does not protect the ordinary login route. The application login still enforces password, email OTP, session expiry and RBAC.
+- Production-looking hostnames and legacy Worker routes were not changed.
