@@ -194,3 +194,20 @@ test("Editor final delivery supports resumable uploads up to 5 GB and client can
   assert.match(api, /WHERE x\.project_id=\? AND s\.qc_status='approved'/);
   assert.match(api, /if\(a\.role==="client"&&file\.kind==="submission"\)allowed=allowed&&file\.qc_status==="approved"/);
 });
+
+test("Client revision requests enforce ownership, latest approved delivery, one-open-request and included revision limits", () => {
+  const route = api.slice(api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions"))'), api.indexOf('if(m==="GET"&&p.startsWith("/v1/editor/assignments/")'));
+  for (const required of ["user(req,env,[\"client\"])","p.client_id=?","p.status==='client_review'","s.qc_status='approved'","s2.version_number","p.revisions_included","NOT EXISTS(SELECT 1 FROM client_revision_requests","revision_request_conflict","revision_limit_reached"]) {
+    assert.ok(route.includes(required), "Missing revision safeguard: "+required);
+  }
+  assert.ok(api.includes("idx_client_revision_requests_one_open_per_project"));
+  assert.ok(api.includes("UPDATE assignments SET status='revision'"));
+});
+
+test("Client dashboard displays revision allowance and editor assignment shows the client's requested changes", () => {
+  assert.ok(portal.includes("Video review & included revisions"));
+  assert.ok(portal.includes("Request included revision"));
+  assert.ok(portal.includes("remaining_revisions"));
+  assert.ok(portal.includes("revision_notes"));
+  assert.ok(portal.includes("Client revision request"));
+});
