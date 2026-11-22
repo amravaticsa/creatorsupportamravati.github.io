@@ -12,7 +12,7 @@ test("Global API signer is staging-only and uses the dedicated bridge secret", (
   assert.match(api, /x-csa-bridge-timestamp/);
   assert.match(api, /x-csa-bridge-nonce/);
   assert.match(api, /x-csa-bridge-signature/);
-  assert.equal((api.match(/legacyBridgeHeaders\\(/g) || []).length, 1);
+  assert.equal((api.match(/legacyBridgeHeaders\(/g) || []).length, 1);
 });
 
 test("Global API signer and Editor Portal verifier use identical newline canonicalization", () => {
