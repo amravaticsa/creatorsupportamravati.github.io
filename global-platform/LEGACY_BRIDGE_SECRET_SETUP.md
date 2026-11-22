@@ -47,3 +47,15 @@ The nonce migration `0027` was applied on 2026-11-22 only to the isolated Editor
 ## Safety note
 
 Do not rotate or reuse `ADMIN_SYNC_HMAC_SECRET` for this bridge. Do not enable the legacy order claim/import path by repointing the D1 binding before the bridge and its authorization controls are ready.
+
+
+## Super Admin readiness action and scoped Access service token (Nov 22, 2026)
+
+- Added a Super Admin-only POST action at `/api/admins/legacy-bridge-readiness` in the isolated Super Admin Worker source. It rejects non-Super-Admin sessions and non-staging environments, writes an audit event, and returns only a generic readiness result.
+- Added `callGlobalLegacyBridgeReadiness` in `global-admin-sync.js`. It signs a fixed readiness-only payload using the existing `ADMIN_SYNC_HMAC_SECRET` and calls the isolated Global API Worker hostname.
+- Corrected the Global API receiver's canonical HMAC string to use actual newline separators and strict 10-digit timestamp validation.
+- The Global API peer request now expects `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` secrets and sends them only as Cloudflare Access service-token headers.
+- Created a dedicated Access self-hosted application scoped to the single path `/editor-api/internal/legacy-bridge/health` on the isolated staging hostname, with a policy allowing only one dedicated service token. This is separate from the broader human Super Admin Access app.
+- Created service token `CSA Legacy Bridge Staging Health Probe v2` with a one-year expiry. The unused first token was deleted. The service-token secret is not stored in Git or exposed in documentation.
+- **Pending prerequisite:** the Cloudflare Access service-token Client ID and Client Secret still need to be installed as Worker secrets `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` on `csa-global-api-isolated-staging`. Until then, the peer health call will fail closed. No Worker deployment or live bridge request has been performed in this step.
+- Automated source regression tests cover the Super Admin route guard, signed request helper, fixed target and Access header usage.
