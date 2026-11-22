@@ -63,21 +63,27 @@ jobs:
           BASE_URL="$CSA_STAGING_DEPLOY_URL"
           for path in / /client-project.html /editor-register.html /login.html /admin-login.html /portal.html; do
             file="/tmp/csa-page-$(echo "$path" | tr '/.' '__').html"
-            status="$(curl --location --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors \
-              -o "$file" -w '%{http_code}' "$BASE_URL$path" || true)"
+            meta="$(curl --location --silent --show-error --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
+              -o "$file" -w '\n%{http_code}\n%{url_effective}' "$BASE_URL$path")"
+            status="$(printf '%s\n' "$meta" | tail -n 2 | head -n 1)"
+            effective_url="$(printf '%s\n' "$meta" | tail -n 1)"
             if [ "$status" != "200" ] || ! grep -qi '<html' "$file"; then
-              echo "::warning::Staging frontend route did not return an HTML 200 response: $path (HTTP $status)"
-              continue
+              echo "::error::Staging frontend route did not return an HTML 200 response: $path (HTTP $status)"
+              exit 1
             fi
+            node -e 'const base=new URL(process.argv[1]);const actual=new URL(process.argv[2]);if(actual.origin!==base.origin){console.error("Staging route redirected outside its immutable deployment origin:",actual.origin);process.exit(1)}' "$BASE_URL" "$effective_url"
             echo "PASS frontend route: $path"
           done
           for path in /assets/auth.js /assets/portal.js; do
-            status="$(curl --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors \
-              -o /dev/null -w '%{http_code}' "$BASE_URL$path" || true)"
+            meta="$(curl --location --silent --show-error --max-time 30 --retry 3 --retry-delay 2 --retry-all-errors \
+              -o /dev/null -w '\n%{http_code}\n%{url_effective}' "$BASE_URL$path")"
+            status="$(printf '%s\n' "$meta" | tail -n 2 | head -n 1)"
+            effective_url="$(printf '%s\n' "$meta" | tail -n 1)"
             if [ "$status" != "200" ]; then
-              echo "::warning::Staging frontend asset did not return HTTP 200: $path (HTTP $status)"
-              continue
+              echo "::error::Staging frontend asset did not return HTTP 200: $path (HTTP $status)"
+              exit 1
             fi
+            node -e 'const base=new URL(process.argv[1]);const actual=new URL(process.argv[2]);if(actual.origin!==base.origin){console.error("Staging asset redirected outside its immutable deployment origin:",actual.origin);process.exit(1)}' "$BASE_URL" "$effective_url"
             echo "PASS frontend asset: $path"
           done
           curl --fail --silent --show-error --retry 8 --retry-delay 5 --retry-all-errors \
