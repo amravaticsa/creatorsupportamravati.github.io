@@ -140,7 +140,7 @@ jobs:
           grep -q "global_admin_department_access" global-platform/api/src/index.js
           grep -Fq 'project_admin:["projects.manage"]' global-platform/api/src/index.js
           test -s global-platform/api/tests/rbac-route-map.test.mjs
-          grep -Fq "FROM admin_accounts ORDER BY id" global-platform/superadmin/global-admin-sync.js
+          grep -Fq "FROM admin_accounts a ORDER BY a.id" global-platform/superadmin/global-admin-sync.js
           grep -q "department_access_missing" global-platform/api/src/index.js
           grep -q "project_department_routes" global-platform/api/src/index.js
           grep -q "country_user_assignment_audit" global-platform/migrations/0031_country_assignment_audit.sql
