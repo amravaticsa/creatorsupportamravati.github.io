@@ -24,6 +24,8 @@ jobs:
         run: python3 global-platform/scripts/test-legacy-editor-bridge-migration.py
       - name: Execute legacy bridge nonce migration on disposable SQLite
         run: python3 global-platform/scripts/test-legacy-bridge-nonces-migration.py
+      - name: Ensure legacy editor bridge management routes remain disabled
+        run: python3 global-platform/scripts/test-legacy-editor-bridge-not-live.py
 
   validate:
     runs-on: ubuntu-latest
