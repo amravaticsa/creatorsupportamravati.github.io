@@ -198,7 +198,7 @@ test("Editor final delivery supports resumable uploads up to 5 GB and client can
 
 test("Client revision requests enforce ownership, latest approved delivery, one-open-request and included revision limits", () => {
   const route = api.slice(api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions"))'), api.indexOf('if(m==="GET"&&p.startsWith("/v1/editor/assignments/")'));
-  for (const required of ["user(req,env,[\"client\"])","p.client_id=?","project.status!==\"client_review\"","s.qc_status='approved'","s2.version_number","p.revisions_included","NOT EXISTS(SELECT 1 FROM client_revision_requests","revision_request_conflict","revision_limit_reached"]) {
+  for (const required of ["user(req,env,[\"client\"])","p.client_id=?","project.status!==\"client_review\"","s.qc_status='approved'","ORDER BY s2.submitted_at DESC LIMIT 1","x.status=\'approved\'","p.revisions_included","NOT EXISTS(SELECT 1 FROM client_revision_requests","revision_request_conflict","revision_limit_reached"]) {
     assert.ok(route.includes(required), "Missing revision safeguard: "+required);
   }
   assert.ok(revisionMigration.includes("idx_client_revision_requests_one_open_per_project"));
