@@ -26,7 +26,7 @@ test("Global API health gate requires the country legal review and regional auth
 
 test("country activation and payments fail closed until the latest legal review is approved", () => {
   const start = source.indexOf('if(m==="POST"&&p==="/internal/superadmin/regional-admin-data")');
-  const end = source.indexOf('if(m==="POST"&&p==="/internal/regional/', start);
+  const end = source.indexOf('if(m==="POST"&&p.startsWith("/internal/regional/"))', start);
   assert.ok(start >= 0 && end > start, "country-management bridge route must be registered");
   const route = source.slice(start, end);
   assert.ok(route.includes('legal?.review_status!=="approved"'));
