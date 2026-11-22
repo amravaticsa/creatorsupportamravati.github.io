@@ -46,3 +46,6 @@ The companion test `scripts/test-legacy-side-assignment-ledger-migration.py` run
 - Separate explicit approval before any production change.
 
 **No Worker route is registered, no D1 binding is changed, no migration is applied remotely, and no live assignment is created by this proposal.**
+
+
+CI validation is wired in `.github/workflows/csa-global-validation.yml`; the workflow run on the follow-up documentation commit validates this ledger migration test alongside the existing bridge safety suite.
