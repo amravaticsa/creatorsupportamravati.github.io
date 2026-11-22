@@ -133,7 +133,7 @@ async function handle(req,env){
  }
  if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   // Private server-to-server snapshot from the CSA Super Admin Worker only.
-  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Admin authorization sync is not configured.",503,"sync_unavailable");
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Admin authorization sync is not configured.",503,"sync_unavailable");
   const raw=await req.text();
   if(raw.length>65536)return bad("Authorization snapshot is too large.",413,"sync_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
@@ -142,8 +142,8 @@ async function handle(req,env){
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
   const canonical="POST\n/internal/admin-authorizations/sync\n"+ts+"\n"+nonce+"\n"+bodyHash;
-  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
-  if(!constantTime(expected,sig))return bad("Sync signature is invalid.",401,"sync_signature_invalid");
+  const validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  if(!validSignature)return bad("Sync signature is invalid.",401,"sync_signature_invalid");
   let snapshot;
   try{snapshot=JSON.parse(raw);}catch{return bad("Invalid JSON snapshot.");}
   if(!Array.isArray(snapshot)||snapshot.length>100)return bad("Snapshot must be an array of at most 100 admin records.");
@@ -172,13 +172,13 @@ async function handle(req,env){
  }
  
  if(m==="POST"&&p==="/internal/superadmin/regional-admin-data"){
-  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Regional Admin bridge unavailable.",503,"regional_bridge_unavailable");
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Regional Admin bridge unavailable.",503,"regional_bridge_unavailable");
   const raw=await req.text();if(raw.length>4096)return bad("Regional Admin request too large.",413,"regional_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
   if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid regional bridge authentication headers.",401,"regional_auth_invalid");
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
-  const canonical="POST\n/internal/superadmin/regional-admin-data\n"+ts+"\n"+nonce+"\n"+bodyHash,expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
-  if(!constantTime(expected,sig))return bad("Regional bridge signature is invalid.",401,"regional_signature_invalid");
+  const canonical="POST\n/internal/superadmin/regional-admin-data\n"+ts+"\n"+nonce+"\n"+bodyHash,validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  if(!validSignature)return bad("Regional bridge signature is invalid.",401,"regional_signature_invalid");
   let b;try{b=JSON.parse(raw)}catch{return bad("Invalid regional bridge JSON.",400,"regional_json_invalid");}
   try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}catch{return bad("Regional bridge nonce was already used.",409,"regional_replay");}
   const actorId=String(b.actor_admin_id||""),actorRole=String(b.actor_role||"");
@@ -265,7 +265,7 @@ async function handle(req,env){
  
  if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){
   // Dedicated Super Admin bridge. Never accepts Global Admin JWT/session roles.
-  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin pricing bridge is not configured.",503,"pricing_bridge_unavailable");
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin pricing bridge is not configured.",503,"pricing_bridge_unavailable");
   const raw=await req.text();
   if(raw.length>8192)return bad("Pricing request is too large.",413,"pricing_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
@@ -274,8 +274,8 @@ async function handle(req,env){
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
   const canonical="POST\n/internal/superadmin/pricing-policy\n"+ts+"\n"+nonce+"\n"+bodyHash;
-  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
-  if(!constantTime(expected,sig))return bad("Pricing bridge signature is invalid.",401,"pricing_signature_invalid");
+  const validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  if(!validSignature)return bad("Pricing bridge signature is invalid.",401,"pricing_signature_invalid");
   let b;try{b=JSON.parse(raw)}catch{return bad("Invalid pricing request JSON.");}
   try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}
   catch{return bad("Pricing bridge nonce was already used.",409,"pricing_replay");}
@@ -296,7 +296,7 @@ async function handle(req,env){
  }
  
  if(m==="POST"&&p==="/internal/superadmin/finance/refund-dashboard"){
-  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin finance bridge is not configured.",503,"finance_bridge_unavailable");
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin finance bridge is not configured.",503,"finance_bridge_unavailable");
   const raw=await req.text();
   if(raw.length>8192)return bad("Finance dashboard request is too large.",413,"finance_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
@@ -305,8 +305,8 @@ async function handle(req,env){
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
   const canonical="POST\n/internal/superadmin/finance/refund-dashboard\n"+ts+"\n"+nonce+"\n"+bodyHash;
-  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
-  if(!constantTime(expected,sig))return bad("Finance bridge signature is invalid.",401,"finance_signature_invalid");
+  const validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  if(!validSignature)return bad("Finance bridge signature is invalid.",401,"finance_signature_invalid");
   let actor;try{actor=JSON.parse(raw)}catch{return bad("Invalid finance dashboard request JSON.");}
   const actorId=txt(actor?.actor_admin_id,100),actorEmail=txt(actor?.actor_email,254).toLowerCase(),actorRole=txt(actor?.actor_role,40);
   if(!actorId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)||!["super_admin","finance_admin"].includes(actorRole))return bad("Finance dashboard actor is not permitted.",403,"finance_actor_denied");
@@ -328,13 +328,13 @@ async function handle(req,env){
  }
  
  if(m==="POST"&&p==="/internal/superadmin/editor-sessions"){
-  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin editor session bridge is not configured.",503,"editor_session_bridge_unavailable");
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin editor session bridge is not configured.",503,"editor_session_bridge_unavailable");
   const raw=await req.text();if(raw.length>8192)return bad("Editor session request is too large.",413,"editor_session_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
   if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid editor session bridge authentication headers.",401,"editor_session_auth_invalid");
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
-  const canonical="POST\n/internal/superadmin/editor-sessions\n"+ts+"\n"+nonce+"\n"+bodyHash,expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
-  if(!constantTime(expected,sig))return bad("Editor session bridge signature is invalid.",401,"editor_session_signature_invalid");
+  const canonical="POST\n/internal/superadmin/editor-sessions\n"+ts+"\n"+nonce+"\n"+bodyHash,validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  if(!validSignature)return bad("Editor session bridge signature is invalid.",401,"editor_session_signature_invalid");
   let body;try{body=JSON.parse(raw)}catch{return bad("Invalid editor session request JSON.");}
   const actorId=txt(body?.actor_admin_id,100),actorEmail=txt(body?.actor_email,254).toLowerCase(),actorRole=txt(body?.actor_role,40),editorId=txt(body?.editor_id,100),action=txt(body?.action,20),allow=(env.ADMIN_EMAILS||"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
   if(!actorId||!actorEmail||actorRole!=="super_admin"||!allow.includes(actorEmail))return bad("Super Admin identity is not permitted.",403,"editor_session_actor_denied");
@@ -1458,6 +1458,7 @@ async function cleanupExpiredMultipartUploads(env){
  console.log(JSON.stringify({event:"multipart_cleanup_completed",checked:(rows.results||[]).length,aborted,failed,at:now}));
  return {checked:(rows.results||[]).length,aborted,failed};
 }
+async function verifyGlobalApiHmac(env,canonical,sig){const secrets=[env.GLOBAL_API_SYNC_HMAC_SECRET,env.ADMIN_SYNC_HMAC_SECRET].filter(Boolean);for(const secret of secrets){const expected=await hmacHex(secret,canonical);if(constantTime(expected,sig))return true;}return false;}
 export default {async scheduled(controller,env){
  if(!env.MEDIA||!env.DB)throw new Error("Cleanup requires the staging R2 and D1 bindings.");
  const id=crypto.randomUUID(),started=new Date().toISOString();
