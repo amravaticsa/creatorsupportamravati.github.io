@@ -106,3 +106,18 @@ Stop and mark BLOCKED if:
 ## Cleanup
 
 After retaining redacted evidence, remove test projects and uploads only through supported staging application workflows. Do not delete D1 rows directly as a shortcut. Retain a concise audit record of cleanup. Production remains untouched.
+
+
+## Latest verified staging deployment — 2026-11-22
+
+Use the immutable deployment below as the authoritative frontend target for this test cycle:
+
+- Frontend: https://3e36ca76.csa-global-staging.pages.dev
+- Staging API: https://csa-global-api-staging.creatorsupportamravati.workers.dev
+- Staging branch commit: `e3663db3c97c6126974a7efee84ef093b3e59f67`
+- Deployment workflow: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/45000627411 (success).
+- API validation workflow: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/45000627398 (success).
+
+The previous `csa-global-staging.pages.dev` address above is a project alias and may resolve to a different deployment over time. For reproducible QA evidence, record and use the immutable deployment URL shown here. Before any sign-in, verify the browser remains on this Pages deployment and API calls remain on the staging Worker hostname. Never enter credentials after a redirect to a production hostname.
+
+This deployment proves frontend route availability, staging API health/D1 connectivity, and unauthenticated API denial only. It does not create QA identities or pass E2E-01 through E2E-07.
