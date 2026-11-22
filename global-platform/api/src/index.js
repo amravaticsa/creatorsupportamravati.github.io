@@ -1591,7 +1591,7 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
  }
  if(m==="POST"&&p.startsWith("/v1/offers/")&&p.endsWith("/deposit/checkout")){
   const offerId=p.split("/")[3],a=await user(req,env,["editor"]);
-  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay API keys are not configured in Cloudflare secrets.",503,"razorpay_not_configured");
+  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Razorpay Test Mode credentials are required on the staging Worker.",503,"test_mode_required");
   const offer=await env.DB.prepare("SELECT o.id,o.project_id,o.status,o.deposit_amount_minor,o.deposit_currency,p.title FROM project_offers o JOIN projects p ON p.id=o.project_id WHERE o.id=? AND o.editor_id=?").bind(offerId,a.id).first();
   if(!offer||!["terms_accepted_pending_deposit","deposit_pending"].includes(offer.status))return bad("Accept the offer and project agreement before paying the deposit.",409);
   if(!Number.isSafeInteger(offer.deposit_amount_minor)||offer.deposit_amount_minor<=0)return bad("Invalid deposit amount.",409);
@@ -1609,7 +1609,7 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
  }
  if(m==="POST"&&p==="/v1/payments/razorpay/verify"){
   const a=await user(req,env,["editor"]),b=await req.json(),orderId=txt(b.razorpay_order_id,100),paymentId=txt(b.razorpay_payment_id,100),signature=txt(b.razorpay_signature,200);
-  if(!orderId||!paymentId||!signature||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID)return bad("Payment verification details or Razorpay keys are missing.",503);
+  if(!orderId||!paymentId||!signature||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Test-mode payment verification details are missing.",503,"test_mode_required");
   const record=await env.DB.prepare("SELECT * FROM payments WHERE provider_order_id=? AND user_id=? AND payment_type='editor_security_deposit'").bind(orderId,a.id).first();
   if(!record)return bad("Payment order does not belong to this editor.",404);
   const expected=await hmacHex(env.RAZORPAY_KEY_SECRET,orderId+"|"+paymentId);
