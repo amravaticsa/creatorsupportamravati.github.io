@@ -289,3 +289,5 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Before public launch, cross-account media access must be tested using real Client/Editor accounts. If strict physical isolation is required, provision separate R2 buckets and a separate legacy-video D1, then plan a controlled object/record migration. Do not switch bindings without that migration plan.
 
 - Canonical Global D1 migration `0032_verified_country_scope.sql` now makes `v_project_country_scope` require verified country timestamp, reviewer ID and evidence reference. The isolated D1 already had the same rule. The three existing canonical projects remain `country_unassigned`; no India project data is exposed to a Regional Admin before verification.
+
+- Read-only R2 check on 22 November 2026: managed `r2.dev` public access is disabled for both `csa-global-media-staging` and `csa-global-video-isolated-staging`; neither bucket has a public managed R2 endpoint enabled. The buckets remain shared by the two API Workers through private bindings.
