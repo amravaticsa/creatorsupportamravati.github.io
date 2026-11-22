@@ -118,7 +118,9 @@ test("non-staging environments fail closed (503)", async () => {
 test("stale timestamps are rejected (401)", async () => {
   const h = await createHarness();
   const signed = await h.signedRequest();
-  signed.headers.set("x-csa-bridge-timestamp", "1000000000");
-  const result = await h.verify(signed);
+  const headers = new Headers(signed.req.headers);
+  headers.set("x-csa-bridge-timestamp", "1000000000");
+  const stale = { ...signed, req: new Request(signed.req.url, { method: "POST", headers, body: signed.raw }) };
+  const result = await h.verify(stale);
   assert.equal(result.code, "bridge_timestamp_invalid");
 });
