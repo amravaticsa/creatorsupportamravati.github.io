@@ -67,9 +67,9 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
-            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
-            and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "2d3f97a0-fa32-46ef-9913-972a59a410e4") ] | length == 1)
-            and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-global-video-isolated-staging") ] | length == 1)
+            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
+            and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-video-editing-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
             and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
@@ -93,6 +93,6 @@ jobs:
           ' csa-editor-portal-isolated-staging.json >/dev/null
 
           echo "PASS: all four staging Worker binding maps match the current read-only audit."
-          echo "NOTE: both Global API hostnames share canonical D1 470 and legacy video D1 2d3; the isolated hostname is a compatibility bridge, not a separate primary database. D1 6a32 is an unbound snapshot."
+          echo "NOTE: canonical Global API uses D1 470 and legacy video D1 2d3; the isolated legacy-link API uses D1 6a32 and video D1 b611. Super Admin Regional Admin data proxy targets the canonical API; only Legacy Links uses the isolated API."
           echo "NOTE: secret names are present; secret values, equality, and token validity are not read or verified."
           echo "NOTE: this preflight is read-only. It does not deploy code, call readiness endpoints, or modify D1/R2 resources."
