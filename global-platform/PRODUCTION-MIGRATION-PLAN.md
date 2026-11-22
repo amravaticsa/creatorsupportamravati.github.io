@@ -216,3 +216,24 @@ This confirms the latest observed staging validation and staging deployment work
 Added `migrations/D1-CAPACITY-BILLING-CHECKLIST.md` based on current official Cloudflare D1/Workers pricing documentation. It records the Free-tier 10-database limit, Paid-tier 100,000 included databases, overage pricing, dashboard verification steps, and separate decisions for Free/Paid/unclear account states.
 
 The active CSA account plan remains **unverified**: a prior subscription/billing API lookup returned HTTP 403. The database count of 10/10 alone is not proof of the active plan. No plan upgrade or billing change was performed. Account-owner confirmation is required before any billing decision or D1 provisioning.
+
+
+## Live route/binding re-audit addendum (2026-11-22)
+
+A fresh read-only Cloudflare inspection supersedes the earlier route notes where more detail is available. See `docs/PRODUCTION-ROUTE-AND-DATABASE-ISOLATION-AUDIT-2026-11-22.md` for the full evidence table.
+
+Confirmed blockers:
+
+- `superadmin.creatorsupportamravati.in/*` is routed to `csa-superadmin-api-staging` with `ENVIRONMENT=staging`.
+- Production-host Rush paths `/rush-approvals*` and `/rush-api/*` route to `csa-rush-admin-staging`, whose D1 bindings are staging resources.
+- `employee.creatorsupportamravati.in/*` routes to `csa-employee-gateway`, whose `EMPLOYEE_BACKEND` service binding targets `csa-superadmin-api-staging`.
+- Production `csa-editor-portal` uses production orders D1 `csa-orders`, but its `CSA_SUPERADMIN_DB` points to `csa-superadmin-staging`.
+- The Cloudflare script inventory did not show a dedicated production `csa-superadmin-api` or production Rush Admin Worker. Do not route production hostnames to an isolated staging Worker as a workaround.
+
+Capacity update:
+
+- A fresh D1 inventory now returns 11 databases, including `csa-global-platform-isolated-staging` created on 2026-11-22.
+- The earlier 10/10 count is a historical observation, not the current inventory. Current plan/quota and billing remain unverified; no database was deleted or unbound.
+- Production database provisioning remains blocked until the account's actual D1 quota is confirmed and a dedicated production architecture is approved.
+
+No production Worker, route, D1 binding, DNS record, secret, payment configuration, or customer data was changed during this re-audit.
