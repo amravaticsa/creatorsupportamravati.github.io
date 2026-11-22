@@ -117,7 +117,7 @@ The canonical staging database has `global_admin_authorizations.finance_access_l
 
 ### HMAC secret transition
 
-The canonical staging API accepts either `GLOBAL_API_SYNC_HMAC_SECRET` (preferred for the isolated Super Admin Worker) or the legacy `ADMIN_SYNC_HMAC_SECRET`. The isolated Super Admin Worker prefers the dedicated binding and falls back to the legacy binding. The legacy `csa-superadmin-api-staging` continues to use the old secret. Keep the old binding unchanged until that legacy Worker is retired. The dedicated secret must be generated once and bound only to `csa-superadmin-isolated-staging` and `csa-global-api-staging`; never commit or paste its value into chat or source control.
+The canonical staging API accepts either `GLOBAL_API_SYNC_HMAC_SECRET` (preferred for the isolated Super Admin Worker) or the legacy `ADMIN_SYNC_HMAC_SECRET`. The isolated Super Admin Worker prefers the dedicated binding and falls back to the legacy binding. The legacy `csa-superadmin-api-staging` continues to use the old secret. Keep the old binding unchanged until that legacy Worker is retired. A cryptographically random 256-bit dedicated secret has been generated once and bound to `csa-superadmin-isolated-staging` and `csa-global-api-staging`; its value is never committed or pasted into chat.
 
 
 ### Current HMAC sync status — 2026-11-22
@@ -135,3 +135,10 @@ All client/editor rows are filtered on authoritative `users.country_code`; proje
 ### Staging storage note
 
 The canonical API (D1 470) and isolated API (D1 6a32) share the same R2 `MEDIA` bucket `csa-global-media-staging`, plus legacy-video D1 2d3... and bucket `csa-global-video-isolated-staging`. This is logical D1 separation, not physical object-storage separation. Keep every upload/download/complete/abort operation tied to an authenticated project/assignment record; cross-account media isolation remains a required live E2E test before launch.
+
+
+### Dedicated HMAC secret provisioned — 2026-11-22 09:43 UTC
+
+- Cloudflare generated and stored one random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` on both canonical Staging Workers. Secret values are not recorded in source control or chat.
+- Cloudflare confirmed the binding exists on both Workers and created a 100% traffic deployment version on each.
+- The next Super Admin cron (`*/15 * * * *`) is the runtime acceptance check. The most recent recorded scheduled sync before this secret deployment was successful at 09:30:46 UTC; confirm a new post-deployment scheduled record before closing this item.
