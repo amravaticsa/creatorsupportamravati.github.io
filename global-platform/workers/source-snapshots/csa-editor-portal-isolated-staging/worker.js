@@ -27,10 +27,10 @@ const safeEq=(a,b)=>{if(typeof a!=="string"||typeof b!=="string"||a.length!==b.l
 async function verifyLegacyBridgeRequest(req,env,rawBody){
  if(String(env?.ENVIRONMENT||"").toLowerCase()!=="staging"||!env?.CSA_LEGACY_BRIDGE_SECRET||!env?.CSA_VIDEO_DB)return {ok:false,status:503,code:"bridge_unavailable"};
  const timestamp=req.headers.get("x-csa-bridge-timestamp")||"",nonce=req.headers.get("x-csa-bridge-nonce")||"",signature=req.headers.get("x-csa-bridge-signature")||"";
- if(!/^\\d{10}$/.test(timestamp)||Math.abs(Math.floor(Date.now()/1000)-Number(timestamp))>300)return {ok:false,status:401,code:"bridge_timestamp_invalid"};
+ if(!/^\d{10}$/.test(timestamp)||Math.abs(Math.floor(Date.now()/1000)-Number(timestamp))>300)return {ok:false,status:401,code:"bridge_timestamp_invalid"};
  if(!/^[A-Za-z0-9_-]{22,128}$/.test(nonce)||!/^[a-f0-9]{64}$/.test(signature))return {ok:false,status:401,code:"bridge_signature_invalid"};
  const path=new URL(req.url).pathname,bodyHash=await sha(rawBody);
- const canonical=["CSA-BRIDGE-V1",timestamp,nonce,req.method.toUpperCase(),path,bodyHash].join("\\n");
+ const canonical=["CSA-BRIDGE-V1",timestamp,nonce,req.method.toUpperCase(),path,bodyHash].join("\n");
  const key=await crypto.subtle.importKey("raw",enc.encode(env.CSA_LEGACY_BRIDGE_SECRET),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
  const expected=hex(await crypto.subtle.sign("HMAC",key,enc.encode(canonical)));
  if(!safeEq(signature,expected))return {ok:false,status:401,code:"bridge_signature_invalid"};
