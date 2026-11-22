@@ -19,14 +19,22 @@ The secret value is intentionally not recorded in Git, logs, chat, or this docum
 
 The existing `ADMIN_SYNC_HMAC_SECRET` on the Global API Worker remains present and was not changed. It continues to serve the existing Super Admin/Admin authorization synchronization contract. The Editor Portal does not currently have that secret, and no change was made to it.
 
-## Current activation state
+## Implemented in source (staging snapshot)
 
-This secret is provisioned but is not yet consumed by application code. No bridge endpoint has been enabled, no D1 binding has been changed, no remote migration has been applied, and no editor identity, order, assignment, credential, KYC document, or media record has been copied.
+- Added a staging-only HMAC verifier to the isolated Editor Portal Worker.
+- The canonical signature binds timestamp, nonce, HTTP method, exact request path, and SHA-256 body digest.
+- Timestamp freshness is limited to 5 minutes; signature comparison is constant-time.
+- Added POST `/editor-api/internal/legacy-bridge/health`, restricted to the dedicated staging Admin host and the `bridge-readiness` purpose.
+- Added `0027_legacy_bridge_nonces.sql` for one-time nonce storage and expiry indexing.
+- Added source regression tests for host restriction, signature components, and nonce schema.
+- CI validation passed for the current staging source commit.
+
+The nonce migration has NOT been applied to the remote legacy D1, and the Worker source has NOT been deployed as part of this step. Until the migration is applied, the endpoint fails closed. No D1 binding has been changed and no editor identity, order, assignment, credential, KYC document, or media record has been copied.
 
 ## Required next implementation gates
 
-1. Add a staging-only HMAC request verifier in both Worker source snapshots using `CSA_LEGACY_BRIDGE_SECRET`, with timestamp freshness, request-body digest, constant-time signature comparison, unique nonce replay protection, and strict path/method binding.
-2. Add the replay-nonce schema to the isolated legacy Editor Portal D1 and apply it only after disposable-database tests pass.
+1. Add the matching HMAC request signer to the Global API staging Worker and test a signed request against the Editor Portal verifier.
+2. Execute the nonce migration against a disposable copy of the legacy Editor Portal schema, then apply it only to the isolated legacy Editor Portal D1 after explicit confirmation.
 3. Implement explicit admin-reviewed Global editor ↔ legacy editor mapping; require active account, verified profile, and verified KYC. Never match by email/name alone and never copy password credentials.
 4. Implement idempotent order/assignment bridge operations and revocation handling.
 5. Only after the above tests pass, revisit the isolated Global API `LEGACY_VIDEO_DB` binding. Preserve all existing bindings and keep production untouched.
