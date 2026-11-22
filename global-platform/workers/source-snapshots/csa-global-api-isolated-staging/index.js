@@ -177,7 +177,7 @@ async function handle(req,env){
   const bridgePath="/editor-api/internal/legacy-bridge/health",bridgeBody=JSON.stringify({purpose:"bridge-readiness"});
   try{
    const headers=await legacyBridgeHeaders(env,"POST",bridgePath,bridgeBody);
-   const response=await fetch("https://superadmin-editor-staging.creatorsupportamravati.in"+bridgePath,{method:"POST",headers:{"content-type":"application/json",...headers},body:bridgeBody});
+   const response=await fetch("https://superadmin-editor-staging.creatorsupportamravati.in"+bridgePath,{method:"POST",headers:{"content-type":"application/json","CF-Access-Client-Id":env.CF_ACCESS_CLIENT_ID,"CF-Access-Client-Secret":env.CF_ACCESS_CLIENT_SECRET,...headers},body:bridgeBody});
    let result={};try{result=await response.json()}catch{}
    if(!response.ok||result?.ok!==true||result?.authenticated!==true)return bad("Legacy Editor Portal readiness check did not pass.",502,"legacy_bridge_peer_unavailable");
    return out({ok:true,bridge:{authenticated:true,peer:"editor-portal-staging"}},200);
