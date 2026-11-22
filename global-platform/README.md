@@ -235,7 +235,7 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 - Canonical Client/Editor Portal remains `csa-global-api-staging` on D1 `csa-global-platform-staging` (`470a81b8-3d36-4e2d-942c-5cbb2746a473`). The Pages portal's `portal.js` targets this API.
 - The canonical API `csa-global-api-staging` uses Global D1 470 and legacy video D1 2d3. The isolated legacy-link API `csa-global-api-isolated-staging` uses Global D1 6a32 and video D1 b611. Regional Admin data uses the canonical API; only Legacy Links uses the isolated API.
-- Canonical staging API exposes HMAC-protected internal bridges for admin authorization sync, pricing policy, refund dashboard, editor sessions, and a Regional Admin read bridge for future consolidation. Finance access is sourced from `csa_admin_module_access` and persisted as `global_admin_authorizations.finance_access_level`. The active isolated Regional Admin portal currently uses `csa-global-api-isolated-staging`.
+- Canonical staging API exposes HMAC-protected internal bridges for admin authorization sync, pricing policy, refund dashboard, editor sessions and the active Regional Admin data proxy. Finance access is sourced from `csa_admin_module_access` and persisted as `global_admin_authorizations.finance_access_level`. The isolated API hostname is reserved for Legacy Links compatibility.
 - Super Admin authorization reconciliation runs every 15 minutes; canonical Global API multipart cleanup runs hourly. The isolated API retains its own 15-minute cleanup for its separate D1/R2 resources.
 - A separate `csa-rush-admin-isolated-staging` Worker was created. It uses Rush D1 `csa-video-rush-staging` (`198a0604-af4d-4671-8053-5df245ea754c`) and isolated Super Admin D1 `csa-superadmin-isolated-staging` (`c2bb3fb5-db22-4ed5-9283-161df57ebac2`). Routes: `superadmin-editor-staging.creatorsupportamravati.in/rush-approvals*` and `superadmin-editor-staging.creatorsupportamravati.in/rush-api/*`. Open the staging approvals page at `https://superadmin-editor-staging.creatorsupportamravati.in/rush-approvals` after signing in to the isolated Super Admin portal.
 - Existing Rush routes on `superadmin.creatorsupportamravati.in` remain unchanged and continue to target legacy `csa-rush-admin-staging` / D1 `99bc81fc-e97e-488b-a380-eb0237ff8ffc`. No Production-looking hostname route was repointed.
@@ -273,7 +273,7 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 ### Regional Admin data path and staging isolation — 2026-11-22
 
-- The isolated Super Admin Worker's Regional Admin read proxy targets `csa-global-api-isolated-staging`, which currently binds canonical Global D1 470. The hostname is a compatibility bridge, not a separate user/project database.
+- The isolated Super Admin Worker's Regional Admin read proxy targets canonical `csa-global-api-staging` D1 470 with the dedicated HMAC secret. Only the Legacy Links bridge targets `csa-global-api-isolated-staging` D1 6a32.
 - The canonical Global API also has HMAC-authenticated, replay-protected Regional Admin read endpoints for future consolidation. They are not the current Regional Admin portal's data path.
 - All Regional Admin queries use verified `users.country_code` or `v_project_country_scope`; self-reported `editor_profiles.country_code` is not used for access scoping. Finance/refund endpoints remain explicitly denied.
 - Super Admin Worker `GLOBAL_DB` is canonical D1 470; its `DB` remains Super Admin identity/session D1 c2bb. No Production host or Worker was changed.
