@@ -8,6 +8,8 @@ const api = await readFile(new URL("../../workers/source-snapshots/csa-global-ap
 const editor = await readFile(new URL("../../workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js", import.meta.url), "utf8");
 const superAdmin = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
 const superAdminBridge = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
+const superAdminDashboard = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/admin-dashboard.js", import.meta.url), "utf8");
+const superAdminApp = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js", import.meta.url), "utf8");
 
 function extract(source, start, end) {
   const a = source.indexOf(start), b = source.indexOf(end, a);
@@ -164,4 +166,12 @@ test("Global API peer request carries path-scoped Cloudflare Access service cred
   assert.ok(route.includes("CF-Access-Client-Secret"));
   assert.ok(route.includes("CF_ACCESS_CLIENT_ID"));
   assert.ok(route.includes("CF_ACCESS_CLIENT_SECRET"));
+});
+
+
+test("Super Admin dashboard exposes the guarded legacy bridge readiness action", () => {
+  assert.ok(superAdminDashboard.includes("legacyBridgeTest"));
+  assert.ok(superAdminDashboard.includes("testLegacyBridge()"));
+  assert.ok(superAdminApp.includes("function testLegacyBridge()"));
+  assert.ok(superAdminApp.includes("admins/legacy-bridge-readiness"));
 });
