@@ -473,3 +473,5 @@ This is a source-control implementation specification, not a deployed code chang
 - After deploying dual-secret compatibility, the scheduled sync log recorded `outcome=success`, `synced_count=1`, and no error code at 08:45:46 UTC.
 - The preceding 08:30 UTC run failed with 401; the 08:45 UTC run confirms the existing secret fallback now authenticates successfully.
 - `GLOBAL_API_SYNC_HMAC_SECRET` is optional for a future controlled secret rotation, not a current blocker. Existing `ADMIN_SYNC_HMAC_SECRET` remains unchanged.
+
+- Follow-up verification: the 09:00:46 UTC scheduled run also succeeded with `synced_count=1` and no error code. Two consecutive scheduled runs (08:45 and 09:00 UTC) have now succeeded after the compatibility deployment.
