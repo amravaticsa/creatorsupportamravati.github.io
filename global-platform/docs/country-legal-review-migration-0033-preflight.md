@@ -83,3 +83,11 @@ Current state:
 - A D1 SQL export was completed, but its temporary signed URL returned HTTP 403 when fetched from this execution environment; no external SQL backup file was saved. D1 Time Travel remains the recovery mechanism.
 
 The schema-parity blocker is cleared. Country activation and legal approval remain explicitly blocked until a qualified human reviewer supplies genuine evidence.
+
+
+### Negative guard test
+
+- Submitted an intentionally invalid approved review (invalid reviewer ID and missing evidence) to each Global D1.
+- Both D1s rejected the write with `country_legal_review_requires_valid_reviewer_and_evidence`.
+- The legal-review row count remained zero in both databases after the rejected writes.
+- No placeholder review record was created.
