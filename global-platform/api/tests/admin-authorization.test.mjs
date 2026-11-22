@@ -5,9 +5,9 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
 
 test("admin identity registration requires a verified identity-provider email", () => {
-  assert.match(source, /c\\.email_verified!==true/);
-  assert.match(source, /c\\.sub!==\"string\"/);
-  assert.match(source, /c\\.email!==\"string\"/);
+  assert.ok(source.includes("c.email_verified!==true"));
+  assert.ok(source.includes('typeof c.sub!=="string"'));
+  assert.ok(source.includes('typeof c.email!=="string"'));
 });
 
 test("admin registration rechecks active Super Admin authorization before creating the Global account", () => {
@@ -42,6 +42,6 @@ test("finance read, refund and payout access are separately granted by explicit 
 });
 
 test("Super Admin pricing bridge accepts a 10-digit timestamp and signs newline-delimited canonical data", () => {
-  assert.ok(source.includes('if(!/^\\\\d{10}$/.test(ts)'));
-  assert.ok(source.includes('const canonical="POST\\\\n/internal/superadmin/pricing-policy\\\\n"+ts+"\\\\n"+nonce+"\\\\n"+bodyHash'));
+  assert.ok(source.includes('if(!/^\\d{10}$/.test(ts)'));
+  assert.ok(source.includes('const canonical="POST\\n/internal/superadmin/pricing-policy\\n"+ts+"\\n"+nonce+"\\n"+bodyHash'));
 });
