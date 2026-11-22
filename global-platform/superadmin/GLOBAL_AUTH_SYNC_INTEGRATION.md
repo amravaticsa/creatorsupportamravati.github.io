@@ -450,3 +450,11 @@ Created `global-platform/security/SAFE_LOGGING_STANDARD.md` with:
 - synthetic runtime validation checklist and deployment guardrails.
 
 This is a source-control implementation specification, not a deployed code change. Worker source and observability settings remain unchanged until the isolated Worker source can be patched, syntax-checked, and runtime-validated without affecting production routes.
+
+
+### Runtime verification update — 2026-11-22 08:30 UTC
+
+- The scheduled sync reached the canonical `csa-global-api-staging` route, but returned HTTP 401. The sender and receiver canonical-signature formats match; the remaining issue is the shared-secret value or authentication header validation.
+- The legacy `csa-superadmin-api-staging` Worker also targets the canonical staging API using the existing `ADMIN_SYNC_HMAC_SECRET`. Do **not** overwrite or rotate that existing binding, because doing so could break the legacy Super Admin path.
+- Safe remediation is a separate `GLOBAL_API_SYNC_HMAC_SECRET` binding shared only by `csa-superadmin-isolated-staging` and `csa-global-api-staging`; the canonical API should temporarily accept both the new and legacy HMAC secrets. The existing legacy secret remains unchanged.
+- Secret creation/update was not performed in this run. It requires explicit owner authorization. Until that is approved and a scheduled sync succeeds, Global Admin authorization reconciliation remains not runtime-verified.
