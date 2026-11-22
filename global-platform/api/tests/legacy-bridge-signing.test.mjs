@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createHmac, createHash, randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
-const api = await readFile(new URL("../workers/source-snapshots/csa-global-api-isolated-staging/index.js", import.meta.url), "utf8");
-const editor = await readFile(new URL("../workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js", import.meta.url), "utf8");
+const api = await readFile(new URL("../../workers/source-snapshots/csa-global-api-isolated-staging/index.js", import.meta.url), "utf8");
+const editor = await readFile(new URL("../../workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js", import.meta.url), "utf8");
 
 test("Global API signer is staging-only and uses the dedicated bridge secret", () => {
   assert.match(api, /async function legacyBridgeHeaders\(env,method,path,rawBody\)/);
