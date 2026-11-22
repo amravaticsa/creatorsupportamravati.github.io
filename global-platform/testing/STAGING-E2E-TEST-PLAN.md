@@ -145,3 +145,15 @@ Evidence:
 - Latest-delivery binding refinement: revision requests now require the latest QC-approved submission by submitted_at and an assignment still in approved state. Regression validation passed in GitHub Actions run 44980486941.
 - Staging API Worker csa-global-api-staging updated to Version 79 (version ID 0b09c21e-f6f2-445e-939c-5da4765176ad; deployment ID ca3258d7-1499-42de-bdda-70d4f0a75f2a; 100% traffic). ENVIRONMENT remains staging; D1/R2 bindings and secret binding names remain unchanged.
 - Staging Pages deployment for the revision request UI passed in run 44980486978, including route/asset smoke tests and read-only API authorization boundary checks. A fresh API health smoke after Worker Version 79 is recorded by the follow-up workflow.
+
+
+## Client–Editor in-app workflow notifications (2026-11-22)
+
+- Added a best-effort in-app notification helper using the existing notifications and notification_preferences tables. A disabled in-app preference is respected; notification persistence failures do not roll back a successfully completed project action.
+- Client revision request sends the assigned Editor a notification containing the client's revision notes.
+- Editor submission sends the Client an update that the new version is waiting for CSA QC.
+- QC decision sends both Client and Editor the result; approved, changes_requested and rejected decisions use distinct titles and messages.
+- Enabled Editor access to notification list, mark-as-read and preferences endpoints using the existing CSA-issued Editor session authentication.
+- Added CSA Notifications and preferences panel to the Editor Portal.
+- Email and WhatsApp are not sent; they remain preference-only until a delivery provider and verified sender setup are configured.
+- Regression coverage added. Authenticated multi-user E2E remains pending separate staging Client, Editor and Admin identities; no real users or project records were modified.
