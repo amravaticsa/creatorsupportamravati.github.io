@@ -126,3 +126,16 @@ The legal-review schema was checked separately in the regular and isolated Globa
 - Migration `0033_country_legal_review_registry.sql` has been added to the repository with append-only review guards and a disposable SQLite test. It has not been applied to either remote D1.
 
 This is a schema-parity blocker for the isolated Global API country-management bridge. India must remain disabled until the legal review evidence is genuinely reviewed and the isolated country-management path is proven end-to-end. A technical table or UI status is not legal approval.
+
+
+## 12. Country legal-review trigger parity rechecked — 22 November 2026
+
+A new read-only schema comparison found that both Global API D1 databases already had the `country_legal_reviews` table and country/time index, but the canonical D1 (470) was missing its three append-only/validation triggers. The isolated D1 (6a32) already had all three.
+
+- Applied the three `0033_country_legal_review_registry.sql` trigger definitions to canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` using `CREATE TRIGGER IF NOT EXISTS`.
+- Verified canonical D1 now has `trg_country_legal_reviews_insert_guard`, `trg_country_legal_reviews_no_update`, and `trg_country_legal_reviews_no_delete`.
+- Isolated D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` already had the same three triggers. Both databases now have schema parity for the country legal-review guardrails.
+- Legal review row count remains zero in both databases. No country has been approved or activated; all 249 countries remain in setup/not-started in the separate Super Admin country registry.
+- Pre-change Time Travel bookmark captured for canonical D1: `00000189-00000000-0000512b-a779a43b52b87cab2baa621970f7b99c`. D1 export download to R2 was attempted but the signed download URL returned HTTP 403; no SQL backup object was stored. Time Travel remains available for point-in-time recovery.
+
+This is a technical schema-hardening change only. It is not a legal opinion or country activation.
