@@ -82,6 +82,16 @@ function constantTime(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length
 async function log(env,actor,action,type,entity,meta={}){
  await env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,?,?,?,?)").bind(uid("log"),actor,action,type,entity,JSON.stringify(meta)).run();
 }
+async function notifyInApp(env,recipient,type,title,body,meta={}){
+ if(!recipient)return false;
+ try{
+  const pref=await env.DB.prepare("SELECT in_app_enabled FROM notification_preferences WHERE user_id=?").bind(recipient).first();
+  if(pref&&Number(pref.in_app_enabled)===0)return false;
+  const id=uid("ntf");
+  await env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status,sent_at) VALUES(?,?,'in_app',?,?,'sent',strftime('%Y-%m-%dT%H:%M:%fZ','now'))").bind(id,recipient,type,JSON.stringify({title:txt(title,180),body:txt(body,4000),source:"csa_workflow",...meta})).run();
+  return true;
+ }catch(error){return false;}
+}
 async function rateLimit(env,req,scope,limit,windowSeconds=60){
  const ip=req.headers.get("CF-Connecting-IP")||"unknown";
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(scope+"|"+ip));
@@ -631,6 +641,8 @@ async function handle(req,env){
   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("A revision request is already open, the delivery changed, or your included revision limit was reached. Refresh your dashboard.",409,"revision_request_conflict");
   if(Number(results?.[1]?.meta?.changes||0)!==1||Number(results?.[2]?.meta?.changes||0)!==1)return bad("Revision request needs CSA reconciliation before work continues.",500,"revision_request_state_mismatch");
   await log(env,a.id,"client_revision_requested","project",project.id,{revision_request_id:requestId,request_number:used+1,submission_id:submissionId});
+  const assigned=await env.DB.prepare("SELECT x.editor_id,p.public_project_code,p.title FROM assignments x JOIN projects p ON p.id=x.project_id WHERE x.project_id=? AND x.status='revision' LIMIT 1").bind(project.id).first();
+  if(assigned)await notifyInApp(env,assigned.editor_id,"client_revision_requested","New client revision request · "+assigned.public_project_code,"The client requested changes: "+notes,{project_id:project.id,revision_request_id:requestId});
   return out({ok:true,revision_request_id:requestId,request_number:used+1,remaining_revisions:Math.max(0,included-used-1),status:"revision"},201);
  }
  if(m==="GET"&&p.startsWith("/v1/editor/assignments/")&&p.endsWith("/submissions")){
@@ -664,6 +676,8 @@ async function handle(req,env){
    env.DB.prepare("UPDATE projects SET status='quality_check',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(assignment.project_id)
   ]);
   await log(env,a.id,"work_submission_uploaded","submission",submissionId,{assignment_id:assignmentId,version});
+  const client=await env.DB.prepare("SELECT p.client_id,p.public_project_code FROM projects p WHERE p.id=?").bind(assignment.project_id).first();
+  if(client)await notifyInApp(env,client.client_id,"work_submitted_for_qc","Updated video submitted · "+client.public_project_code,"Your updated video has been submitted to CSA and is waiting for quality review.",{project_id:assignment.project_id,submission_id:submissionId,version});
   return out({ok:true,submission_id:submissionId,version,status:"pending_quality_check"},201);
  }
  if(m==="GET"&&p==="/v1/admin/submissions/pending"){
@@ -675,7 +689,7 @@ async function handle(req,env){
  if(m==="POST"&&qc){
   const a=await user(req,env,["admin"]),b=await req.json(),status=b.status;
   if(!["approved","changes_requested","rejected"].includes(status))return bad("Invalid QC decision.");
-  const sub=await env.DB.prepare("SELECT s.id,s.assignment_id,a.project_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=? AND s.qc_status='pending'").bind(qc[1]).first();
+  const sub=await env.DB.prepare("SELECT s.id,s.assignment_id,a.project_id,a.editor_id,p.client_id,p.public_project_code,p.title FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id WHERE s.id=? AND s.qc_status='pending'").bind(qc[1]).first();
   if(!sub)return bad("Submission is not awaiting QC.",409);
   const departmentAccess=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(sub.project_id,a.source_admin_id).first();
   if(!departmentAccess)return bad("Tender department access is required to review this submission.",403);
@@ -690,6 +704,9 @@ async function handle(req,env){
   ]);
   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Submission QC was already processed. Refresh the queue before taking another action.",409,"qc_already_processed");
   await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
+  const qcTitle=status==="approved"?"Video passed CSA quality review · "+sub.public_project_code:status==="changes_requested"?"Changes requested by CSA · "+sub.public_project_code:"CSA quality review update · "+sub.public_project_code;
+  const qcBody=status==="approved"?"Your video passed quality review and is ready for your review in the Client Dashboard.":status==="changes_requested"?"CSA has requested changes to this submission. Please check your assignment and upload a revised version.":"CSA could not approve this submission. Please contact CSA support for the next steps.";
+  await Promise.all([notifyInApp(env,sub.client_id,"quality_review_"+status,qcTitle,qcBody,{project_id:sub.project_id,submission_id:qc[1],status}),notifyInApp(env,sub.editor_id,"quality_review_"+status,qcTitle,qcBody,{project_id:sub.project_id,submission_id:qc[1],status})]);
   return out({ok:true,status});
  }
  if(m==="GET"&&p==="/v1/admin/deposits/refunds/eligible"){
@@ -1159,17 +1176,17 @@ async function handle(req,env){
 
  // In-app notifications and channel preferences. Email/WhatsApp are preference-only until providers are configured.
  if(m==="GET"&&p==="/v1/notifications"){
-  const a=await user(req,env,["client","admin"]),r=await env.DB.prepare("SELECT id,channel,template_key,payload_json,status,created_at FROM notifications WHERE user_id=? AND channel='in_app' ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  const a=await user(req,env,["client","admin","editor"]),r=await env.DB.prepare("SELECT id,channel,template_key,payload_json,status,created_at FROM notifications WHERE user_id=? AND channel='in_app' ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
   const notifications=(r.results||[]).map(n=>{let payload={};try{payload=JSON.parse(n.payload_json||"{}");}catch{}return {id:n.id,title:txt(payload.title,180),body:txt(payload.body,4000),message:txt(payload.body,4000),created_at:n.created_at,read_at:n.status==="read"?n.created_at:null,status:n.status};});
   return out({ok:true,notifications});
  }
  if(m==="POST"&&/^\/v1\/notifications\/[\w-]+\/read$/.test(p)){
-  const a=await user(req,env,["client","admin"]),id=p.split("/")[3],r=await env.DB.prepare("UPDATE notifications SET status='read' WHERE id=? AND user_id=? AND channel='in_app' AND status!='read'").bind(id,a.id).run();
+  const a=await user(req,env,["client","admin","editor"]),id=p.split("/")[3],r=await env.DB.prepare("UPDATE notifications SET status='read' WHERE id=? AND user_id=? AND channel='in_app' AND status!='read'").bind(id,a.id).run();
   if(!r.meta?.changes){const exists=await env.DB.prepare("SELECT id FROM notifications WHERE id=? AND user_id=? AND channel='in_app'").bind(id,a.id).first();if(!exists)return bad("Notification not found.",404);}
   return out({ok:true,read:true});
  }
  if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences"){
-  const a=await user(req,env,["client","admin"]);
+  const a=await user(req,env,["client","admin","editor"]);
   await env.DB.prepare("INSERT OR IGNORE INTO notification_preferences(user_id) VALUES(?)").bind(a.id).run();
   if(m==="GET"){
    const preferences=await env.DB.prepare("SELECT in_app_enabled,email_enabled,whatsapp_enabled,updated_at FROM notification_preferences WHERE user_id=?").bind(a.id).first();
