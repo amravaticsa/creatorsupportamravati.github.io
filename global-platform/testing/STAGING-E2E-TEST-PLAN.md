@@ -272,7 +272,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 ### Scheduled Global Admin sync recheck — 2026-11-22 08:45 UTC
 
 - Latest scheduled run after the dual-secret compatibility deployment succeeded: `outcome=success`, `synced_count=1`, no error code.
-- The prior 08:30 UTC 401 is superseded by the successful 08:45 UTC result. A dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is not required for current operation; it may be introduced during a future controlled rotation.
+- The prior 08:30 UTC 401 is superseded by dedicated-secret verification and successful scheduled syncs. `GLOBAL_API_SYNC_HMAC_SECRET` is provisioned on the canonical Super Admin sender and Global API receiver; latest checked sync at 12:00:03 UTC succeeded with one authorization and no error. The legacy secret remains for backward compatibility.
 
 - The 09:00:46 UTC scheduled run also succeeded with `synced_count=1`, no error code. Two consecutive scheduled runs succeeded after the compatibility deployment.
 
