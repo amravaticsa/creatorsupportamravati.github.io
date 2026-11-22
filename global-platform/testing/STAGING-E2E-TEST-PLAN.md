@@ -317,3 +317,14 @@ The current immutable staging frontend is `https://437b6fbc.csa-global-staging.p
 - Cloudflare generated and stored one random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` on both canonical Staging Workers. Secret values are not recorded in source control or chat.
 - Cloudflare confirmed the binding exists on both Workers and created a 100% traffic deployment version on each.
 - The next Super Admin cron (`*/15 * * * *`) is the runtime acceptance check. The most recent recorded scheduled sync before this secret deployment was successful at 09:30:46 UTC; confirm a new post-deployment scheduled record before closing this item.
+
+
+## Latest Staging verification — 2026-11-22 10:40 UTC
+
+- Global Admin scheduled authorization sync succeeded at 10:15:46 UTC and 10:30:46 UTC; both runs report `synced_count=1` and no error code. The 10:30 run occurred after the sender began preferring the dedicated HMAC secret.
+- Canonical Global API D1 470 contains two active Client accounts and three submitted projects; it has zero assignments and zero work submissions. Both Clients remain `needs_verified_country`; no country assignment or legal approval was fabricated.
+- Country registry contains 249 countries, all still `setup / not_started`, with Orders, Payments and Payouts disabled. Pricing policy table is empty; currency margin, minimum margin and advance percentage remain business decisions, not invented defaults.
+- Super Admin, Editor Portal and Rush Admin isolated Staging Workers now have persisted Logs and sampled Traces enabled. Raw exception logging was sanitized first.
+- The Super Admin invitation URL is restricted to `https://admin-staging.creatorsupportamravati.in`; its source snapshot and host-policy test were updated.
+- The Editor Portal snapshot now matches the deployed Staging Worker; bridge-host test was updated to the exact dedicated `editor-api-isolated-staging.creatorsupportamravati.in` custom domain.
+- Client/Editor account onboarding, revision requests, multipart upload, payment and Regional Admin runtime E2E still require real authenticated accounts and/or approved country/legal and pricing configuration. No synthetic accounts or transactions were created.
