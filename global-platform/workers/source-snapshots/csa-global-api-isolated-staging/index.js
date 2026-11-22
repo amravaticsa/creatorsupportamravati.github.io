@@ -159,7 +159,7 @@ async function handle(req,env){
  }
  if(m==="POST"&&p==="/internal/superadmin/legacy-bridge/readiness"){
   // Super Admin Worker-only readiness probe. No Global Admin JWT/session is accepted.
-  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET||!env.CSA_LEGACY_BRIDGE_SECRET)return bad("Legacy bridge readiness is not configured.",503,"bridge_readiness_unavailable");
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET||!env.CSA_LEGACY_BRIDGE_SECRET||!env.CF_ACCESS_CLIENT_ID||!env.CF_ACCESS_CLIENT_SECRET)return bad("Legacy bridge readiness is not configured.",503,"bridge_readiness_unavailable");
   const raw=await req.text();
   if(raw.length>2048)return bad("Readiness request is too large.",413,"bridge_readiness_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
