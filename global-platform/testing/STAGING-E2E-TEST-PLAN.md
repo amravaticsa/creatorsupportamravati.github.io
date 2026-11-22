@@ -141,3 +141,7 @@ Evidence:
 - Staging Pages deployment and route/asset smoke tests passed in run 44980307990.
 - Staging API Worker csa-global-api-staging updated to Version 78 (version ID aae5fc5b-f3cb-4a17-975a-fc4b7dc7a69b; deployment ID 55bf5a08-ecec-4b6e-940e-71cafcd7197e; 100% traffic). ENVIRONMENT remains staging; D1 and R2 bindings are unchanged; existing secret binding names were preserved and secret values were not read or changed.
 - Read-only D1 verification confirmed client_revision_requests exists, all three indexes exist, and zero real client revision requests were created during setup.
+
+- Latest-delivery binding refinement: revision requests now require the latest QC-approved submission by submitted_at and an assignment still in approved state. Regression validation passed in GitHub Actions run 44980486941.
+- Staging API Worker csa-global-api-staging updated to Version 79 (version ID 0b09c21e-f6f2-445e-939c-5da4765176ad; deployment ID ca3258d7-1499-42de-bdda-70d4f0a75f2a; 100% traffic). ENVIRONMENT remains staging; D1/R2 bindings and secret binding names remain unchanged.
+- Staging Pages deployment for the revision request UI passed in run 44980486978, including route/asset smoke tests and read-only API authorization boundary checks. A fresh API health smoke after Worker Version 79 is recorded by the follow-up workflow.
