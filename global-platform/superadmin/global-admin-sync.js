@@ -27,7 +27,7 @@ export async function syncGlobalAdminAuthorizations(env) {
   if (!env.DB) throw new Error("superadmin_database_binding_missing");
 
   const result = await env.DB.prepare(
-    "SELECT id,email,role,status FROM admin_accounts ORDER BY id",
+    "SELECT a.id,a.email,a.role,a.status,COALESCE((SELECT m.access_level FROM csa_admin_module_access m WHERE m.admin_id=a.id AND m.module_key='finance'),'none') AS finance_access_level FROM admin_accounts a ORDER BY a.id",
   ).all();
 
   // Pending invitations are intentionally omitted: they receive no Global access.
@@ -38,6 +38,7 @@ export async function syncGlobalAdminAuthorizations(env) {
       source_admin_id: account.id,
       email: String(account.email || "").trim().toLowerCase(),
       source_role: account.role,
+      finance_access_level: account.role === "finance_admin" ? (["none","read","write","manage"].includes(account.finance_access_level) ? account.finance_access_level : "none") : "none",
       status:
         account.status === "active"
           ? "active"
