@@ -145,6 +145,7 @@ if(user.role==="client"){
    finally{delete form.dataset.submitting;submit.disabled=false;submit.textContent="Submit Video Editing Application";}
   };
 }else if(user.role==="editor"){
+ loadCsaNotifications("editor");
  $("editor-panel").hidden=false;loadCsaNotifications("editor");if(user.status==="pending"){$("assignments").textContent="Your editor profile is awaiting CSA verification. Project offers will appear after approval.";}else{loadOffers();loadAssignments();loadEditorRefunds();loadUploadHistory("editor-upload-history");loadEditorTenders();}
 }else if(user.role==="admin"){
  $("admin-panel").hidden=false;loadAdmin();loadAdminMultipartUploads();loadAdminCleanupRuns();loadTenderOps();loadCsaNotifications("admin");loadAdminClientRefunds();const nf=$("admin-notification-form");if(nf)nf.onsubmit=async e=>{e.preventDefault();const f=new FormData(nf),msg=$("admin-notification-message");try{await api("/v1/admin/notifications",{method:"POST",body:JSON.stringify({user_id:String(f.get("user_id")).trim(),type:String(f.get("type")||"admin_notice"),title:String(f.get("title")).trim(),body:String(f.get("body")).trim()})});msg.textContent="In-app notification sent.";nf.reset();await loadCsaNotifications("admin");}catch(err){msg.textContent=err.message;}};
