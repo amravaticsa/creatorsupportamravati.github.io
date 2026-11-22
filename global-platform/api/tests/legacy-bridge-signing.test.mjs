@@ -6,6 +6,8 @@ import { webcrypto } from "node:crypto";
 
 const api = await readFile(new URL("../../workers/source-snapshots/csa-global-api-isolated-staging/index.js", import.meta.url), "utf8");
 const editor = await readFile(new URL("../../workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js", import.meta.url), "utf8");
+const superAdmin = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
+const superAdminBridge = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
 
 function extract(source, start, end) {
   const a = source.indexOf(start), b = source.indexOf(end, a);
@@ -136,4 +138,30 @@ test("Super Admin readiness route is staging-only, HMAC-authenticated, replay-pr
   assert.ok(route.includes("superadmin-editor-staging.creatorsupportamravati.in"));
   assert.ok(route.includes("legacy_bridge_peer_unavailable"));
   assert.doesNotMatch(route, /legacy_editor_identity_links|video_editing_orders|assignments/);
+});
+
+
+test("Super Admin bridge readiness action is admin-only and staging-only", () => {
+  const route = superAdmin.slice(superAdmin.indexOf('if(p==="/api/admins/legacy-bridge-readiness"'), superAdmin.indexOf('if(p==="/api/admins/global-sync-status"'));
+  assert.ok(route.includes("adminOnly(u)"));
+  assert.ok(route.includes('env.ENVIRONMENT!=="staging"'));
+  assert.ok(route.includes("callGlobalLegacyBridgeReadiness(env)"));
+  assert.ok(route.includes("legacy_bridge_readiness_check"));
+});
+
+test("Super Admin readiness client signs the fixed staging probe using the shared admin HMAC", () => {
+  const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyBridgeReadiness"), superAdminBridge.indexOf("export async function callGlobalPricingPolicy"));
+  assert.ok(helper.includes('env.ENVIRONMENT!=="staging"'));
+  assert.ok(helper.includes("ADMIN_SYNC_HMAC_SECRET"));
+  assert.ok(helper.includes('["POST",path,timestamp,nonce,await sha256Hex(body)].join("\\n")'));
+  assert.ok(helper.includes("/internal/superadmin/legacy-bridge/readiness"));
+  assert.ok(helper.includes("csa-global-api-isolated-staging.workers.dev"));
+});
+
+test("Global API peer request carries path-scoped Cloudflare Access service credentials", () => {
+  const route = api.slice(api.indexOf('if(m==="POST"&&p==="/internal/superadmin/legacy-bridge/readiness"){'), api.indexOf('if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){'));
+  assert.ok(route.includes("CF-Access-Client-Id"));
+  assert.ok(route.includes("CF-Access-Client-Secret"));
+  assert.ok(route.includes("CF_ACCESS_CLIENT_ID"));
+  assert.ok(route.includes("CF_ACCESS_CLIENT_SECRET"));
 });
