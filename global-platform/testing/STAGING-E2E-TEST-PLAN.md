@@ -125,3 +125,14 @@ Evidence:
 - Staging Worker `csa-global-api-staging` version `76` (`8f652265-d6ef-41f4-8bf4-faeb23f9292f`) is deployed at 100% traffic; deployment `7d1e9af5-6877-4f86-b833-7df7f75eba1e`.
 - Worker configuration was rechecked: `ENVIRONMENT=staging`, the expected staging D1 and R2 bindings and all four secret binding names remain present. Secret values were not read or changed.
 - These are source, CI, configuration and health checks—not a signed-in Admin QC browser test. E2E-05 remains BLOCKED until test identities, an authorized Admin and synthetic submission files are available. No real client/editor work was processed.
+
+
+## Client revision request and tracking system (2026-11-22)
+
+- Added staging D1 table client_revision_requests with per-project request numbering, client, assignment, approved submission reference, notes, lifecycle status, timestamps, and handler.
+- Added a partial unique index to permit only one open/in-progress client revision request per project.
+- Client revision API is owner-scoped, accepts only the latest QC-approved delivery while project is in client_review, requires a meaningful note, and enforces projects.revisions_included as a hard limit.
+- Successful request moves the project and assigned editor assignment to revision; Editor assignment view displays the client's requested changes and used/included count.
+- Client delivery view displays revision history and remaining allowance. Additional requests are blocked while one is open or when allowance is exhausted.
+- Staging D1 migration: global-platform/migrations/2026-11-22-client-revision-requests.sql. Applied only to staging D1 470a81b8-3d36-4e2d-942c-5cbb2746a473; no production D1 or route was changed.
+- Still required: authenticated E2E with a separate staging client and editor, upload a QC-approved fixture, request revision, confirm editor sees the notes, re-submit, repeat QC, and verify request count and limit. No real client request or assignment was created by this setup.
