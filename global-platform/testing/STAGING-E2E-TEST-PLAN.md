@@ -250,7 +250,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 - The 08:30 scheduled reconciliation initially returned HTTP 401. Dual-secret verification was then deployed; the 08:45 and 09:00 UTC scheduled runs both succeeded with one authorization synchronized and no error code.
 - The legacy `csa-superadmin-api-staging` also calls the canonical staging API using `ADMIN_SYNC_HMAC_SECRET`. Do not rotate that existing binding.
-- A dedicated `GLOBAL_API_SYNC_HMAC_SECRET` binding has not been provisioned. The isolated Super Admin sender prefers it and falls back to the existing `ADMIN_SYNC_HMAC_SECRET`; the canonical API accepts both. Scheduled sync is currently verified using the existing legacy secret. The separate Regional Admin data proxy continues to use the legacy secret with the isolated API.
+- The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is provisioned on the isolated Super Admin sender and canonical Global API receiver. Global Admin sync, Pricing, Finance and Editor-session bridges use the dedicated secret against the canonical API; Regional Admin and Legacy Links compatibility calls use `ADMIN_SYNC_HMAC_SECRET` against the compatibility API.
 - Until the new secret is authorized and a scheduled run records success, Global Admin sync is deployed but not operationally verified.
 
 
@@ -258,7 +258,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 - Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback for canonical Admin sync. The Regional Admin data proxy targets the compatibility API hostname, which shares canonical Global D1 470.
 - Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
-- The new dedicated secret binding has not been provisioned. A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is now present on both canonical Staging Workers. The next scheduled Super Admin sync is the runtime acceptance check; previous scheduled syncs had succeeded at 09:00, 09:15 and 09:30 UTC, and one earlier 08:30 UTC attempt had returned 401. Verify the first run after the 09:43 UTC secret deployment before declaring the transition fully runtime-verified.
+- A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is present on the Super Admin sender and canonical Global API receiver. Scheduled syncs succeeded at 10:15:46, 10:30:46 and 10:45:47 UTC with one authorization each and no errors.
 
 
 ### Country assignment integration — 2026-11-22 08:40 UTC
