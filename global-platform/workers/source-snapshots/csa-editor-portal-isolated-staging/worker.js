@@ -54,7 +54,7 @@ export default {async fetch(req,env){
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{"access-control-allow-origin":u.origin,"access-control-allow-methods":"GET,POST,PATCH,OPTIONS","access-control-allow-headers":"Content-Type,Authorization","cache-control":"no-store"}});
  if(req.headers.get("Origin")&&req.headers.get("Origin")!==u.origin)return json({error:"Origin not allowed"},403);
 
- if(p==="/internal/legacy-bridge/health"){
+ if(p==="/editor-api/internal/legacy-bridge/health"){
   if(req.method!=="POST"||String(env.ENVIRONMENT||"").toLowerCase()!=="staging"||!isPortalHost(host,"admin",env))return json({error:"Not found"},404);
   const raw=await req.text();if(raw.length>1024)return json({error:"Payload too large"},413);
   const verified=await verifyLegacyBridgeRequest(req,env,raw);
