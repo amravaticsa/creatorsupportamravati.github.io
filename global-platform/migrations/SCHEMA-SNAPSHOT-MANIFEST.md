@@ -25,5 +25,5 @@ Schema only; no application rows or credentials are included. These counts are c
 - Adds `users.country_verified_at`, `users.country_verified_by`, and `users.country_evidence_ref`; adds immutable `country_user_assignment_audit`, evidence validation triggers, and the extended `v_country_assignment_review` view.
 - Applied to canonical staging D1 `csa-global-platform-staging` (`470a81b8-3d36-4e2d-942c-5cbb2746a473`). The isolated D1 copy already had the same audit table and triggers.
 - Existing canonical Client rows had `users.country_code=NULL`; no country assignments or audit rows were written. They now appear as `needs_verified_country` until a Super Admin completes evidence-backed assignment.
-- Super Admin Worker `GLOBAL_DB` now points to canonical D1 470; `DB` remains the separate Super Admin account/session D1.
+- The Super Admin Worker `GLOBAL_DB` remains bound to isolated Global D1 6a32; `DB` remains the separate Super Admin account/session D1 c2bb. Canonical Client/Editor API D1 470 also has the migration but is not the active Regional Admin data source.
 - New Client/Editor onboarding writes `users.country_code=NULL`; self-reported country remains in profile fields. Only the Super Admin verification workflow can set the authoritative user country.
