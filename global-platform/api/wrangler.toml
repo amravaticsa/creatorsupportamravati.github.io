@@ -1,6 +1,6 @@
 name = "csa-global-api-staging"
 main = "src/index.js"
-compatibility_date = "2026-11-15"
+compatibility_date = "2026-11-22"
 
 [[d1_databases]]
 binding = "DB"
@@ -9,7 +9,12 @@ database_id = "470a81b8-3d36-4e2d-942c-5cbb2746a473"
 
 [vars]
 ENVIRONMENT = "staging"
-# Configure AUTH_JWKS_URL, AUTH_ISSUER, AUTH_AUDIENCE and ALLOWED_ORIGINS in Cloudflare.
+ADMIN_EMAILS = "amravati.csa@gmail.com"
+ALLOWED_ORIGINS = "https://csa-global-staging.pages.dev,https://fd4c1b24.csa-global-staging.pages.dev"
+AUTH_AUDIENCE = "1067509901113-ham5pq96vv7jr6ilekjah7rshs7s4m47.apps.googleusercontent.com"
+AUTH_ISSUER = "https://accounts.google.com"
+AUTH_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+GOOGLE_CLIENT_ID = "1067509901113-ham5pq96vv7jr6ilekjah7rshs7s4m47.apps.googleusercontent.com"
 
 [[r2_buckets]]
 binding = "MEDIA"
@@ -17,9 +22,13 @@ bucket_name = "csa-global-media-staging"
 
 [[d1_databases]]
 binding = "LEGACY_VIDEO_DB"
-database_name = "csa-video-workflow-staging"
-database_id = "69f070a4-b71f-4448-973f-31993715b781"
+database_name = "csa-global-legacy-video-isolated-staging"
+database_id = "2d3f97a0-fa32-46ef-9913-972a59a410e4"
 
 [[r2_buckets]]
 binding = "LEGACY_VIDEO_BUCKET"
-bucket_name = "csa-video-editing-staging"
+bucket_name = "csa-global-video-isolated-staging"
+
+# Secrets are managed in Cloudflare, not committed here:
+# ADMIN_SYNC_HMAC_SECRET, GLOBAL_API_SYNC_HMAC_SECRET (transition), RAZORPAY_KEY_ID,
+# RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET.
