@@ -244,3 +244,11 @@ Evidence:
 5. Confirm actual OTP email delivery and invitation acceptance through the browser. Code deployment and static validation do not prove delivery or end-to-end login.
 
 Production Workers, Production D1/R2, and Production DNS were not changed.
+
+
+### Authorization sync runtime blocker — 2026-11-22 08:30 UTC
+
+- The 08:30 scheduled reconciliation reached the canonical Global API and returned HTTP 401. The request canonicalization in sender and receiver matches; HMAC secret binding values or header validation remain unresolved.
+- The legacy `csa-superadmin-api-staging` also calls the canonical staging API using `ADMIN_SYNC_HMAC_SECRET`. Do not rotate that existing binding.
+- Required safe fix: create a separate random `GLOBAL_API_SYNC_HMAC_SECRET` binding on the isolated Super Admin Worker and canonical Global API; update the new isolated Super Admin bridge calls to use it; have the canonical API accept both new and legacy secrets during transition. This requires explicit owner authorization for a security-credential change.
+- Until the new secret is authorized and a scheduled run records success, Global Admin sync is deployed but not operationally verified.
