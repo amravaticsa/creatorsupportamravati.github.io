@@ -108,5 +108,18 @@ jobs:
             }
           '
 
+      - name: Verify Regional Admin bridge rejects unsigned requests
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-regional-unsigned.json -w '%{http_code}' \\
+            -X POST https://csa-global-api-staging.creatorsupportamravati.workers.dev/internal/regional/projects \\
+            -H 'content-type: application/json' \\
+            --data '{"regional_admin_id":"probe","assignment_id":"probe","country_code":"IN","permission_key":"projects.read","access_level":"read"}')"
+          if [ "$status" != "401" ]; then
+            echo "::error::Unsigned Regional Admin bridge request should be rejected with HTTP 401; received $status"
+            cat /tmp/csa-regional-unsigned.json
+            exit 1
+          fi
+          echo "PASS Regional Admin bridge rejects unsigned requests (HTTP 401)."
       - name: Verify staging API authorization boundaries (read-only)
         run: bash global-platform/testing/staging-auth-boundary-smoke.sh
