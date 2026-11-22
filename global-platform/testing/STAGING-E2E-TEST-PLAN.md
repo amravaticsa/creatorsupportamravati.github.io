@@ -222,7 +222,7 @@ Evidence:
 
 ### Deployed Staging infrastructure
 - Super Admin invitation preflight/final validation, atomic invitation acceptance, OTP single-use hardening, stale-session revocation, admin role/deactivation session revocation, and Finance access controls are deployed to `csa-superadmin-isolated-staging`.
-- Finance access is carried from `csa_admin_module_access` into the canonical Global API authorization snapshot. Canonical bridges include pricing policy, refund dashboard, editor sessions and admin authorization sync. The Regional Admin proxy uses the compatibility hostname `csa-global-api-isolated-staging`, which currently binds canonical D1 470.
+- Finance access is carried from `csa_admin_module_access` into the canonical Global API authorization snapshot. Canonical bridges include pricing policy, refund dashboard, editor sessions, admin authorization sync and the Regional Admin data proxy. Legacy Links alone uses the isolated compatibility hostname `csa-global-api-isolated-staging`.
 - Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The isolated compatibility API retains its own cleanup schedule on Global D1 6a32 and legacy video D1 b611/R2 `csa-video-editing-isolated-staging`.
 - Rush approvals have a separate Staging route on `superadmin-editor-staging.creatorsupportamravati.in`, backed by `csa-rush-admin-isolated-staging` and the isolated Super Admin D1. The legacy `superadmin.creatorsupportamravati.in` Rush routes remain unchanged.
 - Rush payment staging now rejects payment creation/verification unless `RAZORPAY_KEY_ID` starts with `rzp_test_`.
@@ -304,7 +304,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 - The 09:15:47 UTC scheduled reconciliation also succeeded with one authorization synchronized and no error code; three consecutive 15-minute runs (08:45, 09:00, 09:15 UTC) have passed.
 
-- Read-only R2 configuration check: managed public `r2.dev` access is disabled for `csa-global-media-staging` and `csa-global-video-isolated-staging`. Cross-account authorization still requires E2E testing because both API Workers share these private buckets.
+- Read-only R2 configuration check: managed public `r2.dev` access is disabled for `csa-global-media-staging`, `csa-global-video-isolated-staging` and `csa-video-editing-isolated-staging`. The two API Workers share the private MEDIA bucket but use separate legacy-video buckets; cross-account authorization still requires E2E testing.
 
 
 ## Current deployment note (2026-11-22)
