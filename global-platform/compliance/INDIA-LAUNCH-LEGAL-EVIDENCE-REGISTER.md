@@ -90,3 +90,11 @@ The platform should be designed now for the full regime rather than waiting for 
 - [ ] Real India Regional Admin email and identity verified
 - [ ] Super Admin legal review completed with real evidence references
 - [ ] India country activation approved by Super Admin
+
+
+## 9. Legislative updates checked on 22 November 2026
+
+- **Rules corrigendum:** G.S.R. 892(E), dated 10 December 2025, should be read with G.S.R. 846(E). The official MeitY DPDP Rules page lists the corrigendum and the enforcement-timeline document: https://www.meity.gov.in/documents/act-and-policies/digital-personal-data-protection-rules-2025-gDOxUjMtQWa?pageTitle=Digital-Personal-Data-Protection-Rules-2025. Use the corrected Gazette text when counsel finalises commencement dates.
+- **Removal of Difficulties Order:** S.O. 5458(E), dated 5 October 2026 and published in the Gazette on 6 October 2026, corrects wording in Act section 9(1) (children and persons with disability) and section 10(2)(c)(ii) (data audit terminology). It does not change the phased commencement dates. Gazette copy: https://egazette.gov.in/WriteReadData/2026/276885.pdf.
+- **Consent Manager phase:** Rule 4 and Act section 6(9) / section 27(1)(d) entered into force on 13 November 2026. CSA should not assume it must register as a Consent Manager; counsel should confirm that CSA is not offering a Consent Manager service to Data Principals. The platform's ordinary consent capture does not by itself make it a registered Consent Manager.
+- The main Data Fiduciary notice, consent, security, breach, rights and retention provisions remain scheduled for 13 May 2027 under the phased notifications. Begin implementation now and have counsel confirm the operative position at the time of launch.
