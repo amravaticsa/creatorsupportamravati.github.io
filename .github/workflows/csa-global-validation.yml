@@ -83,6 +83,7 @@ jobs:
           test -s global-platform/migrations/0023_tenders_pricing_quotes.sql
           test -s global-platform/migrations/0024_client_quote_payments.sql
           test -s global-platform/migrations/0025_notifications_and_client_refunds.sql
+          test -s global-platform/migrations/0026_legacy_editor_identity_bridge.sql
           grep -q "client_refund_requests" global-platform/migrations/0025_notifications_and_client_refunds.sql
           grep -q "whatsapp_enabled INTEGER NOT NULL DEFAULT 0" global-platform/migrations/0025_notifications_and_client_refunds.sql
           grep -q "multipart_upload_incidents" global-platform/api/src/index.js
