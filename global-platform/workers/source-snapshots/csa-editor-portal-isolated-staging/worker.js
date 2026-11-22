@@ -37,7 +37,7 @@ async function verifyLegacyBridgeRequest(req,env,rawBody){
  try{
   await env.CSA_VIDEO_DB.prepare("DELETE FROM legacy_bridge_nonces WHERE expires_at < ?").bind(Math.floor(Date.now()/1000)).run();
   await env.CSA_VIDEO_DB.prepare("INSERT INTO legacy_bridge_nonces (nonce,expires_at) VALUES (?,?)").bind(nonce,Number(timestamp)+600).run();
- }catch{return {ok:false,status:409,code:"bridge_nonce_replayed"};}
+ }catch(error){const message=String(error?.message||"");if(/UNIQUE constraint failed: legacy_bridge_nonces\.nonce|SQLITE_CONSTRAINT_PRIMARYKEY/i.test(message))return {ok:false,status:409,code:"bridge_nonce_replayed"};return {ok:false,status:503,code:"bridge_nonce_store_unavailable"};}
  return {ok:true};
 }
 const clean=(v,n=1000)=>String(v??"").trim().slice(0,n);
