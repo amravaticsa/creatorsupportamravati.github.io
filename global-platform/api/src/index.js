@@ -1629,7 +1629,7 @@ if(m==="GET"&&p==="/v1/config"){const payment=razorpayRuntime(env);return out({o
   return out({ok:true,status:"captured",next_step:"await_csa_assignment"});
  }
  if(m==="POST"&&p==="/v1/webhooks/razorpay"){
-  if(!env.RAZORPAY_WEBHOOK_SECRET)return bad("Razorpay webhook secret is not configured.",503);
+  if(env.ENVIRONMENT==="staging"&&(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_")))return bad("Razorpay Test Mode webhook credentials are required on the staging Worker.",503,"test_mode_required");if(!env.RAZORPAY_WEBHOOK_SECRET)return bad("Razorpay webhook secret is not configured.",503);
   const raw=await req.text(),sig=req.headers.get("x-razorpay-signature")||"",eventId=req.headers.get("x-razorpay-event-id")||"";
   if(!sig||!eventId||!constantTime(await hmacHex(env.RAZORPAY_WEBHOOK_SECRET,raw),sig))return bad("Webhook signature verification failed.",401,"webhook_signature_invalid");
   const body=JSON.parse(raw),event=txt(body.event,100);
