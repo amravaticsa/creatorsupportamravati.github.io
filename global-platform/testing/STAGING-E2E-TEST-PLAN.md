@@ -92,3 +92,20 @@ The staging source review confirms that the tender award endpoint is **not** the
 - The client quote is a separate action after award and uses the active Super Admin pricing policy. It creates a draft quote; a separate authorized send action is required before the client can see it.
 
 Regression assertions were added for the handoff boundary, verified-editor offer gate, deposit gate, and department authorization. These are source-level regression checks, not a signed-in browser E2E pass. E2E-04 remains BLOCKED until a dedicated staging client/editor/admin test set and test deposit setup are available. No offer, assignment, notification, quote, or payment was created by this audit.
+
+## Assignment finalization security hardening (2026-11-22)
+
+The staging API assignment endpoint was tightened after review of the Editor offer → agreement → deposit → assignment handoff:
+
+- Before creating an assignment, the API now rechecks that the editor account is active, the editor profile is verified, and at least one editor KYC document remains verified.
+- It independently verifies that the editor accepted an active project-specific agreement for the same offer and that a successful editor security-deposit payment with a provider payment reference exists.
+- The assigning Admin must have the tender department route permission for the project, in addition to the global project-management permission.
+- Assignment creation uses a guarded insert and relies on the existing unique constraint on `assignments.offer_id`; duplicate/concurrent attempts cannot create a second assignment for the same offer and are handled as a conflict.
+- The assignment, offer status and project status updates are submitted as one D1 batch. No production resources were changed.
+
+Evidence:
+- API validation run `44977700574`: `validate` and `schema-snapshot` jobs passed for commit `8ac770e947bd1a0a07f055e76c1027e5b1e806ee`.
+- Staging Pages deployment run `44977700557`: frontend/API health and read-only authorization-boundary checks passed.
+- Staging Worker `csa-global-api-staging` uploaded from the updated API source as version `75` (`5ed7df9b-a05b-41bb-9847-a5348539af71`); deployment `3254979c-1305-412a-80e6-c2dbb8e957ca` routes 100% of Worker traffic to that version.
+- Worker configuration was re-read after upload: `ENVIRONMENT=staging`, both expected staging D1 bindings and both staging R2 buckets remained attached, and the four existing secret binding names remained present. Secret values were neither read nor changed.
+- These checks do not constitute a signed-in browser E2E test or a real Razorpay Test Mode payment. E2E-04 remains BLOCKED until dedicated staging client/editor/admin identities and test payment evidence are available. No offer, assignment, payment or refund was created during this hardening.
