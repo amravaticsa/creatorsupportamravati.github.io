@@ -19,6 +19,16 @@ test("dedicated editor-management auth host is staging-only", () => {
   assert.equal(allowed("superadmin-editor-staging.creatorsupportamravati.in.evil.test", "super_admin", "staging"), false);
 });
 
+
+test("admin staging and workers.dev hosts are restricted to staging", () => {
+  assert.equal(allowed("admin-staging.creatorsupportamravati.in", "project_admin", "staging"), true);
+  assert.equal(allowed("admin-staging.creatorsupportamravati.in", "super_admin", "staging"), false);
+  assert.equal(allowed("admin-staging.creatorsupportamravati.in", "project_admin", "production"), false);
+  assert.equal(allowed("csa-superadmin-isolated-staging.creatorsupportamravati.workers.dev", "super_admin", "staging"), true);
+  assert.equal(allowed("csa-superadmin-isolated-staging.creatorsupportamravati.workers.dev", "super_admin", "production"), false);
+  assert.equal(allowed("superadmin-staging.creatorsupportamravati.in", "super_admin", "production"), false);
+});
+
 test("existing Super Admin hosts retain their role policy", () => {
   assert.equal(allowed("superadmin.creatorsupportamravati.in", "super_admin"), true);
   assert.equal(allowed("superadmin-staging.creatorsupportamravati.in", "super_admin"), true);
