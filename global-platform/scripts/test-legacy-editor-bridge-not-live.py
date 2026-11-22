@@ -6,9 +6,9 @@ This is a source-level regression guard only. It performs no network or D1 write
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKER = ROOT / "workers/source-snapshots/csa-global-api-isolated-staging/index.js"
+WORKER = ROOT / "global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js"
 API = ROOT / "api/src/index.js"
-PROPOSAL = ROOT / "docs/legacy-editor-bridge-api-contract-proposal.md"
+PROPOSAL = ROOT / "global-platform/docs/legacy-editor-bridge-api-contract-proposal.md"
 
 PROPOSED_ROUTES = (
     "/v1/admin/legacy-editor-links/candidates",
