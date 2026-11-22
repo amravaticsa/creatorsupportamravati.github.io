@@ -128,12 +128,12 @@ test("stale timestamps are rejected (401)", async () => {
 
 test("Super Admin readiness route is staging-only, HMAC-authenticated, replay-protected, and never exposes peer details", () => {
   const route = api.slice(api.indexOf('if(m==="POST"&&p==="/internal/superadmin/legacy-bridge/readiness"){'), api.indexOf('if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){'));
-  assert.match(route, /env\\.ENVIRONMENT!==/);
-  assert.match(route, /env\\.ADMIN_SYNC_HMAC_SECRET/);
-  assert.match(route, /env\\.CSA_LEGACY_BRIDGE_SECRET/);
-  assert.match(route, /admin_sync_nonces/);
-  assert.match(route, /legacyBridgeHeaders\\(env,"POST",bridgePath,bridgeBody\\)/);
-  assert.match(route, /superadmin-editor-staging\\.creatorsupportamravati\\.in/);
-  assert.match(route, /legacy_bridge_peer_unavailable/);
+  assert.ok(route.includes("env.ENVIRONMENT!=="));
+  assert.ok(route.includes("env.ADMIN_SYNC_HMAC_SECRET"));
+  assert.ok(route.includes("env.CSA_LEGACY_BRIDGE_SECRET"));
+  assert.ok(route.includes("admin_sync_nonces"));
+  assert.ok(route.includes('legacyBridgeHeaders(env,"POST",bridgePath,bridgeBody)'));
+  assert.ok(route.includes("superadmin-editor-staging.creatorsupportamravati.in"));
+  assert.ok(route.includes("legacy_bridge_peer_unavailable"));
   assert.doesNotMatch(route, /legacy_editor_identity_links|video_editing_orders|assignments/);
 });
