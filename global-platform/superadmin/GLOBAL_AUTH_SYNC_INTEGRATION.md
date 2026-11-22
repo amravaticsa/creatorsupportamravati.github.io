@@ -3,7 +3,7 @@
 ## Current Staging topology
 
 - Super Admin account/session source: `csa-superadmin-isolated-staging`, D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
-- Super Admin `GLOBAL_DB`: isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` (`csa-global-platform-isolated-staging`).
+- Super Admin `GLOBAL_DB`: canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` (`csa-global-platform-staging`).
 - Isolated Global API: `csa-global-api-isolated-staging`, bound to the same D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
 - All five Super Admin Global API bridges (Admin authorization sync, Pricing, Refund dashboard, Editor sessions and Legacy Links), plus the Regional Admin data proxy, target the isolated API.
 - The Admin invitation/dashboard URL is `https://admin-isolated-staging.creatorsupportamravati.in`; its custom domain is active on the isolated Super Admin Worker and the host guard allows non-Super-Admin roles there.
