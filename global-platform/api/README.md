@@ -93,3 +93,23 @@ Admin/staff can inspect an upload session and append an incident/resolution even
 - Only in-app notification delivery is implemented. Email and WhatsApp preferences are stored, but no outbound provider is configured or called. WhatsApp remains opt-in and disabled by default.
 - Client refund requests create a finance-review record only. Finance approval does not initiate a provider refund; processing and reconciliation require a separately reviewed Razorpay workflow.
 - Client refund requests are restricted to the authenticated client's own successful `client_advance` or `client_balance` payment and the unreserved remaining amount. Rejected, failed or cancelled requests release the reserved amount.
+
+
+## Super Admin private bridge (server-to-server only)
+
+These routes are not browser-facing APIs. The CSA Super Admin Worker signs requests with `ADMIN_SYNC_HMAC_SECRET`, timestamp, one-use nonce, and SHA-256 body digest:
+
+- `POST /internal/admin-authorizations/sync` — authoritative admin snapshot; stores source role and Finance access level, revokes identities absent from the snapshot, and rebuilds department grants.
+- `POST /internal/superadmin/pricing-policy` — list/upsert country/currency pricing policy; only the Super Admin HMAC bridge can call it.
+- `POST /internal/superadmin/finance/refund-dashboard` — read-only refund queue/totals; it never initiates a refund or transfer.
+- `POST /internal/superadmin/editor-sessions` — list/revoke editor sessions; Super Admin identity is checked against the allowlist.
+- `POST /internal/superadmin/regional-admin-data` — country/Regional Admin management bridge.
+
+Global Admin RBAC is enforced in the API, not just in the dashboard. `project_admin` receives `projects.manage`; `editor_admin` receives `content.manage`; `support_admin` receives `support.manage`; `finance_admin` permissions are derived from `finance_access_level`: `none` grants none, `read` grants `finance.read`, and `write`/`manage` grant `finance.read`, `finance.refunds`, and `finance.payouts`. Unknown admin routes deny by default. The `super_admin` account is not synchronized into Global Admin identities.
+
+The canonical staging database has `global_admin_authorizations.finance_access_level`; migration `0030_global_admin_finance_access_level.sql` adds this field to newly initialized databases. Check the column before applying to an existing D1 because the canonical staging database already contains it.
+
+## Staging schedules
+- `csa-global-api-staging`: hourly multipart cleanup for the canonical Global staging D1/R2.
+- `csa-global-api-isolated-staging`: separate 15-minute cleanup for its own isolated D1/R2; it is not the Client/Editor Portal API database.
+- `csa-superadmin-isolated-staging`: 15-minute Global Admin authorization reconciliation.
