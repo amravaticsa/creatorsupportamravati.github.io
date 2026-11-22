@@ -76,6 +76,7 @@ jobs:
         run: bash global-platform/testing/check-client-navigation.sh
       - name: Check required platform files
         run: |
+          set -x
           test -s global-platform/index.html
           test -s global-platform/client-project.html
           test -s global-platform/editor-register.html
