@@ -150,3 +150,17 @@ A new additive migration `0033_country_legal_review_registry.sql` and disposable
 ### Source-of-truth warning
 
 The deployed `csa-superadmin-isolated-staging` Worker includes more country and Regional Admin functionality than `workers/source-snapshots/csa-superadmin-isolated-staging/*` in the repository. The live Worker source must be exported/reconciled into maintainable tracked modules before any Worker deployment from the repository. Do not overwrite the deployed UI with the older snapshot.
+
+
+## Global Admin HMAC sync — 09:45 UTC regression
+
+The latest scheduled sync at 09:45:46 UTC returned HTTP 401 after four successful runs at 08:45, 09:00, 09:15 and 09:30 UTC.
+
+Read-only Worker version metadata shows:
+- Super Admin Worker version 113 was created at 09:43:06 UTC with annotation triggered_by=secret. Its binding names include both ADMIN_SYNC_HMAC_SECRET and GLOBAL_API_SYNC_HMAC_SECRET.
+- Global API Worker version 49 was created at 09:31:17 UTC. Its HMAC secret binding list includes ADMIN_SYNC_HMAC_SECRET, but not GLOBAL_API_SYNC_HMAC_SECRET.
+- The deployed Super Admin sync helper selects GLOBAL_API_SYNC_HMAC_SECRET first and falls back to ADMIN_SYNC_HMAC_SECRET. The Global API verifier uses ADMIN_SYNC_HMAC_SECRET.
+
+This sequence is strongly consistent with a newly introduced GLOBAL_API_SYNC_HMAC_SECRET override that does not match the Global API verifier secret. Secret values were not read and cannot be compared here, so the exact mismatch is not independently confirmed.
+
+**Owner-only security action required:** ensure both sides use the exact same HMAC secret value and one canonical binding name. The minimal likely correction is to remove the new override from the Super Admin Worker so the previously working ADMIN_SYNC_HMAC_SECRET fallback is used, or deliberately synchronize the values on both Workers. Do not paste secret values into ChatGPT. After correction, verify a fresh scheduled run returns success before relying on Global Admin sync.
