@@ -50,9 +50,9 @@ function makeDb({ tableExists = true } = {}) {
 
 async function createHarness(db = makeDb()) {
   const apiCode = extract(api, "async function hmacHex(", "function constantTime(") +
-    "\\nglobalThis.sign = legacyBridgeHeaders;";
-  const editorCode = "const enc = new TextEncoder();\\n" + extract(editor, "const hex=", "const clean=") +
-    "\\nglobalThis.verify = verifyLegacyBridgeRequest;";
+    "\nglobalThis.sign = legacyBridgeHeaders;";
+  const editorCode = "const enc = new TextEncoder();\n" + extract(editor, "const hex=", "const clean=") +
+    "\nglobalThis.verify = verifyLegacyBridgeRequest;";
   const signContext = makeContext();
   const verifyContext = makeContext();
   vm.runInContext(apiCode, signContext);
