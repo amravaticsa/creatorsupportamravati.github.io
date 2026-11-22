@@ -11,22 +11,22 @@
 
 ## HMAC configuration
 
-- A random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is configured on the isolated Super Admin sender and isolated Global API receiver. Its value is not stored in source control, documentation or chat.
+- A random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is configured on the isolated Super Admin sender and canonical Global API receiver. Its value is not stored in source control, documentation or chat.
 - The Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains `ADMIN_SYNC_HMAC_SECRET` fallback.
-- The isolated Global API receiver accepts the dedicated secret and retains the legacy fallback.
+- The canonical `csa-global-api-staging` receiver accepts the dedicated secret and retains the legacy fallback. The isolated compatibility API is reserved for Legacy Links and retains its separate legacy HMAC binding.
 - The legacy `ADMIN_SYNC_HMAC_SECRET` remains unchanged for the legacy `csa-superadmin-api-staging` Worker. Production-looking hostnames and Production Workers were not changed.
 
 ## Runtime verification
 
 - Scheduled sync at 10:15:46 UTC succeeded with one authorization record.
-- Scheduled sync at 10:30:46 UTC also succeeded with one authorization record and no error code.
+- Scheduled sync at 10:30:46 UTC also succeeded with one authorization record and no error code. Later runs at 11:15:47, 11:30:03, 11:45:03 and 12:00:03 UTC also succeeded with one authorization record each and no error code.
 - Read-only comparison confirmed the active non-Super-Admin source account and its isolated `global_admin_authorizations` row match by source ID, role, status and Finance access level (`none`).
 - The 09:45 and 10:00 failures occurred during the earlier secret/target transition and are superseded by the two later successful runs.
 - The latest isolated Super Admin source snapshots were re-exported from the current deployed bundle; verify CI after this documentation/test refresh.
 
 ## Remaining acceptance criteria
 
-1. Confirm another scheduled sync succeeds after the latest isolated Worker deployment at 10:36 UTC.
+1. Scheduled sync after the dedicated-secret deployment has now been confirmed successful through 12:00:03 UTC; continue monitoring the 15-minute schedule.
 2. The isolated compatibility API uses D1 6a32 and video D1 b611 for Legacy Links only. Keep it separate from canonical D1 470; Regional Admin and current Client/Editor data use canonical D1 470.
 3. Do not create dummy Admins or invitations. A controlled lifecycle test must use a real, explicitly authorized Admin action.
 4. Do not manually edit Global API authorization rows; the signed Super Admin snapshot is authoritative.
