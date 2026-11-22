@@ -7,9 +7,9 @@ const start = source.indexOf("async function regionalGlobalProxy");
 const end = source.indexOf("async function regionalAudit", start);
 const proxy = source.slice(start, end);
 
-test("Regional Admin proxy uses the legacy HMAC key only for the isolated compatibility API", () => {
+test("Regional Admin data proxy uses the canonical Global API and dedicated HMAC", () => {
   assert.ok(start >= 0 && end > start);
-  assert.match(proxy, /const secret=env\.ADMIN_SYNC_HMAC_SECRET/);
-  assert.doesNotMatch(proxy, /GLOBAL_API_SYNC_HMAC_SECRET/);
-  assert.match(proxy, /csa-global-api-isolated-staging\.creatorsupportamravati\.workers\.dev/);
+  assert.match(proxy, /const secret=env\.GLOBAL_API_SYNC_HMAC_SECRET\|\|env\.ADMIN_SYNC_HMAC_SECRET/);
+  assert.match(proxy, /csa-global-api-staging\.creatorsupportamravati\.workers\.dev/);
+  assert.doesNotMatch(proxy, /csa-global-api-isolated-staging\.creatorsupportamravati\.workers\.dev/);
 });
