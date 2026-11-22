@@ -69,7 +69,7 @@ test("Assignment rechecks editor KYC, agreement, captured deposit and department
   assert.match(api, /o\.account_status!=="active"\|\|o\.verification_status!=="verified"\|\|!o\.kyc_verified/);
   assert.match(api, /!o\.terms_accepted\|\|!o\.deposit_verified/);
   assert.match(api, /Tender department access is required to confirm project assignment/);
-  assert.match(api, /UNIQUE constraint failed: assignments\.offer_id/);
+  assert.match(api, /NOT EXISTS\(SELECT 1 FROM assignments WHERE offer_id=\?\)/);
   assert.match(api, /assignment_already_exists/);
 });
 
