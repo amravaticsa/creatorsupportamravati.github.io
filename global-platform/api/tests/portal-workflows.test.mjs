@@ -74,11 +74,14 @@ test("Assignment rechecks editor KYC, agreement, captured deposit and department
 });
 
 test("Editor submission enters QC and approved QC moves project to client review", () => {
-  assert.match(api, /INSERT INTO work_submissions\(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status/);
-  assert.match(api, /'pending',?,?,\?/);
+  assert.match(api, /INSERT INTO work_submissions\\(id,assignment_id,submitted_by,r2_object_key,version_number,notes,qc_status/);
   assert.match(api, /SET status='quality_check'/);
-  assert.match(api, /status==="approved"\?"client_review"/);
-  assert.match(api, /status==="approved"\?"reviewing"/);
+  assert.match(api, /status==="approved"\\?"client_review"/);
+  assert.match(api, /status==="approved"\\?"reviewing"/);
+  assert.match(api, /dr\\.route_key='tender'.*da\\.source_admin_id=\\?/);
+  assert.match(api, /SET qc_status=\\? WHERE id=\\? AND qc_status='pending'/);
+  assert.match(api, /qc_already_processed/);
+  assert.match(api, /results\\?\\.\\[0\\]\\?\\.meta\\?\\.changes/);
 });
 
 test("Client project budget recommendation can be submitted without an amount", () => {
