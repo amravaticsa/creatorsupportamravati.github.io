@@ -273,3 +273,5 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 - Latest scheduled run after the dual-secret compatibility deployment succeeded: `outcome=success`, `synced_count=1`, no error code.
 - The prior 08:30 UTC 401 is superseded by the successful 08:45 UTC result. A dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is not required for current operation; it may be introduced during a future controlled rotation.
+
+- The 09:00:46 UTC scheduled run also succeeded with `synced_count=1`, no error code. Two consecutive scheduled runs succeeded after the compatibility deployment.
