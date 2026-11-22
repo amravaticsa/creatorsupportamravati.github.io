@@ -196,3 +196,13 @@ Evidence:
 - Validation included JavaScript/source tests, schema snapshot checks, disposable SQLite migration/idempotency/reconciliation tests, read-only preflight guard, audit-template safety guard, and the guard keeping proposed legacy bridge management routes disabled.
 - This addendum supersedes the older `7f867c03...` / `dd27e46a...` baseline above for the latest staging source/deployment. Earlier entries remain historical evidence.
 - Authenticated E2E-01 through E2E-07 remain **BLOCKED**. These CI/deployment checks do not create test identities, prove signed-in client/editor/admin workflows, or validate Razorpay Test Mode payment/refund execution. No production resource was changed by these workflows.
+
+
+## Latest fail-closed staging smoke — 2026-11-22
+
+- Source commit: `5f6574e3e361c1271e3427d93d1252537c355ee4`.
+- Immutable deployment: https://2f2ef3b0.csa-global-staging.pages.dev.
+- Deployment run 45001237131: success. API validation run 45001237109: success; independent `schema-snapshot` and `validate` jobs passed.
+- The deployment workflow now treats route/asset errors as hard failures and verifies that redirects remain on the immutable staging origin. Latest evidence: all six HTML routes and both JS assets returned HTTP 200; staging API/D1 health passed; all seven unauthenticated protected-route checks returned HTTP 401.
+- This supersedes prior deployment URLs for the latest source baseline only. Historical records remain for audit traceability.
+- No authenticated client/editor/admin session was used. E2E-01…E2E-07 remain BLOCKED pending dedicated test identities/authorized reviewer and Test Mode payment provider setup. No production resources changed.
