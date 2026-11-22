@@ -22,6 +22,8 @@ jobs:
         run: bash global-platform/scripts/test-disposable-d1-guard.sh
       - name: Execute legacy editor bridge migration on disposable SQLite
         run: python3 global-platform/scripts/test-legacy-editor-bridge-migration.py
+      - name: Execute legacy bridge nonce migration on disposable SQLite
+        run: python3 global-platform/scripts/test-legacy-bridge-nonces-migration.py
 
   validate:
     runs-on: ubuntu-latest
