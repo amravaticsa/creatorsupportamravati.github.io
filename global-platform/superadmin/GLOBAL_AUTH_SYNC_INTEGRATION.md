@@ -27,7 +27,7 @@
 ## Remaining acceptance criteria
 
 1. Confirm another scheduled sync succeeds after the latest isolated Worker deployment at 10:36 UTC.
-2. Keep isolated D1 and canonical Client/Editor D1 separate unless an explicit consolidation plan is approved.
+2. The compatibility Global API Worker currently shares canonical D1 470; D1 6a32 is an unbound snapshot. Do not rebind either Worker to 6a32 without a reviewed consolidation/rollback plan.
 3. Do not create dummy Admins or invitations. A controlled lifecycle test must use a real, explicitly authorized Admin action.
 4. Do not manually edit Global API authorization rows; the signed Super Admin snapshot is authoritative.
 5. India country activation, legal evidence and real Regional Admin identity remain external prerequisites.
