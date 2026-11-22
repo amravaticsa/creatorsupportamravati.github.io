@@ -36,6 +36,8 @@ jobs:
         run: python3 global-platform/scripts/test-legacy-assignment-reconciliation-migration.py
       - name: Test evidence-backed country assignment migration on disposable SQLite
         run: python3 global-platform/scripts/test-country-assignment-audit-migration.py
+      - name: Test append-only country legal review migration on disposable SQLite
+        run: python3 global-platform/scripts/test-country-legal-review-migration.py
       - name: Test legacy-side assignment idempotency contract on disposable SQLite
         run: python3 global-platform/scripts/test-legacy-side-assignment-idempotency.py
       - name: Test legacy-side assignment ledger migration on disposable SQLite
@@ -115,6 +117,8 @@ jobs:
           test -s global-platform/migrations/0029_legacy_assignment_reconciliation_state.sql
           test -s global-platform/migrations/0031_country_assignment_audit.sql
           test -s global-platform/migrations/0032_verified_country_scope.sql
+          test -s global-platform/migrations/0033_country_legal_review_registry.sql
+          test -s global-platform/scripts/test-country-legal-review-migration.py
           test -s global-platform/scripts/test-country-assignment-audit-migration.py
           test -s global-platform/compliance/INDIA-LAUNCH-LEGAL-EVIDENCE-REGISTER.md
           test -s global-platform/scripts/test-legacy-assignment-reconciliation-migration.py
@@ -151,6 +155,9 @@ jobs:
           grep -q "trg_users_country_assignment_audit_required" global-platform/migrations/0031_country_assignment_audit.sql
           grep -q "country_verified_at" global-platform/migrations/0032_verified_country_scope.sql
           grep -q "country_scope_status" global-platform/migrations/0032_verified_country_scope.sql
+          grep -q "country_legal_reviews" global-platform/migrations/0033_country_legal_review_registry.sql
+          grep -q "trg_country_legal_reviews_no_update" global-platform/migrations/0033_country_legal_review_registry.sql
+          grep -q "country_legal_reviews" global-platform/api/src/index.js
           grep -q "trg_project_create_department_routes" global-platform/migrations/0022_multi_department_application_routes.sql
           grep -q "dept-hr-admin" global-platform/migrations/0022_multi_department_application_routes.sql
           grep -q "project_tenders" global-platform/migrations/0023_tenders_pricing_quotes.sql
