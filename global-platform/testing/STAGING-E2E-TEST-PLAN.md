@@ -267,3 +267,9 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - New Client/Editor onboarding no longer writes a user-supplied country into authoritative `users.country_code`; it remains null until Super Admin evidence review.
 - The two existing active Client accounts appear in the country review view as `needs_verified_country`. No country assignments or audit rows were created.
 - Runtime country-assignment verification still needs a Super Admin browser session, an approved active country/legal review, and evidence reference. Do not mark a country verified without owner-provided evidence.
+
+
+### Scheduled Global Admin sync recheck — 2026-11-22 08:45 UTC
+
+- Latest scheduled run after the dual-secret compatibility deployment succeeded: `outcome=success`, `synced_count=1`, no error code.
+- The prior 08:30 UTC 401 is superseded by the successful 08:45 UTC result. A dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is not required for current operation; it may be introduced during a future controlled rotation.
