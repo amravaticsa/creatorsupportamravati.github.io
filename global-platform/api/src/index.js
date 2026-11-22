@@ -76,6 +76,8 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/overview")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="GET"&&(/^\/v1\/admin\/multipart-uploads$/.test(p)||/^\/v1\/admin\/multipart-cleanup-runs$/.test(p)||/^\/v1\/admin\/multipart-uploads\/[\w-]+\/(inspect|incidents)$/.test(p)))return "support.manage";
  if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\w-]+\/incidents$/.test(p))return "support.manage";
+ if((m==="GET"||m==="POST")&&/^\/v1\/admin\/countries\/[A-Z]{2}\/legal-evidence$/.test(p))return "projects.manage";
+ if(m==="GET"&&/^\/v1\/admin\/countries\/[A-Z]{2}\/legal-evidence\/[\w-]+\/file$/.test(p))return "projects.manage";
  return "__deny__";
 }
 function globalAdminCan(u,permission){
@@ -224,10 +226,9 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   await env.DB.batch(statements);
   return out({ok:true,synced:records.length,revoked_if_absent:true},200);
  }
- 
  if(m==="POST"&&p==="/internal/superadmin/regional-admin-data"){
   if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Regional Admin bridge unavailable.",503,"regional_bridge_unavailable");
-  const raw=await req.text();if(raw.length>4096)return bad("Regional Admin request too large.",413,"regional_payload_too_large");
+  const raw=await req.text();if(raw.length>15*1024*1024)return bad("Regional Admin request too large.",413,"regional_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
   if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid regional bridge authentication headers.",401,"regional_auth_invalid");
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
@@ -237,8 +238,137 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}catch{return bad("Regional bridge nonce was already used.",409,"regional_replay");}
   const actorId=String(b.actor_admin_id||""),actorRole=String(b.actor_role||"");
   if(!actorId)return bad("Regional bridge actor missing.",400,"regional_actor_missing");
-  if(b.action!=="list"&&actorRole!=="super_admin")return bad("Only Super Admin may change country or regional access.",403,"regional_write_forbidden");
+  const regionalWriteActions=new Set(["regional_project_status_update","regional_editor_verification_update","regional_tender_status_update","regional_submission_qc_update"]);if(b.action!=="list"&&actorRole!=="super_admin"&&!(actorRole==="regional_admin"&&regionalWriteActions.has(b.action)))return bad("This actor cannot perform the requested regional operation.",403,"regional_write_forbidden");
   const audit=async(action,target,country,details)=>env.DB.prepare("INSERT INTO regional_admin_audit_logs(id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),actorId,action,target||null,country||null,JSON.stringify(details||{}));
+  if(b.action==="regional_project_status_update"){
+   if(actorRole!=="regional_admin")return bad("Regional Admin role required.",403,"regional_role_required");
+   const projectId=String(b.project_id||""),next=String(b.status||""),note=String(b.note||"").trim();
+   if(!projectId||projectId.length>128||note.length>1000)return bad("Invalid project status request.",400,"regional_project_update_invalid");
+   const assignment=await env.DB.prepare("SELECT country_code FROM regional_admins WHERE source_admin_id=? AND status='active'").bind(actorId).first();
+   if(!assignment)return bad("An active country assignment is required.",403,"regional_assignment_required");
+   const permission=await env.DB.prepare("SELECT 1 AS ok FROM regional_admin_permissions WHERE source_admin_id=? AND permission_key='projects.manage'").bind(actorId).first();
+   if(!permission)return bad("The projects.manage permission is required.",403,"regional_permission_required");
+   const project=await env.DB.prepare("SELECT p.id,p.client_id,p.public_project_code,p.status FROM projects p JOIN users cu ON cu.id=p.client_id WHERE p.id=? AND cu.country_code=?").bind(projectId,assignment.country_code).first();
+   if(!project)return bad("Project not found in your assigned country.",404,"regional_project_not_found");
+   const transitions={submitted:["under_review","cancelled"],under_review:["quotation_pending","cancelled"],quotation_pending:["approved","cancelled"],approved:["matching"],matching:["assigned"],assigned:["in_progress"],in_progress:["quality_check"]};
+   if(!(transitions[project.status]||[]).includes(next))return bad("This project status transition is not allowed.",409,"regional_project_transition_invalid");
+   if(next==="cancelled"&&note.length<5)return bad("A cancellation reason of at least five characters is required.",400,"regional_project_cancel_note_required");
+   if(next==="approved"){const quote=await env.DB.prepare("SELECT id FROM client_quotes WHERE project_id=? AND status='accepted' ORDER BY created_at DESC LIMIT 1").bind(projectId).first();if(!quote)return bad("A client-accepted quote is required before project approval.",409,"regional_project_quote_required");}
+   if(next==="assigned"){const row=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND status IN ('active','submitted','quality_check','revision','approved') LIMIT 1").bind(projectId).first();if(!row)return bad("An active editor assignment is required before this project can be marked assigned.",409,"regional_project_assignment_required");}
+   if(next==="in_progress"){const row=await env.DB.prepare("SELECT id FROM assignments WHERE project_id=? AND status IN ('active','submitted','revision') LIMIT 1").bind(projectId).first();if(!row)return bad("An active editor assignment is required before work can start.",409,"regional_project_assignment_required");}
+   if(next==="quality_check"){const row=await env.DB.prepare("SELECT s.id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE a.project_id=? AND s.qc_status='pending' ORDER BY s.submitted_at DESC LIMIT 1").bind(projectId).first();if(!row)return bad("A pending work submission is required before quality check.",409,"regional_project_submission_required");}
+   const visible={under_review:"reviewing",quotation_pending:"quotation_pending",approved:"approved",matching:"matching",assigned:"in_progress",in_progress:"in_progress",quality_check:"quality_review",cancelled:"closed"}[next]||next;
+   const results=await env.DB.batch([
+    env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status=?").bind(next,visible,projectId,project.status),
+    env.DB.prepare("INSERT INTO project_status_history(id,project_id,old_status,new_status,note,changed_by,source_system) SELECT ?,?,?,?,?,?,? WHERE changes()=1").bind(crypto.randomUUID(),projectId,project.status,next,note||null,actorId,"regional_admin"),
+    env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status) SELECT ?,?,?,?,?,'queued' WHERE changes()=1").bind(crypto.randomUUID(),project.client_id,"in_app","regional_project_status_changed",JSON.stringify({project_code:project.public_project_code,old_status:project.status,new_status:next,note:note||null})),
+    env.DB.prepare("INSERT INTO regional_admin_audit_logs(id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json) SELECT ?,?,?,NULL,?,? WHERE changes()=1").bind(crypto.randomUUID(),actorId,"regional_admin.project_status_updated",assignment.country_code,JSON.stringify({project_id:projectId,project_code:project.public_project_code,old_status:project.status,new_status:next,note:note||null}))
+   ]);
+   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Project status changed elsewhere. Refresh and retry.",409,"regional_project_update_conflict");
+   return out({ok:true,project_id:projectId,project_code:project.public_project_code,old_status:project.status,status:next},200);
+  }
+  if(b.action==="regional_editor_verification_update"){
+   if(actorRole!=="regional_admin")return bad("Regional Admin role required.",403,"regional_role_required");
+   const editorId=String(b.editor_id||""),next=String(b.verification_status||""),note=String(b.note||"").trim();
+   if(!editorId||editorId.length>128||note.length>1000||!["in_review","verified","rejected"].includes(next))return bad("Invalid editor verification request.",400,"regional_editor_update_invalid");
+   const assignment=await env.DB.prepare("SELECT country_code FROM regional_admins WHERE source_admin_id=? AND status='active'").bind(actorId).first();if(!assignment)return bad("An active country assignment is required.",403,"regional_assignment_required");
+   const permission=await env.DB.prepare("SELECT 1 AS ok FROM regional_admin_permissions WHERE source_admin_id=? AND permission_key='editors.manage'").bind(actorId).first();if(!permission)return bad("The editors.manage permission is required.",403,"regional_permission_required");
+   const editor=await env.DB.prepare("SELECT e.user_id,e.verification_status,e.portfolio_url,e.sample_url,u.account_status FROM editor_profiles e JOIN users u ON u.id=e.user_id WHERE e.user_id=? AND u.role='editor' AND COALESCE(e.country_code,u.country_code)=?").bind(editorId,assignment.country_code).first();
+   if(!editor)return bad("Editor not found in your assigned country.",404,"regional_editor_not_found");
+   const transitions={pending:["in_review","rejected"],in_review:["verified","rejected"],rejected:["in_review"]};
+   if(!(transitions[editor.verification_status]||[]).includes(next))return bad("This editor verification transition is not allowed.",409,"regional_editor_transition_invalid");
+   if(next==="verified"&&!editor.portfolio_url&&!editor.sample_url)return bad("A portfolio or sample link is required before verification.",409,"regional_editor_evidence_required");if(next==="verified"){const kyc=await env.DB.prepare("SELECT id FROM editor_kyc_documents WHERE editor_id=? AND status='verified' ORDER BY reviewed_at DESC LIMIT 1").bind(editorId).first();if(!kyc)return bad("Verified KYC is required before editor approval.",409,"regional_editor_kyc_required");}
+   if(next==="rejected"&&note.length<5)return bad("A rejection reason of at least five characters is required.",400,"regional_editor_rejection_note_required");
+   const results=await env.DB.batch([
+    env.DB.prepare("UPDATE editor_profiles SET verification_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=? AND verification_status=?").bind(next,editorId,editor.verification_status),
+    env.DB.prepare("INSERT INTO regional_admin_audit_logs(id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json) SELECT ?,?,?,NULL,?,? WHERE changes()=1").bind(crypto.randomUUID(),actorId,"regional_admin.editor_verification_"+next,assignment.country_code,JSON.stringify({editor_id:editorId,old_status:editor.verification_status,new_status:next,note:note||null})),
+    env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status) SELECT ?,?,'in_app','regional_editor_verification_changed',?,'queued' WHERE changes()=1").bind(crypto.randomUUID(),editorId,JSON.stringify({verification_status:next,note:note||null})),
+    env.DB.prepare("UPDATE users SET account_status=CASE WHEN ?='rejected' THEN 'suspended' WHEN ?='verified' THEN 'pending' ELSE account_status END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND role='editor' AND ? IN ('verified','rejected') AND changes()=1").bind(next,next,editorId,next)
+   ]);
+   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Editor status changed elsewhere. Refresh and retry.",409,"regional_editor_update_conflict");if(["verified","rejected"].includes(next)&&Number(results?.[3]?.meta?.changes||0)!==1)return bad("Editor account state could not be synchronized. Contact Super Admin.",500,"regional_editor_account_sync_failed");
+   return out({ok:true,editor_id:editorId,verification_status:next},200);
+  }
+  if(b.action==="regional_tender_status_update"){
+   if(actorRole!=="regional_admin")return bad("Regional Admin role required.",403,"regional_role_required");
+   const tenderId=String(b.tender_id||""),next=String(b.status||""),note=String(b.note||"").trim();
+   if(!tenderId||tenderId.length>128||note.length>1000||!["published","closed","cancelled"].includes(next))return bad("Invalid tender status request.",400,"regional_tender_update_invalid");
+   const assignment=await env.DB.prepare("SELECT country_code FROM regional_admins WHERE source_admin_id=? AND status='active'").bind(actorId).first();if(!assignment)return bad("An active country assignment is required.",403,"regional_assignment_required");
+   const permission=await env.DB.prepare("SELECT 1 AS ok FROM regional_admin_permissions WHERE source_admin_id=? AND permission_key='tenders.manage'").bind(actorId).first();if(!permission)return bad("The tenders.manage permission is required.",403,"regional_permission_required");
+   const tender=await env.DB.prepare("SELECT t.id,t.project_id,t.status,t.bid_deadline,p.client_id,p.public_project_code,p.status AS project_status FROM project_tenders t JOIN projects p ON p.id=t.project_id JOIN users cu ON cu.id=p.client_id WHERE t.id=? AND cu.country_code=?").bind(tenderId,assignment.country_code).first();
+   if(!tender)return bad("Tender not found in your assigned country.",404,"regional_tender_not_found");
+   const transitions={draft:["published","cancelled"],published:["closed","cancelled"],closed:["cancelled"]};
+   if(!(transitions[tender.status]||[]).includes(next))return bad("This tender status transition is not allowed.",409,"regional_tender_transition_invalid");
+   if(next==="published"){if(!tender.bid_deadline||new Date(tender.bid_deadline).getTime()<=Date.now())return bad("A future bid deadline is required before publishing.",409,"regional_tender_deadline_required");if(!["approved","matching"].includes(tender.project_status))return bad("The project must be approved before its tender can be published.",409,"regional_tender_project_not_ready");}
+   if(next==="closed"&&new Date(tender.bid_deadline).getTime()>Date.now())return bad("The bid deadline has not passed; only Super Admin may close a tender early.",409,"regional_tender_deadline_not_reached");
+   if(next==="cancelled"&&note.length<5)return bad("A cancellation reason of at least five characters is required.",400,"regional_tender_cancel_note_required");
+   const now=new Date().toISOString();
+   const results=await env.DB.batch([
+    env.DB.prepare("UPDATE project_tenders SET status=?,published_by=CASE WHEN ?='published' THEN ? ELSE published_by END,published_at=CASE WHEN ?='published' THEN ? ELSE published_at END,closed_at=CASE WHEN ? IN ('closed','cancelled') THEN ? ELSE closed_at END,updated_at=? WHERE id=? AND status=?").bind(next,next,actorId,next,now,next,now,now,tenderId,tender.status),
+    env.DB.prepare("INSERT INTO regional_admin_audit_logs(id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json) SELECT ?,?,?,NULL,?,? WHERE changes()=1").bind(crypto.randomUUID(),actorId,"regional_admin.tender_status_"+next,assignment.country_code,JSON.stringify({tender_id:tenderId,project_id:tender.project_id,old_status:tender.status,new_status:next,note:note||null})),
+    env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status) SELECT ?,?,'in_app','regional_tender_status_changed',?,'queued' WHERE changes()=1").bind(crypto.randomUUID(),tender.client_id,JSON.stringify({tender_id:tenderId,project_code:tender.public_project_code,status:next,note:note||null}))
+   ]);
+   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Tender status changed elsewhere. Refresh and retry.",409,"regional_tender_update_conflict");
+   return out({ok:true,tender_id:tenderId,status:next},200);
+  }
+  if(b.action==="regional_submission_qc_update"){
+   if(actorRole!=="regional_admin")return bad("Regional Admin role required.",403,"regional_role_required");
+   const submissionId=String(b.submission_id||""),status=String(b.qc_status||""),note=String(b.note||"").trim();
+   if(!submissionId||submissionId.length>128||!["approved","changes_requested","rejected"].includes(status)||note.length>2000)return bad("Invalid content review request.",400,"regional_content_review_invalid");
+   if(status!=="approved"&&note.length<5)return bad("A review note of at least five characters is required.",400,"regional_content_review_note_required");
+   const assignment=await env.DB.prepare("SELECT country_code FROM regional_admins WHERE source_admin_id=? AND status='active'").bind(actorId).first();if(!assignment)return bad("An active country assignment is required.",403,"regional_assignment_required");
+   const permission=await env.DB.prepare("SELECT 1 AS ok FROM regional_admin_permissions WHERE source_admin_id=? AND permission_key='content.manage'").bind(actorId).first();if(!permission)return bad("The content.manage permission is required.",403,"regional_permission_required");
+   const sub=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.submitted_by,a.project_id,a.editor_id,a.status AS assignment_status,p.client_id,p.public_project_code,p.status AS project_status FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN projects p ON p.id=a.project_id JOIN users cu ON cu.id=p.client_id WHERE s.id=? AND s.qc_status='pending' AND s.id=(SELECT s2.id FROM work_submissions s2 WHERE s2.assignment_id=s.assignment_id ORDER BY s2.version_number DESC LIMIT 1) AND cu.country_code=?").bind(submissionId,assignment.country_code).first();
+   if(!sub)return bad("Pending latest submission not found in your assigned country.",404,"regional_submission_not_found");
+   if(sub.project_status!=="quality_check")return bad("The project is not awaiting quality review.",409,"regional_submission_project_state_invalid");
+   if(status==="approved"){const open=await env.DB.prepare("SELECT id FROM client_revision_requests WHERE assignment_id=? AND status IN ('open','in_progress') LIMIT 1").bind(sub.assignment_id).first();if(open)return bad("Resolve the open client revision request before approving this delivery.",409,"regional_open_revision_exists");}
+   const assignmentStatus=status==="approved"?"approved":status==="changes_requested"?"revision":"active";
+   const projectStatus=status==="approved"?"client_review":status==="changes_requested"?"revision":"in_progress";
+   const clientStatus=status==="approved"?"reviewing":status==="changes_requested"?"revision":"in_progress";
+   const payload=JSON.stringify({project_id:sub.project_id,project_code:sub.public_project_code,submission_id:submissionId,version:sub.version_number,qc_status:status,note:note||null});
+   const results=await env.DB.batch([
+    env.DB.prepare("UPDATE work_submissions SET qc_status=? WHERE id=? AND qc_status='pending'").bind(status,submissionId),
+    env.DB.prepare("UPDATE assignments SET status=? WHERE id=? AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(assignmentStatus,sub.assignment_id,submissionId,status),
+    env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='quality_check' AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(projectStatus,clientStatus,sub.project_id,submissionId,status),
+    env.DB.prepare("INSERT INTO project_status_history(id,project_id,old_status,new_status,note,changed_by,source_system) SELECT ?,?,?,?,?,?,? WHERE changes()=1").bind(crypto.randomUUID(),sub.project_id,sub.project_status,projectStatus,note||null,actorId,"regional_admin"),
+    env.DB.prepare("INSERT INTO regional_admin_audit_logs(id,actor_source_admin_id,action,target_source_admin_id,country_code,details_json) SELECT ?,?,?,NULL,?,? WHERE changes()=1").bind(crypto.randomUUID(),actorId,"regional_admin.submission_qc_"+status,assignment.country_code,payload),
+    env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status) SELECT ?,?,'in_app','regional_submission_qc_changed',?,'queued' WHERE changes()=1").bind(crypto.randomUUID(),sub.client_id,payload),
+    env.DB.prepare("INSERT INTO notifications(id,user_id,channel,template_key,payload_json,status) SELECT ?,?,'in_app','regional_submission_qc_changed',?,'queued' WHERE changes()=1").bind(crypto.randomUUID(),sub.editor_id,payload)
+   ]);
+   if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1||Number(results?.[2]?.meta?.changes||0)!==1)return bad("Submission or project state changed elsewhere. Refresh and retry.",409,"regional_content_review_conflict");
+   return out({ok:true,submission_id:submissionId,qc_status:status,project_status:projectStatus},200);
+  }
+   if(b.action==="legal_evidence_download"){
+    if(actorRole!=="super_admin")return bad("Only Super Admin may download country legal evidence.",403,"legal_evidence_forbidden");
+    const cc=String(b.country_code||"").toUpperCase(),id=String(b.evidence_id||"");if(!/^[A-Z]{2}$/.test(cc)||!/^[0-9a-f-]{36}$/i.test(id))return bad("Invalid evidence reference.",400,"legal_evidence_reference_invalid");
+    const row=await env.DB.prepare("SELECT r2_object_key,mime_type,original_filename,size_bytes,sha256 FROM country_legal_evidence WHERE id=? AND country_code=? AND deleted_at IS NULL").bind(id,cc).first();if(!row)return bad("Legal evidence not found.",404,"legal_evidence_not_found");
+    const object=await env.MEDIA.get(row.r2_object_key);if(!object)return bad("Legal evidence file is missing from private storage.",410,"legal_evidence_storage_missing");
+    const bytes=new Uint8Array(await object.arrayBuffer());if(bytes.byteLength!==row.size_bytes)return bad("Evidence file integrity check failed.",409,"legal_evidence_integrity_failed");
+    const digest=await crypto.subtle.digest("SHA-256",bytes),sha=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");if(sha!==row.sha256)return bad("Evidence file integrity check failed.",409,"legal_evidence_integrity_failed");
+    let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+    const downloadAudit=await audit("country.legal_evidence_downloaded",id,cc,{sha256:sha,size_bytes:row.size_bytes});await downloadAudit.run();
+    return out({ok:true,evidence:{mime_type:row.mime_type,filename:row.original_filename,size_bytes:row.size_bytes,sha256:sha,file_base64:btoa(binary)}});
+   }
+   if(b.action==="legal_evidence_list"){
+    if(actorRole!=="super_admin")return bad("Only Super Admin may read country legal evidence.",403,"legal_evidence_forbidden");
+    const cc=String(b.country_code||"").toUpperCase();if(!/^[A-Z]{2}$/.test(cc))return bad("Invalid country code.",400,"country_code_invalid");
+    const rows=await env.DB.prepare("SELECT id,country_code,evidence_category AS category,title,original_filename AS filename,mime_type,size_bytes,sha256,created_at FROM country_legal_evidence WHERE country_code=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100").bind(cc).all();
+    return out({ok:true,country_code:cc,evidence:rows.results||[]});
+   }
+   if(b.action==="legal_evidence_upload"){
+    if(actorRole!=="super_admin")return bad("Only Super Admin may upload country legal evidence.",403,"legal_evidence_forbidden");
+    if(!env.MEDIA)return bad("Private evidence storage is not configured.",503);
+    const cc=String(b.country_code||"").toUpperCase(),category=String(b.category||""),title=txt(b.title,160),filename=txt(b.filename,180)||"evidence.bin",mime=String(b.mime_type||"").toLowerCase(),encoded=String(b.file_base64||"");
+    if(!/^[A-Z]{2}$/.test(cc)||!["corporate_registration","tax_registration","privacy_data_protection","consumer_protection","payments_regulatory","licensing","other"].includes(category)||!title)return bad("Evidence metadata is invalid.",400,"legal_evidence_metadata_invalid");
+    const country=await env.DB.prepare("SELECT country_code FROM countries WHERE country_code=?").bind(cc).first();if(!country)return bad("Country not found.",404,"country_not_found");
+    if(!["application/pdf","image/jpeg","image/png"].includes(mime)||encoded.length<4||encoded.length>Math.ceil(10*1024*1024*4/3)+8)return bad("Evidence must be a PDF, JPG or PNG up to 10 MB.",415,"legal_evidence_type_or_size_invalid");
+    let binary;try{binary=atob(encoded);}catch{return bad("Invalid base64 evidence data.",400,"legal_evidence_encoding_invalid");}
+    if(binary.length<1||binary.length>10*1024*1024)return bad("Evidence file must be between 1 byte and 10 MB.",413,"legal_evidence_size_invalid");
+    const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0)),head=bytes.slice(0,12),valid=mime==="application/pdf"?String.fromCharCode(...head.slice(0,5))==="%PDF-":mime==="image/jpeg"?head[0]===255&&head[1]===216&&head[2]===255:head.length>=8&&head[0]===137&&String.fromCharCode(...head.slice(1,4))==="PNG";if(!valid)return bad("File signature does not match its declared MIME type.",415,"legal_evidence_signature_invalid");
+    const id=crypto.randomUUID(),ext=mime==="application/pdf"?"pdf":mime==="image/png"?"png":"jpg",safeName=filename.split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,120)||("evidence."+ext),key="country-legal-evidence/"+cc+"/"+id+"."+ext,digest=await crypto.subtle.digest("SHA-256",bytes),sha=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+    await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store",contentDisposition:"attachment"}});
+    try{await env.DB.batch([env.DB.prepare("INSERT INTO country_legal_evidence(id,country_code,uploaded_by_source_admin_id,evidence_category,title,original_filename,mime_type,size_bytes,r2_object_key,sha256) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(id,cc,actorId,category,title,safeName,mime,bytes.byteLength,key,sha),await audit("country.legal_evidence_uploaded",null,cc,{evidence_id:id,category,mime_type:mime,size_bytes:bytes.byteLength,sha256:sha})]);}catch(e){await env.MEDIA.delete(key);throw e;}
+    return out({ok:true,evidence:{id,country_code:cc,category,title,filename:safeName,mime_type:mime,size_bytes:bytes.byteLength,sha256:sha,created_at:new Date().toISOString()}},201);
+   }
   if(b.action==="country_update"){
    const cc=String(b.country_code||"").toUpperCase(),status=b.commercial_status;
    if(!/^[A-Z]{2}$/.test(cc)||!["planned","review","active","restricted","disabled"].includes(status))return bad("Invalid country update.",400,"country_update_invalid");
@@ -249,7 +379,7 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
    if((payment||payout)&&(status!=="active"||legal?.review_status!=="approved"))return bad("Payments and payouts require an active, legally approved country.",409,"country_payment_approval_required");
    const currency=b.currency_code===undefined?null:b.currency_code,timezone=b.timezone===undefined?null:b.timezone;
    if(currency!==null&&currency!==undefined&&(typeof currency!=="string"||!/^[A-Z]{3}$/.test(currency)))return bad("Invalid currency code.",400,"country_currency_invalid");
-   if(timezone!==null&&timezone!==undefined&&(typeof timezone!=="string"||!timezone.trim()||timezone.length>80))return bad("Invalid timezone.",400,"country_timezone_invalid");
+   if(timezone!==null&&timezone!==undefined&&(typeof timezone!=="string"||!timezone.trim()||timezone.length>80))return bad("Invalid timezone.",400,"country_timezone_invalid");if(timezone!==null&&timezone!==undefined){try{new Intl.DateTimeFormat("en-US",{timeZone:timezone}).format();}catch{return bad("Timezone must be a valid IANA timezone identifier.",400,"country_timezone_invalid");}}
    const r=await env.DB.prepare("UPDATE countries SET commercial_status=?,payment_enabled=?,payout_enabled=?,currency_code=COALESCE(?,currency_code),timezone=COALESCE(?,timezone),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE country_code=?").bind(status,payment,payout,currency,timezone,cc).run();
    await audit("country.settings_updated",null,cc,{commercial_status:status,payment_enabled:payment,payout_enabled:payout,currency_code:currency,timezone});
    return out({ok:true,updated:!!(r.meta?.changes||0),country_code:cc},200);
@@ -258,6 +388,7 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   if(b.action==="legal_review_create"){
    const cc=String(b.country_code||"").toUpperCase(),status=String(b.review_status||""),evidence=String(b.evidence_reference||"").trim(),notes=String(b.legal_notes||"").trim();
    if(!/^[A-Z]{2}$/.test(cc)||!["pending","approved","rejected"].includes(status)||evidence.length>1000||notes.length>5000||(status==="approved"&&!evidence))return bad("Invalid legal review or missing approval evidence.",400,"legal_review_invalid");
+    if(status==="approved"){const ev=await env.DB.prepare("SELECT id FROM country_legal_evidence WHERE id=? AND country_code=? AND deleted_at IS NULL").bind(evidence,cc).first();if(!ev)return bad("Approval requires an uploaded legal evidence record for this country; free-text references are not accepted.",409,"legal_evidence_required");}
    const exists=await env.DB.prepare("SELECT country_code FROM countries WHERE country_code=?").bind(cc).first();if(!exists)return bad("Country not found.",404,"country_not_found");
    const id=crypto.randomUUID(),reviewedAt=status==="pending"?null:new Date().toISOString();
    await env.DB.batch([env.DB.prepare("INSERT INTO country_legal_reviews(id,country_code,review_status,reviewer_source_admin_id,evidence_reference,legal_notes,reviewed_at) VALUES(?,?,?,?,?,?,?)").bind(id,cc,status,actorId,evidence||null,notes||null,reviewedAt),audit("country.legal_review."+status,null,cc,{review_id:id,evidence_reference:evidence||null})]);
@@ -305,7 +436,7 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
      if(granted.has("clients.read")){const r=await env.DB.prepare("SELECT u.id AS user_id,u.email,u.account_status,u.created_at,cp.display_name,cp.company_name FROM users u LEFT JOIN client_profiles cp ON cp.user_id=u.id WHERE u.role='client' AND u.country_code=? ORDER BY u.created_at DESC LIMIT 50").bind(cc).all();regional.clients=r.results||[];}
      if(granted.has("projects.manage")){const r=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.status,p.client_visible_status,p.preferred_deadline,p.created_at,cp.display_name AS client_name,cp.company_name FROM projects p JOIN users cu ON cu.id=p.client_id LEFT JOIN client_profiles cp ON cp.user_id=cu.id WHERE cu.country_code=? ORDER BY p.created_at DESC LIMIT 50").bind(cc).all();regional.projects=r.results||[];}
      if(granted.has("editors.manage")){const r=await env.DB.prepare("SELECT u.id AS user_id,u.email,u.account_status,e.public_editor_code,e.display_name,e.city,e.verification_status,e.reliability_score,e.created_at FROM users u JOIN editor_profiles e ON e.user_id=u.id WHERE u.role='editor' AND COALESCE(e.country_code,u.country_code)=? ORDER BY e.created_at DESC LIMIT 50").bind(cc).all();regional.editors=r.results||[];}
-     if(granted.has("tenders.manage")){const r=await env.DB.prepare("SELECT t.id,t.title,t.status,t.bid_deadline,t.published_at,p.public_project_code,p.title AS project_title FROM project_tenders t JOIN projects p ON p.id=t.project_id JOIN users cu ON cu.id=p.client_id WHERE cu.country_code=? ORDER BY t.created_at DESC LIMIT 50").bind(cc).all();regional.tenders=r.results||[];}
+     if(granted.has("tenders.manage")){const r=await env.DB.prepare("SELECT t.id,t.title,t.status,t.bid_deadline,t.published_at,p.public_project_code,p.title AS project_title,p.status AS project_status FROM project_tenders t JOIN projects p ON p.id=t.project_id JOIN users cu ON cu.id=p.client_id WHERE cu.country_code=? ORDER BY t.created_at DESC LIMIT 50").bind(cc).all();regional.tenders=r.results||[];}
      if(granted.has("content.manage")){const r=await env.DB.prepare("SELECT ws.id,ws.assignment_id,ws.version_number,ws.qc_status,ws.submitted_at,p.public_project_code,p.title AS project_title,e.display_name AS editor_name FROM work_submissions ws JOIN assignments a ON a.id=ws.assignment_id JOIN projects p ON p.id=a.project_id JOIN users cu ON cu.id=p.client_id LEFT JOIN editor_profiles e ON e.user_id=ws.submitted_by WHERE cu.country_code=? ORDER BY ws.submitted_at DESC LIMIT 50").bind(cc).all();regional.submissions=r.results||[];}
      if(granted.has("support.manage")){const r=await env.DB.prepare("SELECT m.id,m.project_id,p.public_project_code,p.title AS project_title,u.email AS sender_email,COALESCE(cp.display_name,ep.display_name) AS sender_name,m.recipient_role,m.body,m.created_at FROM messages m JOIN projects p ON p.id=m.project_id JOIN users cu ON cu.id=p.client_id LEFT JOIN users u ON u.id=m.sender_id LEFT JOIN client_profiles cp ON cp.user_id=u.id LEFT JOIN editor_profiles ep ON ep.user_id=u.id WHERE cu.country_code=? ORDER BY m.created_at DESC LIMIT 50").bind(cc).all();regional.support_messages=r.results||[];}
      if(granted.has("finance.read")){const r=await env.DB.prepare("SELECT p.payment_type,p.currency,p.status,COUNT(*) AS payment_count,COALESCE(SUM(p.amount_minor),0) AS total_minor FROM payments p WHERE p.project_id IN (SELECT pr.id FROM projects pr JOIN users cu ON cu.id=pr.client_id WHERE cu.country_code=?) OR p.user_id IN (SELECT eu.id FROM users eu LEFT JOIN editor_profiles ep ON ep.user_id=eu.id WHERE eu.role='editor' AND COALESCE(ep.country_code,eu.country_code)=?) GROUP BY p.payment_type,p.currency,p.status ORDER BY p.currency,p.payment_type,p.status").bind(cc,cc).all();regional.finance_summary=r.results||[];}
@@ -316,7 +447,6 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
    return out({ok:true,countries:countries.results||[],assignments:assignments.results||[],invitations,pending_assignments:pending?.n||0,pending_invitations:0,eligible_countries:eligible?.n||0,permissions:permissions.results||[],regional,regional_summary},200);
   }catch(e){console.error("Regional bridge read failed",String(e&&e.message||e));return bad("Regional data unavailable.",503,"regional_data_unavailable");}
  }
- 
  if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){
   // Dedicated Super Admin bridge. Never accepts Global Admin JWT/session roles.
   if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin pricing bridge is not configured.",503,"pricing_bridge_unavailable");
@@ -348,7 +478,225 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   }
   return bad("Unsupported pricing action.");
  }
- 
+ if(m==="POST"&&p==="/internal/superadmin/finance-data"){
+  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin finance bridge is not configured.",503,"finance_bridge_unavailable");
+  const raw=await req.text();if(raw.length>8192)return bad("Finance request is too large.",413,"finance_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"",seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid finance bridge authentication headers.",401,"finance_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))),bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join(""),canonical="POST\n/internal/superadmin/finance-data\n"+ts+"\n"+nonce+"\n"+bodyHash;
+  if(!await verifyGlobalApiHmac(env,canonical,sig))return bad("Finance bridge signature is invalid.",401,"finance_signature_invalid");
+  let actor;try{actor=JSON.parse(raw)}catch{return bad("Invalid finance request JSON.",400,"finance_json_invalid")}
+  const actorId=txt(actor?.actor_admin_id,100),actorEmail=txt(actor?.actor_email,254).toLowerCase(),actorRole=txt(actor?.actor_role,40),action=txt(actor?.action,40);
+  if(!actorId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)||!["super_admin","finance_admin"].includes(actorRole))return bad("Finance actor is not permitted.",403,"finance_actor_denied");
+  let financeLevel=actorRole==="super_admin"?"manage":"none";if(actorRole==="finance_admin"){const auth=await env.DB.prepare("SELECT finance_access_level FROM global_admin_authorizations WHERE source_admin_id=? AND email=? COLLATE NOCASE AND source_role='finance_admin' AND status='active' LIMIT 1").bind(actorId,actorEmail).first();if(!auth||!["read","write","manage"].includes(auth.finance_access_level))return bad("Finance read access is not active for this account.",403,"finance_access_denied");financeLevel=auth.finance_access_level;}
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run()}catch{return bad("Finance bridge nonce was already used.",409,"finance_replay")}
+  const logFinance=async(name,details)=>env.DB.prepare("INSERT INTO finance_bridge_audit_logs(id,actor_source_admin_id,actor_email,actor_role,action,details_json) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),actorId,actorEmail,actorRole,name,JSON.stringify(details||{})).run();
+  if(action==="approve_payout"||action==="mark_payout_paid"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required for payout actions.",403,"finance_write_access_denied");
+   const payoutId=txt(actor.payout_id,128),note=txt(actor.note,500),reference=String(actor.payment_reference||"").trim();
+   if(!payoutId)return bad("Payout ID is required.",400,"payout_id_required");
+   if(action==="mark_payout_paid"&&(reference.length<3||reference.length>120))return bad("Enter the actual bank/UPI transfer reference (3–120 characters).",400,"payment_reference_required");
+   const current=await env.DB.prepare("SELECT id,offer_id,project_id,editor_id,amount_minor,currency,status,payment_reference FROM editor_payouts WHERE id=?").bind(payoutId).first();
+   if(!current)return bad("Payout record not found.",404,"payout_not_found");
+   if(action==="approve_payout"){
+    if(current.status==="approved"||current.status==="paid")return out({ok:true,payout:current,idempotent:true,transfer_initiated:false});
+    if(current.status!=="pending_approval")return bad("Only pending payouts can be approved.",409,"invalid_payout_state");
+    const details=JSON.stringify({payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency,note:note||null});
+    const results=await env.DB.batch([
+     env.DB.prepare("UPDATE editor_payouts SET status='approved',approved_by=?,approved_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='pending_approval'").bind(actorId,note||null,payoutId),
+     env.DB.prepare("INSERT INTO finance_bridge_audit_logs(id,actor_source_admin_id,actor_email,actor_role,action,details_json) SELECT ?,?,?,?,'editor_payout_approved',? WHERE changes()=1").bind(crypto.randomUUID(),actorId,actorEmail,actorRole,details)
+    ]);
+    if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Payout state changed elsewhere. Refresh and retry.",409,"payout_state_conflict");await notifyInApp(env,current.editor_id,"editor_payout_approved","Editor payout approved","Your editor payout has been approved by CSA Finance.",{payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency,note:note||null});
+   }else{
+    if(current.status==="paid")return out({ok:true,payout:current,idempotent:true,transfer_initiated:false});
+    if(current.status!=="approved")return bad("Only Finance-approved payouts can be marked paid.",409,"payout_not_approved");
+    const duplicateReference=await env.DB.prepare("SELECT id FROM editor_payouts WHERE payment_reference=? AND status='paid' AND id<>? LIMIT 1").bind(reference,payoutId).first();if(duplicateReference)return bad("This bank/UPI reference is already recorded for another payout.",409,"payment_reference_duplicate");
+    const details=JSON.stringify({payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency,payment_reference:reference,note:note||null});
+    const results=await env.DB.batch([
+     env.DB.prepare("UPDATE editor_payouts SET status='paid',paid_by=?,paid_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),payment_reference=?,note=COALESCE(?,note),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='approved'").bind(actorId,reference,note||null,payoutId),
+     env.DB.prepare("INSERT INTO finance_bridge_audit_logs(id,actor_source_admin_id,actor_email,actor_role,action,details_json) SELECT ?,?,?,?,'editor_payout_marked_paid',? WHERE changes()=1").bind(crypto.randomUUID(),actorId,actorEmail,actorRole,details)
+    ]);
+    if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Payout state changed elsewhere. Refresh and retry.",409,"payout_state_conflict");await notifyInApp(env,current.editor_id,"editor_payout_paid","Editor payout marked paid","CSA Finance has recorded your payout payment reference.",{payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency,payment_reference:reference});
+   }
+   const updated=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(payoutId).first();
+   return out({ok:true,payout:updated,transfer_initiated:false,note:"This records Finance approval/payment confirmation only. It does not initiate a bank or Razorpay transfer."});
+  }
+  if(action==="process_client_refund"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required to process refunds.",403,"finance_write_access_denied");
+   if(env.ENVIRONMENT!=="staging"||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Refund processing is restricted to Razorpay Test Mode on Staging.",503,"refund_test_mode_required");
+   const refundId=txt(actor.refund_id,128);if(!refundId)return bad("Refund ID is required.",400,"refund_id_required");
+   const refund=await env.DB.prepare("SELECT r.*,p.provider_payment_id,p.amount_minor AS payment_amount_minor,p.currency AS payment_currency,p.status AS payment_status,p.provider,p.payment_type FROM client_refund_requests r JOIN payments p ON p.id=r.payment_id WHERE r.id=?").bind(refundId).first();
+   if(!refund)return bad("Client refund request not found.",404,"refund_not_found");
+   if(!["approved","unknown"].includes(refund.status))return bad("Only approved or safely retryable unknown refunds can be processed.",409,"refund_state_not_processable");
+   if(refund.provider!=="razorpay"||!refund.provider_payment_id||!["client_advance","client_balance"].includes(refund.payment_type))return bad("Original Razorpay client payment is not eligible.",409,"refund_payment_not_eligible");
+   if(!["succeeded","partially_refunded"].includes(refund.payment_status))return bad("Original payment is not in a refundable captured state.",409,"refund_payment_not_captured");if(!Number.isSafeInteger(Number(refund.amount_minor))||Number(refund.amount_minor)<=0||String(refund.currency||"").toUpperCase()!==String(refund.payment_currency||"").toUpperCase())return bad("Refund amount or currency does not match the original payment.",409,"refund_amount_currency_invalid");
+   const idempotencyKey=("csa_refund_"+refund.id).replace(/[^A-Za-z0-9_-]/g,"").slice(0,36);
+   const lock=await env.DB.prepare("UPDATE client_refund_requests SET status='processing',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('approved','unknown')").bind(refund.id).run();
+   if(!lock.meta?.changes)return bad("Refund is already processing or its status changed. Refresh the queue.",409,"refund_processing_conflict");
+   const activeRefunds=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status IN ('processing','unknown','processed')").bind(refund.payment_id).first();if(Number(activeRefunds?.total||0)>Number(refund.payment_amount_minor)){await env.DB.prepare("UPDATE client_refund_requests SET status='approved',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(refund.id).run();return bad("Combined processed, processing and uncertain refunds exceed the captured payment amount. Reconcile existing requests before retrying.",409,"refund_total_exceeds_payment");}
+   const auth="Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET);
+   let providerPayment,verify;
+   try{verify=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(refund.provider_payment_id),{headers:{Authorization:auth}});providerPayment=await verify.json().catch(()=>({}));}
+   catch(e){await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"payment_verification",error:txt(String(e),1000)}),refund.id).run();await logFinance("client_refund_unknown",{refund_id:refund.id,payment_id:refund.payment_id,stage:"payment_verification"});return bad("Payment verification was interrupted. No refund was sent.",502,"refund_payment_verification_interrupted");}
+   if(!verify.ok||providerPayment.id!==refund.provider_payment_id||providerPayment.status!=="captured"||Number(providerPayment.amount)!==Number(refund.payment_amount_minor)||String(providerPayment.currency||"").toUpperCase()!==String(refund.payment_currency||"").toUpperCase()){
+    await env.DB.prepare("UPDATE client_refund_requests SET status='approved',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"payment_verification",http_status:verify.status,response:providerPayment}).slice(0,3000),refund.id).run();
+    await logFinance("client_refund_payment_verification_failed",{refund_id:refund.id,http_status:verify.status});
+    return bad("Razorpay could not verify captured payment, amount and currency. No refund was sent.",409,"refund_payment_verification_failed");
+   }
+   let response,payload;
+   try{response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(refund.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:auth,"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:Number(refund.amount_minor),notes:{csa_refund_request_id:refund.id,csa_payment_id:refund.payment_id,csa_source:"CSA Global"}})});payload=await response.json().catch(()=>({}));}
+   catch(e){await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"refund_request",error:txt(String(e),1000),idempotency_key:idempotencyKey}),refund.id).run();await logFinance("client_refund_unknown",{refund_id:refund.id,payment_id:refund.payment_id,stage:"refund_request"});return bad("Razorpay response was interrupted. Refund state is unknown; retry this same request to reuse its idempotency key.",502,"refund_status_unknown");}
+   if(!response.ok||!payload.id){const uncertain=response.status===409||response.status>=500,nextStatus=uncertain?"unknown":"failed";await env.DB.prepare("UPDATE client_refund_requests SET status=?,provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(nextStatus,JSON.stringify({http_status:response.status,response:payload,idempotency_key:idempotencyKey}).slice(0,3000),refund.id).run();await logFinance("client_refund_"+nextStatus,{refund_id:refund.id,payment_id:refund.payment_id,http_status:response.status});return bad(uncertain?"Razorpay reports an uncertain or in-progress request. Reconcile before retrying.":"Razorpay rejected the refund request; review the provider response.",502,"refund_provider_response");}
+   if(payload.payment_id!==refund.provider_payment_id||Number(payload.amount)!==Number(refund.amount_minor)||String(payload.currency||"").toUpperCase()!==String(refund.currency||"").toUpperCase()){
+    await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=?,status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,JSON.stringify({reason:"Provider response mismatch",payment_id:payload.payment_id??null,amount:payload.amount??null,currency:payload.currency??null}).slice(0,3000),refund.id).run();
+    await logFinance("client_refund_unknown",{refund_id:refund.id,provider_refund_id:payload.id,reason:"provider_response_mismatch"});
+    return bad("Razorpay response mismatch. Refund status is unknown and needs reconciliation.",502,"refund_response_mismatch");
+   }
+   const nextStatus=payload.status==="processed"?"processed":payload.status==="failed"?"failed":"processing";
+   await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=?,status=?,provider_response_json=?,processed_at=CASE WHEN ?='processed' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE processed_at END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status NOT IN ('processed','failed','rejected','cancelled')").bind(payload.id,nextStatus,JSON.stringify(payload).slice(0,3000),nextStatus,refund.id).run();
+   const finalRefund=await env.DB.prepare("SELECT status FROM client_refund_requests WHERE id=?").bind(refund.id).first(),finalStatus=finalRefund?.status||nextStatus;
+   if(finalStatus==="processed"){const totals=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status='processed'").bind(refund.payment_id).first();await env.DB.prepare("UPDATE payments SET status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(Number(totals?.total||0)>=Number(refund.payment_amount_minor)?"refunded":"partially_refunded",refund.payment_id).run();}
+   await logFinance("client_refund_"+finalStatus,{refund_id:refund.id,payment_id:refund.payment_id,provider_refund_id:payload.id,amount_minor:refund.amount_minor,currency:refund.currency});
+   if(finalStatus!==refund.status){const title=finalStatus==="processed"?"Refund completed":finalStatus==="failed"?"Refund failed":"Refund processing update";const body=finalStatus==="processed"?"Your refund has been processed by the payment provider.":finalStatus==="failed"?"The payment provider could not complete your refund. Please contact CSA Finance.":"Your refund is now being processed by the payment provider.";await notifyInApp(env,refund.client_id,"client_refund_provider_"+finalStatus,title,body,{refund_id:refund.id,provider_refund_id:payload.id,amount_minor:refund.amount_minor,currency:refund.currency});}
+   return out({ok:true,refund_id:refund.id,provider_refund_id:payload.id,status:finalStatus,amount_minor:refund.amount_minor,currency:refund.currency,mode:"razorpay_test",idempotency_key:idempotencyKey});
+  }
+  if(action==="review_client_refund"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required to review refunds.",403,"finance_write_access_denied");
+   const refundId=txt(actor.refund_id,128),reviewAction=txt(actor.review_action,30),note=txt(actor.review_note,1000);
+   const transitions={under_review:"under_review",approve:"approved",reject:"rejected"};
+   if(!refundId||!Object.prototype.hasOwnProperty.call(transitions,reviewAction))return bad("Refund review action is invalid.",400,"refund_review_invalid");
+   if(reviewAction==="reject"&&note.length<3)return bad("A rejection reason is required.",400,"refund_rejection_note_required");
+   const current=await env.DB.prepare("SELECT id,status,client_id,amount_minor,currency,payment_id FROM client_refund_requests WHERE id=?").bind(refundId).first();
+   if(!current)return bad("Client refund request not found.",404,"refund_not_found");
+   if(!["requested","under_review"].includes(current.status))return bad("This refund request has already been decided.",409,"refund_review_state_invalid");
+   const next=transitions[reviewAction],now=new Date().toISOString();
+   const results=await env.DB.batch([
+    env.DB.prepare("UPDATE client_refund_requests SET status=?,reviewed_by=?,review_note=?,updated_at=? WHERE id=? AND status IN ('requested','under_review')").bind(next,actorId,note||null,now,refundId),
+    env.DB.prepare("INSERT INTO finance_bridge_audit_logs(id,actor_source_admin_id,actor_email,actor_role,action,details_json) SELECT ?,?,?,?,'client_refund_reviewed',? WHERE changes()=1").bind(crypto.randomUUID(),actorId,actorEmail,actorRole,JSON.stringify({refund_id:refundId,old_status:current.status,new_status:next,review_action:reviewAction,review_note:note||null})),
+   ]);
+   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Refund request was updated by another reviewer. Refresh and retry.",409,"refund_review_conflict");
+   const title=next==="approved"?"Refund approved":next==="rejected"?"Refund request declined":"Refund under review",body=next==="approved"?"Your refund request has been approved and is awaiting provider processing.":next==="rejected"?"Your refund request was declined. Please review the note or contact CSA Finance.":"Your refund request is now under review.";await notifyInApp(env,current.client_id,"client_refund_"+next,title,body,{refund_id:refundId,amount_minor:current.amount_minor,currency:current.currency,status:next,review_note:note||null});
+   return out({ok:true,refund_id:refundId,status:next,client_notified:true,provider_refund_started:false});
+  }
+  if(action==="send_balance_reminder"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required to send client reminders.",403,"finance_write_access_denied");
+   const quoteId=txt(actor.quote_id,128);if(!quoteId)return bad("Quote ID is required.",400,"quote_id_required");
+   const quote=await env.DB.prepare("SELECT q.id,q.client_id,q.project_id,q.total_amount_minor,q.currency,q.status,p.public_project_code,p.title,COALESCE((SELECT SUM(pay.amount_minor) FROM payments pay WHERE pay.quote_id=q.id AND pay.payment_type IN ('client_advance','client_balance') AND pay.status='succeeded'),0) AS paid_minor FROM client_quotes q JOIN projects p ON p.id=q.project_id WHERE q.id=? AND q.status='accepted'").bind(quoteId).first();
+   if(!quote)return bad("Accepted quote not found.",404,"accepted_quote_not_found");
+   const balance=Math.max(0,Number(quote.total_amount_minor||0)-Number(quote.paid_minor||0));if(balance<=0)return bad("This quote has no outstanding balance.",409,"quote_already_paid");
+   const recent=await env.DB.prepare("SELECT id FROM notifications WHERE user_id=? AND template_key='client_balance_payment_reminder' AND json_extract(payload_json,'$.quote_id')=? AND created_at>datetime('now','-24 hours') LIMIT 1").bind(quote.client_id,quoteId).first();
+   if(recent)return out({ok:true,idempotent:true,reminder_id:recent.id,balance_minor:balance,currency:quote.currency,note:"A reminder was already sent within the last 24 hours."});
+   const delivered=await notifyInApp(env,quote.client_id,"client_balance_payment_reminder","Payment balance reminder","An outstanding balance of "+balance+" "+quote.currency+" is due for project "+(quote.public_project_code||quote.title)+". Open your CSA Client Dashboard to complete payment.",{quote_id:quoteId,project_id:quote.project_id,project_code:quote.public_project_code,project_title:quote.title,amount_minor:balance,currency:quote.currency});await logFinance(delivered?"client_balance_reminder_sent":"client_balance_reminder_skipped",{quote_id:quoteId,project_id:quote.project_id,balance_minor:balance,currency:quote.currency,delivery:delivered?"in_app":"disabled_by_preference"});const reminder=delivered?await env.DB.prepare("SELECT id FROM notifications WHERE user_id=? AND template_key='client_balance_payment_reminder' AND json_extract(payload_json,'$.quote_id')=? ORDER BY created_at DESC LIMIT 1").bind(quote.client_id,quoteId).first():null;return out({ok:true,reminder_id:reminder?.id||null,client_id:quote.client_id,balance_minor:balance,currency:quote.currency,delivery:delivered?"in_app":"disabled_by_preference",note:delivered?"An in-app reminder was sent. No email or payment was sent.":"The client has in-app notifications disabled; no reminder was sent."});
+  }
+  if(action==="reconcile_deposit_refund"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required to reconcile editor deposit refunds.",403,"finance_write_access_denied");
+   if(env.ENVIRONMENT!=="staging"||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_")||!env.RAZORPAY_KEY_SECRET)return bad("Deposit refund reconciliation is restricted to Razorpay Test Mode on Staging.",503,"deposit_refund_test_mode_required");
+   const refundId=txt(actor.refund_id,128);if(!refundId)return bad("Deposit refund ID is required.",400,"deposit_refund_id_required");
+   const refund=await env.DB.prepare("SELECT r.*,p.provider_payment_id,p.amount_minor AS payment_amount_minor,p.currency AS payment_currency FROM editor_deposit_refunds r JOIN payments p ON p.id=r.payment_id WHERE r.id=?").bind(refundId).first();
+   if(!refund)return bad("Editor deposit refund not found.",404,"deposit_refund_not_found");
+   if(!refund.provider_refund_id)return bad("No provider refund ID is recorded. Manual Razorpay dashboard reconciliation is required; do not create a second refund.",409,"deposit_refund_manual_reconciliation_required");
+   if(["processed","failed"].includes(refund.status))return out({ok:true,idempotent:true,refund_id:refund.id,status:refund.status,provider_refund_id:refund.provider_refund_id});
+   const auth="Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET);let response,payload;
+   try{response=await fetch("https://api.razorpay.com/v1/refunds/"+encodeURIComponent(refund.provider_refund_id),{headers:{Authorization:auth}});payload=await response.json().catch(()=>({}));}
+   catch(e){await logFinance("editor_deposit_refund_reconciliation_interrupted",{refund_id:refund.id,provider_refund_id:refund.provider_refund_id});return bad("Razorpay status lookup was interrupted. No new refund was created.",502,"deposit_refund_reconciliation_interrupted");}
+   const matches=response.ok&&payload.id===refund.provider_refund_id&&payload.payment_id===refund.provider_payment_id&&Number(payload.amount)===Number(refund.amount_minor)&&String(payload.currency||"").toUpperCase()===String(refund.currency||"").toUpperCase();
+   if(!matches){await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(JSON.stringify({http_status:response.status,reason:"Provider refund reconciliation mismatch",provider_response:payload}).slice(0,3000),refund.id).run();await logFinance("editor_deposit_refund_reconciliation_mismatch",{refund_id:refund.id,provider_refund_id:refund.provider_refund_id,http_status:response.status});return bad("Razorpay refund details did not match the stored payment, amount or currency. Manual review is required.",409,"deposit_refund_reconciliation_mismatch");}
+   const next=payload.status==="processed"?"processed":payload.status==="failed"?"failed":"pending";
+   await env.DB.prepare("UPDATE editor_deposit_refunds SET status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status NOT IN ('processed','failed')").bind(next,JSON.stringify(payload).slice(0,3000),refund.id).run();
+   if(next==="processed"){await env.DB.batch([
+    env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(refund.payment_id),
+    env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by,created_by_admin_id) SELECT ?,?,?,?,?, 'deposit_refunded',?,?,?,NULL,? WHERE NOT EXISTS(SELECT 1 FROM deposit_ledger WHERE payment_id=? AND entry_type='deposit_refunded')").bind(uid("dep"),refund.editor_id,refund.project_id,(await env.DB.prepare("SELECT offer_id FROM payments WHERE id=?").bind(refund.payment_id).first())?.offer_id,refund.payment_id,refund.amount_minor,refund.currency,"Full security deposit refund confirmed by Razorpay reconciliation; refund "+refund.provider_refund_id,actorId,refund.payment_id)
+   ]);}
+   await logFinance("editor_deposit_refund_reconciled",{refund_id:refund.id,provider_refund_id:refund.provider_refund_id,status:next});
+   await notifyInApp(env,refund.editor_id,"editor_deposit_refund_"+next,next==="processed"?"Security deposit refund completed":next==="failed"?"Security deposit refund failed":"Security deposit refund pending",next==="processed"?"Razorpay confirms your security deposit refund is complete.":next==="failed"?"Razorpay confirms the security deposit refund failed. Please contact CSA Finance.":"Razorpay confirms your security deposit refund is still pending.",{refund_id:refund.id,provider_refund_id:refund.provider_refund_id,amount_minor:refund.amount_minor,currency:refund.currency});
+   return out({ok:true,refund_id:refund.id,provider_refund_id:refund.provider_refund_id,status:next,reconciled:true});
+  }
+  if(action==="eligible_deposit_refunds"){
+   const r=await env.DB.prepare("SELECT p.id AS payment_id,p.user_id AS editor_id,p.amount_minor,p.currency,p.created_at AS paid_at,o.id AS offer_id,pr.id AS project_id,pr.public_project_code,pr.title,e.display_name,e.public_editor_code,s.id AS approved_submission_id,s.submitted_at AS quality_approved_at FROM payments p JOIN project_offers o ON o.id=p.offer_id JOIN projects pr ON pr.id=o.project_id JOIN editor_profiles e ON e.user_id=p.user_id JOIN assignments a ON a.offer_id=o.id AND a.editor_id=p.user_id JOIN work_submissions s ON s.assignment_id=a.id AND s.qc_status='approved' WHERE p.payment_type='editor_security_deposit' AND p.provider='razorpay' AND p.status='succeeded' AND NOT EXISTS(SELECT 1 FROM editor_deposit_refunds x WHERE x.payment_id=p.id) GROUP BY p.id ORDER BY s.submitted_at ASC LIMIT 100").all();
+   await logFinance("finance_eligible_deposit_refunds_viewed",{count:(r.results||[]).length});
+   return out({ok:true,eligible:r.results||[],count:(r.results||[]).length},200);
+  }
+  if(action==="process_deposit_refund"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required to process editor deposit refunds.",403,"finance_write_access_denied");
+   if(env.ENVIRONMENT!=="staging"||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_")||!env.RAZORPAY_KEY_SECRET)return bad("Editor deposit refunds are restricted to Razorpay Test Mode on Staging.",503,"deposit_refund_test_mode_required");
+   const paymentId=txt(actor.payment_id,128);if(!paymentId)return bad("Security deposit payment ID is required.",400,"deposit_payment_id_required");
+   const payment=await env.DB.prepare("SELECT p.id,p.user_id,p.project_id,p.offer_id,p.amount_minor,p.currency,p.provider_payment_id,p.status,p.provider,pr.public_project_code,pr.title FROM payments p JOIN projects pr ON pr.id=p.project_id WHERE p.id=? AND p.payment_type='editor_security_deposit' AND p.provider='razorpay'").bind(paymentId).first();
+   if(!payment)return bad("Security deposit payment not found.",404,"deposit_payment_not_found");
+   if(payment.status!=="succeeded"||!payment.provider_payment_id||Number(payment.amount_minor)<=0)return bad("Only a captured and verified security deposit can be refunded.",409,"deposit_payment_not_refundable");
+   const existing=await env.DB.prepare("SELECT id,status,provider_refund_id FROM editor_deposit_refunds WHERE payment_id=?").bind(payment.id).first();
+   if(existing)return out({ok:true,created:false,idempotent:true,refund_id:existing.id,status:existing.status,provider_refund_id:existing.provider_refund_id});
+   const approved=await env.DB.prepare("SELECT s.id FROM assignments x JOIN work_submissions s ON s.assignment_id=x.id WHERE x.offer_id=? AND x.editor_id=? AND x.project_id=? AND s.qc_status='approved' ORDER BY s.submitted_at DESC LIMIT 1").bind(payment.offer_id,payment.user_id,payment.project_id).first();
+   if(!approved)return bad("Refund is locked until CSA quality approval is recorded for this project.",409,"quality_approval_required");
+   const auth="Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET);let verifyPayment,providerPayment;try{verifyPayment=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id),{headers:{Authorization:auth}});providerPayment=await verifyPayment.json().catch(()=>({}));}catch(e){return bad("Razorpay payment verification was interrupted. No deposit refund was sent.",502,"deposit_payment_verification_interrupted")}if(!verifyPayment.ok||providerPayment.id!==payment.provider_payment_id||providerPayment.status!=="captured"||Number(providerPayment.amount)!==Number(payment.amount_minor)||String(providerPayment.currency||"").toUpperCase()!==String(payment.currency||"").toUpperCase())return bad("Razorpay could not verify the captured deposit payment, amount and currency. No refund was sent.",409,"deposit_payment_verification_failed");const refundId=uid("rfd"),idempotencyKey=crypto.randomUUID();
+   try{await env.DB.prepare("INSERT INTO editor_deposit_refunds(id,payment_id,editor_id,project_id,amount_minor,currency,idempotency_key,status,requested_by,requested_by_admin_id) VALUES(?,?,?,?,?,?,?,'requesting',NULL,?)").bind(refundId,payment.id,payment.user_id,payment.project_id,payment.amount_minor,payment.currency,idempotencyKey,actorId).run();}
+   catch(e){const again=await env.DB.prepare("SELECT id,status,provider_refund_id FROM editor_deposit_refunds WHERE payment_id=?").bind(payment.id).first();if(again)return out({ok:true,created:false,idempotent:true,refund_id:again.id,status:again.status,provider_refund_id:again.provider_refund_id});return bad("A refund request already exists for this deposit. Check its status before taking any further action.",409,"deposit_refund_already_requested");}
+   let response,payload;
+   try{response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:auth,"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:payment.amount_minor,notes:{csa_project_code:payment.public_project_code,csa_payment_id:payment.id,csa_reason:"Security deposit refund after CSA quality approval"}})});payload=await response.json().catch(()=>({}));}
+   catch(e){await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(txt(String(e),1000),refundId).run();await logFinance("editor_deposit_refund_unknown",{refund_id:refundId,payment_id:payment.id,stage:"provider_request"});await notifyInApp(env,payment.user_id,"editor_deposit_refund_unknown","Deposit refund status needs checking","Razorpay did not return a confirmed response for your security deposit refund. CSA Finance is reconciling the provider status.",{refund_id:refundId,payment_id:payment.id,amount_minor:payment.amount_minor,currency:payment.currency});return bad("Razorpay response was interrupted. Refund status is marked unknown; reconcile in Razorpay before any retry.",502,"deposit_refund_status_unknown");}
+   if(!response.ok||!payload.id){await env.DB.prepare("UPDATE editor_deposit_refunds SET status='failed',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(JSON.stringify(payload).slice(0,3000),refundId).run();await logFinance("editor_deposit_refund_failed",{refund_id:refundId,payment_id:payment.id,http_status:response.status});await notifyInApp(env,payment.user_id,"editor_deposit_refund_failed","Deposit refund failed","Razorpay did not accept the security deposit refund. CSA Finance will review the provider response.",{refund_id:refundId,payment_id:payment.id,amount_minor:payment.amount_minor,currency:payment.currency});return bad("Razorpay did not accept the refund. Check Razorpay dashboard before deciding next steps.",502,"deposit_refund_provider_rejected");}
+   const providerMatches=payload.payment_id===payment.provider_payment_id&&Number(payload.amount)===Number(payment.amount_minor)&&String(payload.currency||"").toUpperCase()===String(payment.currency||"").toUpperCase();
+   if(!providerMatches){await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,JSON.stringify({reason:"Razorpay refund response did not match the full deposit.",payment_id:payload.payment_id??null,amount:payload.amount??null,currency:payload.currency??null}).slice(0,3000),refundId).run();await logFinance("editor_deposit_refund_unknown",{refund_id:refundId,payment_id:payment.id,provider_refund_id:payload.id,reason:"provider_response_mismatch"});await notifyInApp(env,payment.user_id,"editor_deposit_refund_unknown","Deposit refund needs reconciliation","Razorpay returned details that did not match the full security deposit. CSA Finance is reconciling the refund.",{refund_id:refundId,payment_id:payment.id,provider_refund_id:payload.id});return bad("Razorpay returned a refund response that did not match the full deposit. Status is unknown; reconcile in Razorpay before any retry.",502,"deposit_refund_response_mismatch");}
+   const refundStatus=["processed","pending"].includes(payload.status)?payload.status:"pending";
+   await env.DB.batch([
+    env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=?,status=CASE WHEN status IN ('processed','failed') THEN status ELSE ? END,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,refundStatus,JSON.stringify(payload).slice(0,3000),refundId),
+    ...(refundStatus==="processed"?[
+     env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id),
+     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by,created_by_admin_id) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,NULL,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refunded after CSA quality approval; Razorpay refund "+payload.id,actorId)
+    ]:[])
+   ]);
+   await logFinance("editor_deposit_refund_initiated",{refund_id:refundId,payment_id:payment.id,provider_refund_id:payload.id,status:refundStatus,amount_minor:payment.amount_minor,currency:payment.currency});
+   await notifyInApp(env,payment.user_id,"editor_deposit_refund_"+refundStatus,refundStatus==="processed"?"Security deposit refunded":"Security deposit refund initiated",refundStatus==="processed"?"Your security deposit refund has been processed.":"Your security deposit refund has been accepted by Razorpay and is awaiting completion.",{refund_id:refundId,payment_id:payment.id,provider_refund_id:payload.id,amount_minor:payment.amount_minor,currency:payment.currency});
+   return out({ok:true,refund_id:refundId,provider_refund_id:payload.id,status:refundStatus,amount_minor:payment.amount_minor,currency:payment.currency,mode:"razorpay_test"});
+  }
+  if(action==="eligible_payouts"){
+   const r=await env.DB.prepare("SELECT o.id AS offer_id,o.project_id,o.editor_id,o.proposed_fee_minor AS amount_minor,o.fee_currency AS currency,p.public_project_code,p.title AS project_title,COALESCE(e.display_name,u.email) AS editor_name,u.email AS editor_email,o.created_at FROM project_offers o JOIN assignments x ON x.offer_id=o.id AND x.editor_id=o.editor_id JOIN projects p ON p.id=o.project_id JOIN users u ON u.id=o.editor_id LEFT JOIN editor_profiles e ON e.user_id=o.editor_id WHERE o.status='accepted' AND o.proposed_fee_minor>0 AND EXISTS(SELECT 1 FROM work_submissions s WHERE s.assignment_id=x.id AND s.qc_status='approved') AND NOT EXISTS(SELECT 1 FROM editor_payouts ep WHERE ep.offer_id=o.id) ORDER BY o.created_at ASC LIMIT 200").all();
+   await logFinance("finance_eligible_payouts_viewed",{count:(r.results||[]).length});
+   return out({ok:true,eligible:r.results||[],count:(r.results||[]).length},200);
+  }
+  if(action==="create_editor_payout"){
+   if(actorRole==="finance_admin"&&!["write","manage"].includes(financeLevel))return bad("Finance write access is required to create payout records.",403,"finance_write_access_denied");
+   const offerId=txt(actor.offer_id,128);if(!offerId)return bad("Accepted offer ID is required.",400,"offer_id_required");
+   const existing=await env.DB.prepare("SELECT * FROM editor_payouts WHERE offer_id=?").bind(offerId).first();
+   if(existing)return out({ok:true,payout:existing,created:false,idempotent:true});
+   const eligible=await env.DB.prepare("SELECT o.id AS offer_id,o.project_id,o.editor_id,o.proposed_fee_minor AS amount_minor,o.fee_currency AS currency FROM project_offers o JOIN assignments x ON x.offer_id=o.id AND x.editor_id=o.editor_id WHERE o.id=? AND o.status='accepted' AND o.proposed_fee_minor>0 AND EXISTS(SELECT 1 FROM work_submissions s WHERE s.assignment_id=x.id AND s.qc_status='approved') LIMIT 1").bind(offerId).first();
+   if(!eligible)return bad("Payout can be created only for an accepted offer with QC-approved work and a positive fee.",409,"not_payout_eligible");
+   const id=uid("payout");
+   const inserted=await env.DB.prepare("INSERT OR IGNORE INTO editor_payouts(id,offer_id,project_id,editor_id,amount_minor,currency,status,created_by) VALUES(?,?,?,?,?,?,'pending_approval',?)").bind(id,eligible.offer_id,eligible.project_id,eligible.editor_id,eligible.amount_minor,eligible.currency,actorId).run();
+   if(!inserted.meta?.changes){const again=await env.DB.prepare("SELECT * FROM editor_payouts WHERE offer_id=?").bind(offerId).first();if(again)return out({ok:true,payout:again,created:false,idempotent:true});return bad("Payout could not be created. Refresh and retry.",409,"payout_create_conflict");}
+   await logFinance("editor_payout_created",{payout_id:id,offer_id:offerId,project_id:eligible.project_id,editor_id:eligible.editor_id,amount_minor:eligible.amount_minor,currency:eligible.currency});
+   await notifyInApp(env,eligible.editor_id,"editor_payout_pending","Payout entered finance review","Your QC-approved work has been added to the Finance payout queue.",{payout_id:id,amount_minor:eligible.amount_minor,currency:eligible.currency});
+   const payout=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(id).first();
+   return out({ok:true,payout,created:true},201);
+  }
+  if(action==="finance_audit_list"){await logFinance("finance_audit_viewed",{limit:100});const r=await env.DB.prepare("SELECT id,actor_source_admin_id,actor_email,actor_role,action,details_json,created_at FROM finance_bridge_audit_logs ORDER BY created_at DESC LIMIT 100").all();return out({ok:true,logs:r.results||[]},200);}
+  if(action==="client_balances"){
+   const q=await env.DB.prepare("SELECT q.id AS quote_id,q.project_id,q.client_id,u.email AS client_email,q.total_amount_minor,q.currency,q.status AS quote_status,q.payment_status,q.created_at,COALESCE(paid.paid_minor,0) AS paid_minor,MAX(0,q.total_amount_minor-COALESCE(paid.paid_minor,0)) AS balance_minor FROM client_quotes q JOIN users u ON u.id=q.client_id LEFT JOIN (SELECT quote_id,SUM(amount_minor) AS paid_minor FROM payments WHERE status='succeeded' AND payment_type IN ('client_advance','client_balance') AND quote_id IS NOT NULL GROUP BY quote_id) paid ON paid.quote_id=q.id WHERE q.total_amount_minor>COALESCE(paid.paid_minor,0) AND q.status='accepted' ORDER BY q.created_at ASC LIMIT 300").all();
+   const rows=(q.results||[]).map(x=>({...x,total_amount_minor:Number(x.total_amount_minor||0),paid_minor:Number(x.paid_minor||0),balance_minor:Number(x.balance_minor||0)})),totals={quotes:rows.length,amount_minor:rows.reduce((n,x)=>n+x.total_amount_minor,0),paid_minor:rows.reduce((n,x)=>n+x.paid_minor,0),outstanding_minor:rows.reduce((n,x)=>n+x.balance_minor,0)},byCurrency={};
+   for(const x of rows){const c=x.currency||"UNKNOWN";byCurrency[c]??={quotes:0,outstanding_minor:0};byCurrency[c].quotes++;byCurrency[c].outstanding_minor+=x.balance_minor;}
+   await logFinance("finance_client_balances_viewed",{quotes:rows.length});
+   return out({ok:true,balances:rows,summary:totals,by_currency:byCurrency,read_only:true,note:"Outstanding balance is accepted quotation value minus successful captured client advance and balance payments."});
+  }
+  if(action==="editor_payouts"){
+   const q=await env.DB.prepare("SELECT ep.id,ep.offer_id,ep.project_id,ep.editor_id,ep.amount_minor,ep.currency,ep.status,ep.created_at,ep.approved_at,ep.paid_at,ep.payment_reference,ep.note,ep.approved_by,ep.paid_by,COALESCE(e.display_name,u.email) AS editor_name,u.email AS editor_email FROM editor_payouts ep JOIN users u ON u.id=ep.editor_id LEFT JOIN editor_profiles e ON e.user_id=ep.editor_id ORDER BY CASE ep.status WHEN 'pending_approval' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,ep.created_at DESC LIMIT 200").all();
+   const rows=q.results||[];await logFinance("finance_editor_payouts_viewed",{records:rows.length});
+   return out({ok:true,payouts:rows,summary:{count:rows.length,pending_approval:rows.filter(x=>x.status==="pending_approval").length,approved:rows.filter(x=>x.status==="approved").length,paid:rows.filter(x=>x.status==="paid").length,total_minor:rows.reduce((n,x)=>n+Number(x.amount_minor||0),0)},note:"No bank transfer is initiated by this read-only endpoint."});
+  }
+  if(action==="reconciliation"){
+   const results=await env.DB.batch([
+    env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM client_refund_requests GROUP BY status,currency ORDER BY status"),
+    env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM editor_deposit_refunds GROUP BY status,currency ORDER BY status"),
+    env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM editor_payouts GROUP BY status,currency ORDER BY status"),
+    env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM payments GROUP BY status,currency ORDER BY status"),
+    env.DB.prepare("SELECT COUNT(*) AS events FROM payment_webhook_events"),
+    env.DB.prepare("SELECT id,payment_id,client_id,project_id,amount_minor,currency,reason,status,provider_refund_id,created_at,updated_at FROM client_refund_requests WHERE status IN ('requested','under_review','approved','processing','unknown','failed') ORDER BY created_at DESC LIMIT 100"),
+    env.DB.prepare("SELECT id,payment_id,editor_id,project_id,amount_minor,currency,status,provider_refund_id,created_at,updated_at FROM editor_deposit_refunds WHERE status IN ('requesting','unknown','failed','pending') ORDER BY created_at DESC LIMIT 100"),
+    env.DB.prepare("SELECT id,offer_id,project_id,editor_id,amount_minor,currency,status,payment_reference,created_at,updated_at FROM editor_payouts WHERE status IN ('pending_approval','approved') ORDER BY created_at DESC LIMIT 100")
+   ]);
+   const rows=results.map(x=>x.results||[]);await logFinance("finance_reconciliation_viewed",{client_refunds:rows[5].length,deposit_refunds:rows[6].length,editor_payouts:rows[7].length});
+   return out({ok:true,reconciliation:{client_refunds_by_status:rows[0],deposit_refunds_by_status:rows[1],editor_payouts_by_status:rows[2],payments_by_status:rows[3],webhook_event_count:Number(rows[4][0]?.events||0),client_refunds_needing_attention:rows[5],deposit_refunds_needing_attention:rows[6],editor_payouts_waiting:rows[7]},read_only:true,note:"Read-only reconciliation. No refund retry, provider refund or bank transfer is initiated."});
+  }
+  return bad("Unsupported finance data action.",400,"finance_action_invalid");
+ }
  if(m==="POST"&&p==="/internal/superadmin/finance/refund-dashboard"){
   if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin finance bridge is not configured.",503,"finance_bridge_unavailable");
   const raw=await req.text();
@@ -365,8 +713,8 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   const actorId=txt(actor?.actor_admin_id,100),actorEmail=txt(actor?.actor_email,254).toLowerCase(),actorRole=txt(actor?.actor_role,40);
   if(!actorId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actorEmail)||!["super_admin","finance_admin"].includes(actorRole))return bad("Finance dashboard actor is not permitted.",403,"finance_actor_denied");
   if(actorRole==="finance_admin"){
-   const authorized=await env.DB.prepare("SELECT 1 AS ok FROM global_admin_authorizations WHERE source_admin_id=? AND email=? COLLATE NOCASE AND source_role='finance_admin' AND status='active' LIMIT 1").bind(actorId,actorEmail).first();
-   if(!authorized)return bad("Finance administrator authorization is inactive.",403,"finance_actor_inactive");
+   const authorized=await env.DB.prepare("SELECT finance_access_level FROM global_admin_authorizations WHERE source_admin_id=? AND email=? COLLATE NOCASE AND source_role='finance_admin' AND status='active' LIMIT 1").bind(actorId,actorEmail).first();
+   if(!authorized||!["read","write","manage"].includes(authorized.finance_access_level))return bad("Finance read access is not active for this account.",403,"finance_access_denied");
   }
   try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}
   catch{return bad("Finance bridge nonce was already used.",409,"finance_replay");}
@@ -380,7 +728,6 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   try{const actorUser=await env.DB.prepare("SELECT id FROM users WHERE email=? COLLATE NOCASE LIMIT 1").bind(actorEmail).first();if(actorUser?.id)await log(env,actorUser.id,"finance_refund_dashboard_viewed","finance","refund_dashboard",{source:"superadmin_bridge",source_admin_id:actorId,source_role:actorRole});}catch{}
   return out({ok:true,dashboard:{status_and_currency:rows[0],currency_totals:rows[1],record_counts:rows[2][0]||{total_records:0,pending_records:0,processed_records:0,attention_records:0},priority_queue:rows[3]},meta:{queue_limit:10,amount_unit:"minor currency units",pending_statuses:["requested","under_review","approved","processing","unknown"],attention_statuses:["failed","unknown"],read_only:true,source:"superadmin_bridge"},note:"Read-only Global refund dashboard. Currency totals remain separate. No refund, transfer, or payment mutation is initiated."});
  }
- 
  if(m==="POST"&&p==="/internal/superadmin/editor-sessions"){
   if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Super Admin editor session bridge is not configured.",503,"editor_session_bridge_unavailable");
   const raw=await req.text();if(raw.length>8192)return bad("Editor session request is too large.",413,"editor_session_payload_too_large");
@@ -415,7 +762,29 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   await log(env,actorUser?.id||null,"superadmin_editor_sessions_force_revoked","editor",editorId,{revoked_sessions:revoked,source_admin_id:actorId});
   return out({ok:true,revoked_sessions:revoked});
  }
- if(m==="GET"&&p==="/health"){const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests","countries","country_legal_reviews","regional_admins","regional_admin_permissions","regional_admin_permission_catalog","regional_admin_audit_logs","editor_payouts"];let d1=false,schemaReady=false,missingTables=requiredTables;try{const row=await env.DB.prepare("SELECT 1 AS ok").first();d1=row?.ok===1;if(d1){const tableRows=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+requiredTables.map(()=>"?").join(",")+")").bind(...requiredTables).all();const found=new Set((tableRows?.results||[]).map(x=>x.name));missingTables=requiredTables.filter(name=>!found.has(name));schemaReady=missingTables.length===0;}}catch{}const legacyRequired=["video_editing_orders","video_editing_files","video_editing_status_history"];let legacyDb=false,legacySchemaReady=false,missingLegacyTables=legacyRequired;try{if(env.LEGACY_VIDEO_DB){const row=await env.LEGACY_VIDEO_DB.prepare("SELECT 1 AS ok").first();legacyDb=row?.ok===1;if(legacyDb){const rows=await env.LEGACY_VIDEO_DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+legacyRequired.map(()=>"?").join(",")+")").bind(...legacyRequired).all();const found=new Set((rows?.results||[]).map(x=>x.name));missingLegacyTables=legacyRequired.filter(name=>!found.has(name));legacySchemaReady=missingLegacyTables.length===0;}}}catch{}const mediaBucket=!!env.MEDIA,legacyVideoBucket=!!env.LEGACY_VIDEO_BUCKET,healthy=d1&&schemaReady&&legacyDb&&legacySchemaReady&&mediaBucket&&legacyVideoBucket;return out({ok:true,service:"CSA Global API",status:healthy?"healthy":"degraded",d1_connected:d1,schema_ready:schemaReady,missing_tables:missingTables,legacy_video_db_connected:legacyDb,legacy_video_schema_ready:legacySchemaReady,missing_legacy_video_tables:missingLegacyTables,media_bucket_configured:mediaBucket,legacy_video_bucket_configured:legacyVideoBucket,google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});}
+  const legalEvidencePath=p.match(/^\/v1\/admin\/countries\/([A-Z]{2})\/legal-evidence(?:\/([\w-]+)\/file)?$/);
+ if(legalEvidencePath){
+  const actor=await user(req,env,["admin"]);if(actor.source_role!=="super_admin")return bad("Only Super Admin may manage country legal evidence.",403,"legal_evidence_forbidden");
+  const cc=legalEvidencePath[1],evidenceId=legalEvidencePath[2]||null,country=await env.DB.prepare("SELECT country_code FROM countries WHERE country_code=?").bind(cc).first();if(!country)return bad("Country not found.",404,"country_not_found");
+  if(m==="POST"&&!evidenceId){
+   if(!env.MEDIA)return bad("Private evidence storage is not configured.",503);
+   const category=txt(req.headers.get("x-csa-evidence-category"),40),title=txt(req.headers.get("x-csa-evidence-title"),160),mime=(req.headers.get("content-type")||"").split(";")[0].toLowerCase(),declared=Number(req.headers.get("content-length")||0);
+   if(!title||!["corporate_registration","tax_registration","privacy_data_protection","consumer_protection","payments_regulatory","licensing","other"].includes(category))return bad("Evidence title and valid category are required.",400,"legal_evidence_metadata_invalid");
+   if(!["application/pdf","image/jpeg","image/png"].includes(mime))return bad("Evidence must be PDF, JPG or PNG.",415,"legal_evidence_type_invalid");
+   if(!Number.isSafeInteger(declared)||declared<1||declared>10*1024*1024)return bad("Evidence file must be between 1 byte and 10 MB.",413,"legal_evidence_size_invalid");
+   const bytes=await req.arrayBuffer();if(bytes.byteLength!==declared)return bad("Uploaded file size does not match Content-Length.",400,"legal_evidence_size_mismatch");
+   const head=new Uint8Array(bytes.slice(0,12)),valid=mime==="application/pdf"?String.fromCharCode(...head.slice(0,5))==="%PDF-":mime==="image/jpeg"?head[0]===255&&head[1]===216&&head[2]===255:head.length>=8&&head[0]===137&&String.fromCharCode(...head.slice(1,4))==="PNG";if(!valid)return bad("File signature does not match its declared MIME type.",415,"legal_evidence_signature_invalid");
+   const id=crypto.randomUUID(),ext=mime==="application/pdf"?"pdf":mime==="image/png"?"png":"jpg",filename=(txt(req.headers.get("x-csa-evidence-filename"),180)||("evidence."+ext)).split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,120)||("evidence."+ext),key="country-legal-evidence/"+cc+"/"+id+"."+ext;
+   const digest=await crypto.subtle.digest("SHA-256",bytes),sha=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+   await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:mime,cacheControl:"private, no-store",contentDisposition:"attachment"}});
+try{await env.DB.batch([env.DB.prepare("INSERT INTO country_legal_evidence(id,country_code,uploaded_by_source_admin_id,evidence_category,title,original_filename,mime_type,size_bytes,r2_object_key,sha256) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(id,cc,actor.source_admin_id,category,title,filename,mime,bytes.byteLength,key,sha),env.DB.prepare("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,metadata_json) VALUES(?,?,?,?,?,?)").bind(uid("log"),actor.id,"country_legal_evidence_uploaded","country_legal_evidence",id,JSON.stringify({country_code:cc,category,mime_type:mime,size_bytes:bytes.byteLength,sha256:sha}))]);}catch(e){await env.MEDIA.delete(key);throw e;}
+   return out({ok:true,evidence:{id,country_code:cc,category,title,filename,mime_type:mime,size_bytes:bytes.byteLength,sha256:sha,created_at:new Date().toISOString()}},201);
+  }
+  if(m==="GET"&&!evidenceId){const r=await env.DB.prepare("SELECT id,country_code,evidence_category AS category,title,original_filename AS filename,mime_type,size_bytes,sha256,created_at FROM country_legal_evidence WHERE country_code=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100").bind(cc).all();return out({ok:true,country_code:cc,evidence:r.results||[]});}
+  if(m==="GET"&&evidenceId){const row=await env.DB.prepare("SELECT r2_object_key,mime_type,original_filename FROM country_legal_evidence WHERE id=? AND country_code=? AND deleted_at IS NULL").bind(evidenceId,cc).first();if(!row)return bad("Legal evidence not found.",404,"legal_evidence_not_found");const object=await env.MEDIA.get(row.r2_object_key);if(!object)return bad("Legal evidence file is missing from private storage.",410,"legal_evidence_storage_missing");const bytes=new Uint8Array(await object.arrayBuffer());const digest=await crypto.subtle.digest("SHA-256",bytes),sha=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");const check=await env.DB.prepare("SELECT sha256,size_bytes FROM country_legal_evidence WHERE id=? AND country_code=?").bind(evidenceId,cc).first();if(!check||bytes.byteLength!==check.size_bytes||sha!==check.sha256)return bad("Evidence file integrity check failed.",409,"legal_evidence_integrity_failed");await log(env,actor.id,"country_legal_evidence_downloaded","country_legal_evidence",evidenceId,{country_code:cc,sha256:sha,size_bytes:bytes.byteLength});return new Response(bytes,{headers:{"content-type":row.mime_type,"content-disposition":"attachment; filename="+JSON.stringify(String(row.original_filename).replace(/[\r\n"]/g,"_")),"cache-control":"private, no-store","x-content-type-options":"nosniff","content-length":String(bytes.byteLength)}});}
+  return bad("Method not allowed.",405,"method_not_allowed");
+ }
+if(m==="GET"&&p==="/health"){const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests","countries","country_legal_reviews","regional_admins","regional_admin_permissions","regional_admin_permission_catalog","regional_admin_audit_logs","editor_payouts","assignments","work_submissions","project_status_history","client_quotes","messages","finance_bridge_audit_logs"];let d1=false,schemaReady=false,missingTables=requiredTables;try{const row=await env.DB.prepare("SELECT 1 AS ok").first();d1=row?.ok===1;if(d1){const tableRows=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+requiredTables.map(()=>"?").join(",")+")").bind(...requiredTables).all();const found=new Set((tableRows?.results||[]).map(x=>x.name));missingTables=requiredTables.filter(name=>!found.has(name));schemaReady=missingTables.length===0;}}catch{}const legacyRequired=["video_editing_orders","video_editing_files","video_editing_status_history"];let legacyDb=false,legacySchemaReady=false,missingLegacyTables=legacyRequired;try{if(env.LEGACY_VIDEO_DB){const row=await env.LEGACY_VIDEO_DB.prepare("SELECT 1 AS ok").first();legacyDb=row?.ok===1;if(legacyDb){const rows=await env.LEGACY_VIDEO_DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+legacyRequired.map(()=>"?").join(",")+")").bind(...legacyRequired).all();const found=new Set((rows?.results||[]).map(x=>x.name));missingLegacyTables=legacyRequired.filter(name=>!found.has(name));legacySchemaReady=missingLegacyTables.length===0;}}}catch{}const mediaBucket=!!env.MEDIA,legacyVideoBucket=!!env.LEGACY_VIDEO_BUCKET,healthy=d1&&schemaReady&&legacyDb&&legacySchemaReady&&mediaBucket&&legacyVideoBucket;return out({ok:true,service:"CSA Global API",status:healthy?"healthy":"degraded",d1_connected:d1,schema_ready:schemaReady,missing_tables:missingTables,legacy_video_db_connected:legacyDb,legacy_video_schema_ready:legacySchemaReady,missing_legacy_video_tables:missingLegacyTables,media_bucket_configured:mediaBucket,legacy_video_bucket_configured:legacyVideoBucket,google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});}
 if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
  if(m==="POST"&&p==="/v1/auth/editor-password"){
  const b=await req.json(),username=txt(b.username,80).toUpperCase(),password=typeof b.password==="string"?b.password:"";if(!username||!password||password.length>256)return bad("CSA Editor ID and password are required.");
@@ -963,19 +1332,20 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
  const refundMatch=p.match(/^\/v1\/admin\/deposits\/([\w-]+)\/refund$/);
  if(m==="POST"&&refundMatch){
   const a=await user(req,env,["admin"]);
-  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET)return bad("Razorpay credentials are not configured.",503);
+  if(env.ENVIRONMENT!=="staging"||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_")||!env.RAZORPAY_KEY_SECRET)return bad("Editor deposit refunds are restricted to Razorpay Test Mode on Staging.",503);
   const payment=await env.DB.prepare("SELECT p.id,p.user_id,p.project_id,p.offer_id,p.amount_minor,p.currency,p.provider_payment_id,p.status,pr.public_project_code,pr.title FROM payments p JOIN projects pr ON pr.id=p.project_id WHERE p.id=? AND p.payment_type='editor_security_deposit' AND p.provider='razorpay'").bind(refundMatch[1]).first();
   if(!payment)return bad("Security deposit payment not found.",404);
   if(payment.status!=="succeeded"||!payment.provider_payment_id)return bad("Only a captured and verified security deposit can be refunded.",409);
   const approved=await env.DB.prepare("SELECT s.id FROM assignments x JOIN work_submissions s ON s.assignment_id=x.id WHERE x.offer_id=? AND x.editor_id=? AND x.project_id=? AND s.qc_status='approved' ORDER BY s.submitted_at DESC LIMIT 1").bind(payment.offer_id,payment.user_id,payment.project_id).first();
   if(!approved)return bad("Refund is locked until CSA quality approval is recorded for this project.",409,"quality_approval_required");
+  const auth="Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET);let verifyPayment,providerPayment;try{verifyPayment=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id),{headers:{Authorization:auth}});providerPayment=await verifyPayment.json().catch(()=>({}));}catch(e){return bad("Razorpay payment verification was interrupted. No deposit refund was sent.",502,"deposit_payment_verification_interrupted")}if(!verifyPayment.ok||providerPayment.id!==payment.provider_payment_id||providerPayment.status!=="captured"||Number(providerPayment.amount)!==Number(payment.amount_minor)||String(providerPayment.currency||"").toUpperCase()!==String(payment.currency||"").toUpperCase())return bad("Razorpay could not verify the captured deposit payment, amount and currency. No refund was sent.",409,"deposit_payment_verification_failed");
   const refundId=uid("rfd"),idempotencyKey=crypto.randomUUID();
   try{
    await env.DB.prepare("INSERT INTO editor_deposit_refunds(id,payment_id,editor_id,project_id,amount_minor,currency,idempotency_key,status,requested_by) VALUES(?,?,?,?,?,?,?,'requesting',?)").bind(refundId,payment.id,payment.user_id,payment.project_id,payment.amount_minor,payment.currency,idempotencyKey,a.id).run();
   }catch(e){return bad("A refund request already exists for this deposit. Check its status before taking any further action.",409,"refund_already_requested");}
   let response;
   try{
-   response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:"Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET),"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:payment.amount_minor,notes:{csa_project_code:payment.public_project_code,csa_payment_id:payment.id,csa_reason:"Security deposit refund after CSA quality approval"}})});
+   response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(payment.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:auth,"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:payment.amount_minor,notes:{csa_project_code:payment.public_project_code,csa_payment_id:payment.id,csa_reason:"Security deposit refund after CSA quality approval"}})});
   }catch(e){
    await env.DB.prepare("UPDATE editor_deposit_refunds SET status='unknown',provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(txt(String(e),1000),refundId).run();
    await log(env,a.id,"editor_deposit_refund_unknown","deposit_refund",refundId,{payment_id:payment.id});
@@ -1001,7 +1371,7 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
     env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full security deposit refunded after CSA quality approval; Razorpay refund "+payload.id,a.id)
    ]:[])
   ]);
-  await log(env,a.id,"editor_deposit_refund_initiated","deposit_refund",refundId,{payment_id:payment.id,provider_refund_id:payload.id,status:refundStatus});
+  await log(env,a.id,"editor_deposit_refund_initiated","deposit_refund",refundId,{payment_id:payment.id,provider_refund_id:payload.id,status:refundStatus});await notifyInApp(env,payment.user_id,"editor_deposit_refund_"+refundStatus,refundStatus==="processed"?"Security deposit refunded":"Security deposit refund initiated",refundStatus==="processed"?"Your security deposit refund has been processed.":"Your security deposit refund has been accepted by Razorpay and is awaiting completion.",{refund_id:refundId,payment_id:payment.id,provider_refund_id:payload.id,amount_minor:payment.amount_minor,currency:payment.currency});
   return out({ok:true,refund_id:refundId,provider_refund_id:payload.id,status:refundStatus,amount_minor:payment.amount_minor,currency:payment.currency});
  }
  const fileMatch=p.match(/^\/v1\/files\/([\w-]+)$/);
@@ -1265,7 +1635,38 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
   const body=JSON.parse(raw),event=txt(body.event,100);
   const refundEntity=body.payload?.refund?.entity;
   if(event.startsWith("refund.")&&refundEntity?.payment_id){
-   const payment=await env.DB.prepare("SELECT * FROM payments WHERE provider='razorpay' AND provider_payment_id=? AND payment_type='editor_security_deposit'").bind(refundEntity.payment_id).first();
+
+   const payment=await env.DB.prepare("SELECT * FROM payments WHERE provider='razorpay' AND provider_payment_id=?").bind(refundEntity.payment_id).first();
+   if(!payment)return out({ok:true,ignored:true});
+   if(["client_advance","client_balance"].includes(payment.payment_type)){
+    const noteRequestId=refundEntity.notes?.csa_refund_request_id||"";
+    const refund=await env.DB.prepare("SELECT id,amount_minor,currency,provider_refund_id,status FROM client_refund_requests WHERE payment_id=? AND (provider_refund_id=? OR id=?) ORDER BY created_at DESC LIMIT 1").bind(payment.id,refundEntity.id,noteRequestId).first();
+    if(!refund)return out({ok:true,ignored:true,reason:"No matching CSA client refund request."});
+    try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,payment.id,JSON.stringify({event,refund_id:refundEntity.id,payment_id:refundEntity.payment_id,amount:refundEntity.amount??null,currency:refundEntity.currency??null})).run();}
+    catch(e){if(String(e.message||"").includes("UNIQUE"))return out({ok:true,duplicate:true});throw e;}
+    const valid=Number(refundEntity.amount)===Number(refund.amount_minor)&&String(refundEntity.currency||"").toUpperCase()===String(refund.currency||"").toUpperCase()&&(!refund.provider_refund_id||refund.provider_refund_id===refundEntity.id);
+    if(!valid){
+     await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status!='processed'").bind(JSON.stringify({event,refund_id:refundEntity.id,amount:refundEntity.amount??null,currency:refundEntity.currency??null}).slice(0,3000),refund.id).run();
+     await log(env,payment.user_id,"client_refund_unknown","client_refund",refund.id,{provider_refund_id:refundEntity.id});
+     return out({ok:true,processed:false,refund_status:"unknown",reason:"Refund webhook amount, currency or provider reference mismatch."});
+    }
+    if(["processed","failed","rejected","cancelled"].includes(refund.status))return out({ok:true,duplicate:true,terminal:true});
+    const next=event==="refund.processed"?"processed":event==="refund.failed"?"failed":event==="refund.created"?"processing":refund.status;
+    if(next!==refund.status)await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=COALESCE(provider_refund_id,?),status=?,provider_response_json=?,processed_at=CASE WHEN ?='processed' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE processed_at END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status NOT IN ('processed','failed','rejected','cancelled')").bind(refundEntity.id,next,JSON.stringify({event,refund_id:refundEntity.id,amount:refundEntity.amount,currency:refundEntity.currency}).slice(0,3000),next,refund.id).run();
+    if(next!==refund.status){
+     const title=next==="processed"?"Refund completed":next==="failed"?"Refund failed": "Refund processing update";
+     const body=next==="processed"?"Your refund has been processed by the payment provider.":next==="failed"?"The payment provider could not complete your refund. Please contact CSA Finance if you need help.":"Your refund is now being processed by the payment provider.";
+     await notifyInApp(env,payment.user_id,"client_refund_provider_"+next,title,body,{refund_id:refund.id,provider_refund_id:refundEntity.id,amount_minor:refund.amount,currency:refund.currency});
+    }
+    if(next==="processed"){
+     const totals=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status='processed'").bind(payment.id).first();
+     await env.DB.prepare("UPDATE payments SET status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(Number(totals?.total||0)>=Number(payment.amount_minor)?"refunded":"partially_refunded",payment.id).run();
+    }
+    await log(env,payment.user_id,"client_refund_"+next,"client_refund",refund.id,{provider_refund_id:refundEntity.id,amount_minor:refundEntity.amount,currency:refundEntity.currency});
+    return out({ok:true,processed:true,refund_status:next});
+   }
+   if(payment.payment_type!=="editor_security_deposit")return out({ok:true,ignored:true});
+
    if(!payment)return out({ok:true,ignored:true});
    const refund=await env.DB.prepare("SELECT id,provider_refund_id,status FROM editor_deposit_refunds WHERE payment_id=?").bind(payment.id).first();
    try{await env.DB.prepare("INSERT INTO payment_webhook_events(id,provider,event_id,event_type,payment_id,payload_json) VALUES(?, 'razorpay',?,?,?,?)").bind(uid("evt"),eventId,event,payment.id,JSON.stringify({event,refund_id:refundEntity.id,payment_id:refundEntity.payment_id,amount:refundEntity.amount??null,currency:refundEntity.currency??null})).run();}
@@ -1280,14 +1681,14 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
     await log(env,payment.user_id,"editor_deposit_refund_unknown","deposit_refund",payment.id,detail);
     return out({ok:true,processed:false,refund_status:"unknown",reason:"Refund amount, currency or provider reference did not match the full CSA deposit."});
    }
-   const status=event==="refund.processed"?"processed":event==="refund.failed"?"failed":"pending";
+   const status=event==="refund.processed"?"processed":event==="refund.failed"?"failed":"pending";if(["processed","failed"].includes(refund.status)&&refund.status!==status){await log(env,payment.user_id,"editor_deposit_refund_terminal_event_ignored","deposit_refund",payment.id,{stored_status:refund.status,incoming_status:status,provider_refund_id:refundEntity.id});return out({ok:true,ignored:true,reason:"terminal_refund_state"});}
    await env.DB.prepare("UPDATE editor_deposit_refunds SET provider_refund_id=COALESCE(provider_refund_id,?),status=?,provider_response=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE payment_id=?").bind(refundEntity.id,status,JSON.stringify({event,refund_id:refundEntity.id,amount:refundEntity.amount,currency:refundEntity.currency}).slice(0,3000),payment.id).run();
    if(status==="processed"){
     const existing=await env.DB.prepare("SELECT id FROM deposit_ledger WHERE payment_id=? AND entry_type='deposit_refunded' LIMIT 1").bind(payment.id).first();
-    if(!existing)await env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,?)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full Razorpay refund processed: "+refundEntity.id,payment.user_id).run();
+    if(!existing)await env.DB.prepare("INSERT OR IGNORE INTO deposit_ledger(id,editor_id,project_id,offer_id,payment_id,entry_type,amount_minor,currency,notes,created_by,created_by_admin_id) VALUES(?,?,?,?,?,'deposit_refunded',?,?,?,NULL,NULL)").bind(uid("dep"),payment.user_id,payment.project_id,payment.offer_id,payment.id,payment.amount_minor,payment.currency,"Full Razorpay refund processed: "+refundEntity.id).run();
     await env.DB.prepare("UPDATE payments SET status='refunded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payment.id).run();
    }
-   await log(env,payment.user_id,"editor_deposit_refund_"+status,"deposit_refund",payment.id,{provider_refund_id:refundEntity.id,amount_minor:refundEntity.amount,currency:refundEntity.currency});
+   if(refund.status!==status){const title=status==="processed"?"Security deposit refund completed":status==="failed"?"Security deposit refund failed":"Security deposit refund pending";const message=status==="processed"?"Razorpay confirms your security deposit refund is complete.":status==="failed"?"Razorpay confirms the security deposit refund failed. Please contact CSA Finance.":"Razorpay confirms your security deposit refund is still pending.";await notifyInApp(env,payment.user_id,"editor_deposit_refund_"+status,title,message,{refund_id:refund.id,provider_refund_id:refundEntity.id,amount_minor:refundEntity.amount,currency:refundEntity.currency});}await log(env,payment.user_id,"editor_deposit_refund_"+status,"deposit_refund",payment.id,{provider_refund_id:refundEntity.id,amount_minor:refundEntity.amount,currency:refundEntity.currency});
    return out({ok:true,processed:true,refund_status:status});
   }
   const entity=body.payload?.payment?.entity||body.payload?.order?.entity,orderId=entity?.order_id||entity?.id;
@@ -1451,8 +1852,16 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
   await log(env,a.id,"in_app_notification_sent","notification",id,{recipient_user_id:recipient,type});
   return out({ok:true,notification_id:id,channel:"in_app",status:"sent"},201);
  }
+ const clientRefundDetail=p.match(/^\/v1\/client\/refunds\/([\w-]+)$/);
+ if(m==="GET"&&clientRefundDetail){
+  const a=await user(req,env,["client"]);
+  const refund=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,review_note,created_at,updated_at,processed_at FROM client_refund_requests WHERE id=? AND client_id=?").bind(clientRefundDetail[1],a.id).first();
+  if(!refund)return bad("Refund request not found.",404);
+  const events=await env.DB.prepare("SELECT action,metadata_json,created_at FROM audit_logs WHERE entity_type='client_refund' AND entity_id=? ORDER BY created_at ASC LIMIT 50").bind(refund.id).all();
+  return out({ok:true,refund,history:(events.results||[]).map(x=>({action:x.action,metadata:JSON.parse(x.metadata_json||"{}"),created_at:x.created_at}))});
+ }
  if(m==="GET"&&p==="/v1/client/refunds"){
-  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,created_at,updated_at,processed_at FROM client_refund_requests WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
+  const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,review_note,created_at,updated_at,processed_at FROM client_refund_requests WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
   return out({ok:true,refunds:r.results||[]});
  }
  if(m==="POST"&&p==="/v1/client/refunds"){
@@ -1473,9 +1882,32 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
   await log(env,a.id,"client_refund_requested","client_refund",id,{payment_id:paymentId,amount_minor:amount,currency});
   return out({ok:true,refund:{id,payment_id:paymentId,amount_minor:amount,currency,status:"requested"}},201);
  }
+ const adminClientRefundDetail=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)$/);
+ if(m==="GET"&&adminClientRefundDetail){
+  const a=await user(req,env,["admin"]);
+  const refund=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.review_note,r.reviewed_by,r.provider_refund_id,r.provider_response_json,r.created_at,r.updated_at,r.processed_at,u.email AS client_email,p.provider,p.provider_payment_id,p.status AS payment_status,p.amount_minor AS payment_amount_minor,p.currency AS payment_currency FROM client_refund_requests r JOIN users u ON u.id=r.client_id JOIN payments p ON p.id=r.payment_id WHERE r.id=?").bind(adminClientRefundDetail[1]).first();
+  if(!refund)return bad("Client refund request not found.",404);
+  const events=await env.DB.prepare("SELECT actor_user_id,action,metadata_json,created_at FROM audit_logs WHERE entity_type='client_refund' AND entity_id=? ORDER BY created_at ASC LIMIT 100").bind(refund.id).all();
+  return out({ok:true,refund,history:(events.results||[]).map(x=>({actor_user_id:x.actor_user_id,action:x.action,metadata:JSON.parse(x.metadata_json||"{}"),created_at:x.created_at}))});
+ }
  if(m==="GET"&&p==="/v1/admin/client-refunds"){
-  const a=await user(req,env,["admin"]),r=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.created_at,r.updated_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 ELSE 2 END,r.created_at ASC LIMIT 200").all();
-  return out({ok:true,refunds:r.results||[]});
+  const a=await user(req,env,["admin"]);
+  const allowed=["requested","under_review","approved","processing","unknown","processed","failed","rejected","cancelled"];
+  const status=txt(u.searchParams.get("status"),30),search=txt(u.searchParams.get("q"),120);
+  if(status&&!allowed.includes(status))return bad("Unsupported refund status filter.");
+  const pageRaw=Number(u.searchParams.get("page")||1),limitRaw=Number(u.searchParams.get("limit")||50);
+  const page=Number.isSafeInteger(pageRaw)&&pageRaw>0?Math.min(pageRaw,100000):1;
+  const limit=Number.isSafeInteger(limitRaw)&&limitRaw>0?Math.min(limitRaw,100):50;
+  const where=[],binds=[];
+  if(status){where.push("r.status=?");binds.push(status);}
+  if(search){where.push("(LOWER(u.email) LIKE LOWER(?) OR LOWER(r.id) LIKE LOWER(?) OR LOWER(r.payment_id) LIKE LOWER(?))");const term="%"+search+"%";binds.push(term,term,term);}
+  const clause=where.length?" WHERE "+where.join(" AND "):"";
+  const count=await env.DB.prepare("SELECT COUNT(*) AS total FROM client_refund_requests r JOIN users u ON u.id=r.client_id"+clause).bind(...binds).first();
+  const offset=(page-1)*limit;
+  const rows=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.review_note,r.reviewed_by,r.provider_refund_id,r.created_at,r.updated_at,r.processed_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id"+clause+" ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 WHEN 'approved' THEN 2 WHEN 'processing' THEN 3 WHEN 'unknown' THEN 4 ELSE 5 END,r.created_at ASC LIMIT ? OFFSET ?").bind(...binds,limit,offset).all();
+  await log(env,a.id,"finance_client_refund_queue_viewed","finance_refund_queue","all",{status:status||null,search:search||null,page,limit});
+  const total=Number(count?.total||0);
+  return out({ok:true,refunds:rows.results||[],pagination:{page,limit,total,total_pages:Math.ceil(total/limit),has_next:offset+limit<total,has_previous:page>1}});
  }
  const clientRefundReview=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)$/);
  if(m==="PATCH"&&clientRefundReview){
@@ -1483,7 +1915,7 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
   const transitions={under_review:"under_review",approve:"approved",reject:"rejected"};
   if(!Object.prototype.hasOwnProperty.call(transitions,action))return bad("Action must be under_review, approve or reject.");
   if(action==="reject"&&note.length<3)return bad("A rejection reason is required.");
-  const current=await env.DB.prepare("SELECT id,status FROM client_refund_requests WHERE id=?").bind(clientRefundReview[1]).first();
+  const current=await env.DB.prepare("SELECT id,status,client_id,amount_minor,currency FROM client_refund_requests WHERE id=?").bind(clientRefundReview[1]).first();
   if(!current)return bad("Client refund request not found.",404);
   if(!["requested","under_review"].includes(current.status))return bad("This refund request has already been decided.",409);
   const next=transitions[action];
@@ -1491,7 +1923,190 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
   // Compare-and-set: if another reviewer decided this request first, do not report a false success or write a misleading audit event.
   if(!updated.meta?.changes)return bad("This refund request was updated by another reviewer. Refresh the queue and try again.",409,"refund_review_conflict");
   await log(env,a.id,"client_refund_"+next,"client_refund",current.id,{action,review_note:note||null,provider_refund_started:false});
-  return out({ok:true,status:next,provider_refund_started:false});
+  const clientTitle=action==="approve"?"Refund request approved":action==="reject"?"Refund request declined":"Refund request under review";
+  const clientBody=action==="approve"?"Your refund request has been approved and is awaiting processing.":action==="reject"?"Your refund request was declined. Reason: "+note:"Your refund request is now being reviewed by CSA Finance.";
+  await notifyInApp(env,current.client_id,"client_refund_"+next,clientTitle,clientBody,{refund_id:current.id,amount_minor:current.amount_minor,currency:current.currency});
+  return out({ok:true,status:next,provider_refund_started:false,client_notified:true});
+ }
+
+
+ const clientRefundProcess=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)\/process$/);
+ if(m==="POST"&&clientRefundProcess){
+  const a=await user(req,env,["admin"]);
+  if(env.ENVIRONMENT!=="staging"||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Client refund processing is restricted to Razorpay Test Mode on Staging.",503);
+  const refund=await env.DB.prepare("SELECT r.*,p.provider_payment_id,p.amount_minor AS payment_amount_minor,p.currency AS payment_currency,p.status AS payment_status,p.provider,p.payment_type FROM client_refund_requests r JOIN payments p ON p.id=r.payment_id WHERE r.id=?").bind(clientRefundProcess[1]).first();
+  if(!refund)return bad("Client refund request not found.",404);
+  if(!["approved","unknown"].includes(refund.status))return bad("Only approved or safely retryable unknown refunds can be processed.",409);
+  if(refund.provider!=="razorpay"||!refund.provider_payment_id||!["client_advance","client_balance"].includes(refund.payment_type))return bad("Original Razorpay client payment is not eligible.",409);
+  if(!["succeeded","partially_refunded"].includes(refund.payment_status))return bad("Original payment is not in a refundable captured state.",409);
+  const idempotencyKey=("csa_refund_"+refund.id).replace(/[^A-Za-z0-9_-]/g,"").slice(0,36);
+  const lock=await env.DB.prepare("UPDATE client_refund_requests SET status='processing',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('approved','unknown')").bind(refund.id).run();
+  if(!lock.meta?.changes)return bad("Refund is already processing or its status changed. Refresh the queue.",409);
+  const auth="Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET);
+  let providerPayment,verify;
+  try{
+   verify=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(refund.provider_payment_id),{headers:{Authorization:auth}});
+   providerPayment=await verify.json().catch(()=>({}));
+  }catch(e){
+   await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"payment_verification",error:txt(String(e),1000)}),refund.id).run();
+   return bad("Payment verification was interrupted. No refund was sent.",502);
+  }
+  if(!verify.ok||providerPayment.id!==refund.provider_payment_id||providerPayment.status!=="captured"||Number(providerPayment.amount)!==Number(refund.payment_amount_minor)||String(providerPayment.currency||"").toUpperCase()!==String(refund.payment_currency||"").toUpperCase()){
+   await env.DB.prepare("UPDATE client_refund_requests SET status='approved',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"payment_verification",http_status:verify.status,response:providerPayment}).slice(0,3000),refund.id).run();
+   return bad("Razorpay could not verify captured payment, amount and currency. No refund was sent.",409);
+  }
+  let response,payload;
+  try{
+   response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(refund.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:auth,"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:Number(refund.amount_minor),notes:{csa_refund_request_id:refund.id,csa_payment_id:refund.payment_id,csa_source:"CSA Global"}})});
+   payload=await response.json().catch(()=>({}));
+  }catch(e){
+   await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"refund_request",error:txt(String(e),1000),idempotency_key:idempotencyKey}),refund.id).run();
+   await log(env,a.id,"client_refund_unknown","client_refund",refund.id,{payment_id:refund.payment_id});
+   return bad("Razorpay response was interrupted. Refund state is unknown; retry this same request to reuse its idempotency key.",502,"refund_status_unknown");
+  }
+  if(!response.ok||!payload.id){
+   const uncertain=response.status===409||response.status>=500,next=uncertain?"unknown":"failed";
+   await env.DB.prepare("UPDATE client_refund_requests SET status=?,provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(next,JSON.stringify({http_status:response.status,response:payload,idempotency_key:idempotencyKey}).slice(0,3000),refund.id).run();
+   await log(env,a.id,"client_refund_"+next,"client_refund",refund.id,{payment_id:refund.payment_id,http_status:response.status});
+   return bad(uncertain?"Razorpay reports an uncertain or in-progress request. Reconcile before retrying.":"Razorpay rejected the refund request; review the provider response.",502,"refund_provider_response");
+  }
+  if(payload.payment_id!==refund.provider_payment_id||Number(payload.amount)!==Number(refund.amount_minor)||String(payload.currency||"").toUpperCase()!==String(refund.currency||"").toUpperCase()){
+   await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=?,status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,JSON.stringify({reason:"Provider response mismatch",payment_id:payload.payment_id??null,amount:payload.amount??null,currency:payload.currency??null}).slice(0,3000),refund.id).run();
+   await log(env,a.id,"client_refund_unknown","client_refund",refund.id,{provider_refund_id:payload.id});
+   return bad("Razorpay response mismatch. Refund status is unknown and needs reconciliation.",502,"refund_response_mismatch");
+  }
+  const next=payload.status==="processed"?"processed":payload.status==="failed"?"failed":"processing";
+  await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=?,status=?,provider_response_json=?,processed_at=CASE WHEN ?='processed' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE processed_at END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status NOT IN ('processed','failed','rejected','cancelled')").bind(payload.id,next,JSON.stringify(payload).slice(0,3000),next,refund.id).run();
+  const finalRefund=await env.DB.prepare("SELECT status FROM client_refund_requests WHERE id=?").bind(refund.id).first();
+  const finalStatus=finalRefund?.status||next;
+  if(finalStatus==="processed"){
+   const totals=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status='processed'").bind(refund.payment_id).first();
+   await env.DB.prepare("UPDATE payments SET status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(Number(totals?.total||0)>=Number(refund.payment_amount_minor)?"refunded":"partially_refunded",refund.payment_id).run();
+  }
+  await log(env,a.id,"client_refund_"+finalStatus,"client_refund",refund.id,{payment_id:refund.payment_id,provider_refund_id:payload.id,amount_minor:refund.amount_minor,currency:refund.currency});
+  return out({ok:true,refund_id:refund.id,provider_refund_id:payload.id,status:finalStatus,amount_minor:refund.amount_minor,currency:refund.currency});
+ }
+
+ // Read-only finance views. Monetary values are stored and returned in the currency's minor unit.
+ if(m==="GET"&&p==="/v1/client/balance"){
+  const a=await user(req,env,["client"]);
+  const q=await env.DB.prepare("SELECT q.id AS quote_id,q.project_id,q.total_amount_minor,q.currency,q.status AS quote_status,q.payment_status,COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.payment_type IN ('client_advance','client_balance') THEN p.amount_minor ELSE 0 END),0) AS paid_minor FROM client_quotes q LEFT JOIN payments p ON p.quote_id=q.id WHERE q.client_id=? GROUP BY q.id ORDER BY q.created_at DESC LIMIT 100").bind(a.id).all();
+  const quotes=(q.results||[]).map(x=>({...x,total_amount_minor:Number(x.total_amount_minor||0),paid_minor:Number(x.paid_minor||0),balance_minor:Math.max(0,Number(x.total_amount_minor||0)-Number(x.paid_minor||0))}));
+  return out({ok:true,quotes,summary:{quotes:quotes.length,total_minor:quotes.reduce((n,x)=>n+x.total_amount_minor,0),paid_minor:quotes.reduce((n,x)=>n+x.paid_minor,0),balance_minor:quotes.reduce((n,x)=>n+x.balance_minor,0)}});
+ }
+ if(m==="GET"&&p==="/v1/editor/payouts"){
+  const a=await user(req,env,["editor"]);
+  const q=await env.DB.prepare("SELECT o.id AS offer_id,o.project_id,o.proposed_fee_minor AS gross_fee_minor,o.fee_currency AS currency,o.status AS offer_status,x.status AS assignment_status,CASE WHEN EXISTS(SELECT 1 FROM work_submissions s WHERE s.assignment_id=x.id AND s.qc_status='approved') THEN 1 ELSE 0 END AS qc_approved,ep.id AS payout_id,ep.status AS ledger_status,ep.payment_reference,ep.paid_at FROM project_offers o JOIN assignments x ON x.offer_id=o.id AND x.editor_id=o.editor_id LEFT JOIN editor_payouts ep ON ep.offer_id=o.id WHERE o.editor_id=? AND o.status='accepted' ORDER BY o.created_at DESC LIMIT 100").bind(a.id).all();
+  const offers=(q.results||[]).map(x=>({...x,gross_fee_minor:Number(x.gross_fee_minor||0),payout_status:x.ledger_status||(Number(x.qc_approved)===1?"eligible_for_finance_review":"awaiting_quality_approval")}));
+  return out({ok:true,payouts:offers,summary:{assignments:offers.length,eligible_gross_minor:offers.filter(x=>Number(x.qc_approved)===1).reduce((n,x)=>n+x.gross_fee_minor,0),awaiting_qc_minor:offers.filter(x=>Number(x.qc_approved)!==1).reduce((n,x)=>n+x.gross_fee_minor,0),currency:offers[0]?.currency||"INR",note:"Payout ledger status is shown here. Bank transfers remain manual; only Finance may record a paid transfer with its reference."}});
+ }
+ if(m==="GET"&&p==="/v1/admin/finance/editor-payouts"){
+  const a=await user(req,env,["admin"]);
+  const q=await env.DB.prepare("SELECT ep.id,ep.offer_id,ep.project_id,ep.editor_id,ep.amount_minor,ep.currency,ep.status,ep.created_at,ep.approved_at,ep.paid_at,ep.payment_reference,ep.note,ep.approved_by,ep.paid_by,COALESCE(e.display_name,u.email) AS editor_name,u.email AS editor_email FROM editor_payouts ep JOIN users u ON u.id=ep.editor_id LEFT JOIN editor_profiles e ON e.user_id=ep.editor_id ORDER BY CASE ep.status WHEN 'pending_approval' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,ep.created_at DESC LIMIT 200").all();
+  const rows=q.results||[];
+  return out({ok:true,payouts:rows,summary:{count:rows.length,pending_approval:rows.filter(x=>x.status==="pending_approval").length,approved:rows.filter(x=>x.status==="approved").length,paid:rows.filter(x=>x.status==="paid").length,total_minor:rows.reduce((n,x)=>n+Number(x.amount_minor||0),0)},note:"Read-only finance queue. No bank transfer is initiated by this API."});
+ }
+ if(m==="POST"&&p==="/v1/admin/finance/editor-payouts"){
+  const a=await user(req,env,["admin"]);
+  let body={};try{body=await req.json();}catch{return bad("A valid JSON body is required.",400,"invalid_json");}
+  const offerId=String(body.offer_id||"").trim();
+  if(!/^[A-Za-z0-9_-]{4,100}$/.test(offerId))return bad("A valid accepted offer_id is required.",400,"invalid_offer_id");
+  const existing=await env.DB.prepare("SELECT * FROM editor_payouts WHERE offer_id=?").bind(offerId).first();
+  if(existing)return out({ok:true,payout:existing,created:false,idempotent:true});
+  const eligible=await env.DB.prepare("SELECT o.id AS offer_id,o.project_id,o.editor_id,o.proposed_fee_minor AS amount_minor,o.fee_currency AS currency FROM project_offers o JOIN assignments x ON x.offer_id=o.id AND x.editor_id=o.editor_id WHERE o.id=? AND o.status='accepted' AND o.proposed_fee_minor>0 AND EXISTS(SELECT 1 FROM work_submissions s WHERE s.assignment_id=x.id AND s.qc_status='approved') LIMIT 1").bind(offerId).first();
+  if(!eligible)return bad("Payout can be created only for an accepted offer with QC-approved work and a positive fee.",409,"not_payout_eligible");
+  const id=uid("payout");
+  await env.DB.prepare("INSERT INTO editor_payouts(id,offer_id,project_id,editor_id,amount_minor,currency,status,created_by) VALUES(?,?,?,?,?,?,'pending_approval',?)").bind(id,eligible.offer_id,eligible.project_id,eligible.editor_id,eligible.amount_minor,eligible.currency,a.id).run();
+  await log(env,a.id,"editor_payout_created","editor_payout",id,{offer_id:offerId,amount_minor:eligible.amount_minor,currency:eligible.currency});
+  await notifyInApp(env,eligible.editor_id,"editor_payout_pending","Payout entered finance review","Your QC-approved work has been added to the Finance payout queue.",{payout_id:id,amount_minor:eligible.amount_minor,currency:eligible.currency});
+  const payout=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(id).first();
+  return out({ok:true,payout,created:true},201);
+ }
+ const payoutAction=p.match(/^\/v1\/admin\/finance\/editor-payouts\/([\w-]+)\/(approve|mark-paid)$/);
+ if(m==="POST"&&payoutAction){
+  const a=await user(req,env,["admin"]);
+  const payoutId=payoutAction[1],action=payoutAction[2];
+  let body={};try{body=await req.json();}catch{return bad("A valid JSON body is required.",400,"invalid_json");}
+  const current=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(payoutId).first();
+  if(!current)return bad("Payout record not found.",404,"payout_not_found");
+  if(action==="approve"){
+   if(current.status==="approved"||current.status==="paid")return out({ok:true,payout:current,idempotent:true});
+   if(current.status!=="pending_approval")return bad("Only pending payouts can be approved.",409,"invalid_payout_state");
+   await env.DB.prepare("UPDATE editor_payouts SET status='approved',approved_by=?,approved_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='pending_approval'").bind(a.id,body.note?String(body.note).slice(0,500):null,payoutId).run();
+   await log(env,a.id,"editor_payout_approved","editor_payout",payoutId,{amount_minor:current.amount_minor,currency:current.currency});
+   await notifyInApp(env,current.editor_id,"editor_payout_approved","Payout approved","Your payout has been approved and is awaiting payment confirmation.",{payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency});
+  }else{
+   const reference=String(body.payment_reference||"").trim();
+   if(reference.length<3||reference.length>120)return bad("Enter the actual bank/UPI transfer reference (3–120 characters).",400,"payment_reference_required");
+   if(current.status==="paid")return out({ok:true,payout:current,idempotent:true});
+   if(current.status!=="approved")return bad("Only Finance-approved payouts can be marked paid.",409,"payout_not_approved");
+   await env.DB.prepare("UPDATE editor_payouts SET status='paid',paid_by=?,paid_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),payment_reference=?,note=COALESCE(?,note),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='approved'").bind(a.id,reference,body.note?String(body.note).slice(0,500):null,payoutId).run();
+   await log(env,a.id,"editor_payout_marked_paid","editor_payout",payoutId,{amount_minor:current.amount_minor,currency:current.currency,payment_reference:reference});
+   await notifyInApp(env,current.editor_id,"editor_payout_paid","Payout marked paid","Finance has recorded your payout as paid.",{payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency,payment_reference:reference});
+  }
+  const updated=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(payoutId).first();
+  return out({ok:true,payout:updated,transfer_initiated:false,note:"This records Finance approval/payment confirmation only. It does not initiate a bank or Razorpay transfer."});
+ }
+ if(m==="GET"&&p==="/v1/admin/finance/refund-dashboard"){
+  const a=await user(req,env,["admin"]);
+  const results=await env.DB.batch([
+   env.DB.prepare("SELECT status,currency,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor FROM client_refund_requests GROUP BY status,currency ORDER BY currency,status"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS total_requests,COALESCE(SUM(amount_minor),0) AS total_amount_minor,COALESCE(SUM(CASE WHEN status='processed' THEN amount_minor ELSE 0 END),0) AS processed_amount_minor,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN amount_minor ELSE 0 END),0) AS pending_amount_minor,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN 1 ELSE 0 END),0) AS pending_records,COALESCE(SUM(CASE WHEN status IN ('failed','unknown') THEN 1 ELSE 0 END),0) AS attention_records FROM client_refund_requests GROUP BY currency ORDER BY currency"),
+   env.DB.prepare("SELECT COUNT(*) AS total_records,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN 1 ELSE 0 END),0) AS pending_records,COALESCE(SUM(CASE WHEN status='processed' THEN 1 ELSE 0 END),0) AS processed_records,COALESCE(SUM(CASE WHEN status IN ('failed','unknown') THEN 1 ELSE 0 END),0) AS attention_records FROM client_refund_requests"),
+   env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.review_note,r.provider_refund_id,r.created_at,r.updated_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 WHEN 'approved' THEN 2 WHEN 'processing' THEN 3 WHEN 'unknown' THEN 4 WHEN 'failed' THEN 5 ELSE 6 END,r.created_at DESC LIMIT 10")
+  ]);
+  const rows=results.map(x=>x.results||[]);
+  await log(env,a.id,"finance_refund_dashboard_viewed","finance","refund_dashboard",{});
+  return out({ok:true,dashboard:{status_and_currency:rows[0],currency_totals:rows[1],record_counts:rows[2][0]||{total_records:0,pending_records:0,processed_records:0,attention_records:0},priority_queue:rows[3]},meta:{queue_limit:10,amount_unit:"minor currency units",pending_statuses:["requested","under_review","approved","processing","unknown"],attention_statuses:["failed","unknown"],read_only:true},note:"Unified read-only refund dashboard data. Currency totals are not combined; no refund or transfer is initiated."});
+ }
+ if(m==="GET"&&p==="/v1/admin/finance/refund-summary"){
+  const a=await user(req,env,["admin"]);
+  const results=await env.DB.batch([
+   env.DB.prepare("SELECT status,currency,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor FROM client_refund_requests GROUP BY status,currency ORDER BY currency,status"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS total_requests,COALESCE(SUM(amount_minor),0) AS total_amount_minor,COALESCE(SUM(CASE WHEN status='processed' THEN amount_minor ELSE 0 END),0) AS processed_amount_minor,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN amount_minor ELSE 0 END),0) AS pending_amount_minor,COALESCE(SUM(CASE WHEN status IN ('requested','under_review','approved','processing','unknown') THEN 1 ELSE 0 END),0) AS pending_records,COALESCE(SUM(CASE WHEN status IN ('failed','unknown') THEN 1 ELSE 0 END),0) AS attention_records FROM client_refund_requests GROUP BY currency ORDER BY currency"),
+   env.DB.prepare("SELECT status,COUNT(*) AS records FROM client_refund_requests GROUP BY status ORDER BY status")
+  ]);
+  const rows=results.map(x=>x.results||[]);
+  await log(env,a.id,"finance_refund_summary_viewed","finance","refund_summary",{});
+  return out({ok:true,client_refunds:{by_status_and_currency:rows[0],totals_by_currency:rows[1],status_counts:rows[2]},definitions:{pending_statuses:["requested","under_review","approved","processing","unknown"],processed_status:"processed",attention_statuses:["failed","unknown"],amount_unit:"minor currency units"},read_only:true,note:"Client refund summary only. Currency totals are kept separate. No refund, transfer, or payment mutation is initiated."});
+ }
+ if(m==="GET"&&p==="/v1/admin/finance/reconciliation"){
+  const a=await user(req,env,["admin"]);
+  const results=await env.DB.batch([
+   env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM client_refund_requests GROUP BY status,currency ORDER BY status"),
+   env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM editor_deposit_refunds GROUP BY status,currency ORDER BY status"),
+   env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM editor_payouts GROUP BY status,currency ORDER BY status"),
+   env.DB.prepare("SELECT status,COUNT(*) AS records,COALESCE(SUM(amount_minor),0) AS amount_minor,currency FROM payments GROUP BY status,currency ORDER BY status"),
+   env.DB.prepare("SELECT COUNT(*) AS events FROM payment_webhook_events"),
+   env.DB.prepare("SELECT id,payment_id,client_id,project_id,amount_minor,currency,reason,status,provider_refund_id,created_at,updated_at FROM client_refund_requests WHERE status IN ('requested','under_review','approved','processing','unknown','failed') ORDER BY created_at DESC LIMIT 100"),
+   env.DB.prepare("SELECT id,payment_id,editor_id,project_id,amount_minor,currency,status,provider_refund_id,created_at,updated_at FROM editor_deposit_refunds WHERE status IN ('requesting','unknown','failed','pending') ORDER BY created_at DESC LIMIT 100"),
+   env.DB.prepare("SELECT id,offer_id,project_id,editor_id,amount_minor,currency,status,payment_reference,created_at,updated_at FROM editor_payouts WHERE status IN ('pending_approval','approved') ORDER BY created_at DESC LIMIT 100")
+  ]);
+  const rows=results.map(x=>x.results||[]);
+  await log(env,a.id,"finance_reconciliation_viewed","finance","reconciliation",{});
+  return out({ok:true,reconciliation:{client_refunds_by_status:rows[0],deposit_refunds_by_status:rows[1],editor_payouts_by_status:rows[2],payments_by_status:rows[3],webhook_event_count:Number(rows[4][0]?.events||0),client_refunds_needing_attention:rows[5],deposit_refunds_needing_attention:rows[6],editor_payouts_waiting:rows[7]},read_only:true,note:"This is a read-only reconciliation view. It does not retry refunds, initiate transfers, or alter payment records."});
+ }
+ if(m==="GET"&&p==="/v1/admin/finance/client-balances"){
+ const a=await user(req,env,["admin"]);
+ const q=await env.DB.prepare("SELECT q.id AS quote_id,q.project_id,q.client_id,u.email AS client_email,q.total_amount_minor,q.currency,q.status AS quote_status,q.payment_status,q.created_at,COALESCE(paid.paid_minor,0) AS paid_minor,MAX(0,q.total_amount_minor-COALESCE(paid.paid_minor,0)) AS balance_minor FROM client_quotes q JOIN users u ON u.id=q.client_id LEFT JOIN (SELECT quote_id,SUM(amount_minor) AS paid_minor FROM payments WHERE status='succeeded' AND payment_type IN ('client_advance','client_balance') AND quote_id IS NOT NULL GROUP BY quote_id) paid ON paid.quote_id=q.id WHERE q.total_amount_minor>COALESCE(paid.paid_minor,0) AND q.status='accepted' ORDER BY q.created_at ASC LIMIT 300").all();
+ const rows=(q.results||[]).map(x=>({...x,total_amount_minor:Number(x.total_amount_minor||0),paid_minor:Number(x.paid_minor||0),balance_minor:Number(x.balance_minor||0)}));
+ const totals={quotes:rows.length,amount_minor:rows.reduce((n,x)=>n+x.total_amount_minor,0),paid_minor:rows.reduce((n,x)=>n+x.paid_minor,0),outstanding_minor:rows.reduce((n,x)=>n+x.balance_minor,0)};
+ const byCurrency={};for(const x of rows){const c=x.currency||"UNKNOWN";byCurrency[c]??={quotes:0,outstanding_minor:0};byCurrency[c].quotes++;byCurrency[c].outstanding_minor+=x.balance_minor;}
+ await log(env,a.id,"finance_client_balances_viewed","finance","client_balances",{quotes:rows.length});
+ return out({ok:true,balances:rows,summary:totals,by_currency:byCurrency,read_only:true,note:"Outstanding balance is calculated from accepted quotations minus successful captured client advance/balance payments. No payment is initiated by this endpoint."});
+}
+ if(m==="GET"&&p==="/v1/admin/finance/overview"){
+  const a=await user(req,env,["admin"]);
+  const q=await env.DB.batch([
+   env.DB.prepare("SELECT currency,COUNT(*) AS transactions,COALESCE(SUM(amount_minor),0) AS collected_minor FROM payments WHERE status='succeeded' GROUP BY currency"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS quotes,COALESCE(SUM(total_amount_minor),0) AS quoted_minor FROM client_quotes WHERE status IN ('sent','accepted') GROUP BY currency"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS requests,COALESCE(SUM(amount_minor),0) AS refund_requested_minor FROM client_refund_requests WHERE status IN ('requested','under_review','approved') GROUP BY currency"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS refunds,COALESCE(SUM(amount_minor),0) AS deposit_refund_minor FROM editor_deposit_refunds WHERE status IN ('requesting','processing','processed','succeeded') GROUP BY currency"),
+   env.DB.prepare("SELECT COUNT(*) AS pending_client_refunds FROM client_refund_requests WHERE status IN ('requested','under_review')"),
+   env.DB.prepare("SELECT COUNT(*) AS deposit_refund_records FROM editor_deposit_refunds WHERE status IN ('requesting','processing')")
+  ]);
+  await log(env,a.id,"finance_overview_viewed","finance","staging",{});
+  return out({ok:true,read_only:true,collections:q[0].results||[],quotes:q[1].results||[],client_refunds:q[2].results||[],deposit_refunds:q[3].results||[],pending:{client_refunds:Number(q[4].results?.[0]?.pending_client_refunds||0),deposit_refunds:Number(q[5].results?.[0]?.deposit_refund_records||0)},limitations:["No editor payout transfers or paid-status ledger yet.","No client final-balance order creation route added in this phase.","Refund approvals do not imply a provider refund has executed."]});
  }
  return bad("Route not found.",404,"not_found");
 }
