@@ -143,21 +143,22 @@ test("Super Admin readiness route is staging-only, HMAC-authenticated, replay-pr
 });
 
 
-test("Super Admin bridge readiness action is admin-only and staging-only", () => {
-  const route = superAdmin.slice(superAdmin.indexOf('if(p==="/api/admins/legacy-bridge-readiness"'), superAdmin.indexOf('if(p==="/api/admins/global-sync-status"'));
-  assert.ok(route.includes("adminOnly(u)"));
-  assert.ok(route.includes('env.ENVIRONMENT!=="staging"'));
-  assert.ok(route.includes("callGlobalLegacyBridgeReadiness(env)"));
-  assert.ok(route.includes("legacy_bridge.readiness_check"));
+test("Super Admin legacy-link test action is Super Admin-only and staging-only", () => {
+  const route = superAdmin.slice(superAdmin.indexOf('if(p==="/api/legacy-links"&&req.method==="POST"){'), superAdmin.indexOf('if(p==="/api/finance/refund-action"&&req.method==="POST"){'));
+  assert.ok(route.includes('u.role!=="super_admin"'));
+  assert.ok(route.includes('["link_editor","claim_order","test_bridge"]'));
+  assert.ok(route.includes("callGlobalLegacyLinks"));
+  assert.ok(route.includes('action==="test_bridge"') || route.includes('action==="test_bridge"'));
+  const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyLinks"));
+  assert.ok(helper.includes('env.ENVIRONMENT!=="staging"'));
 });
 
-test("Super Admin readiness client signs the fixed staging probe using the shared admin HMAC", () => {
-  const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyBridgeReadiness"), superAdminBridge.indexOf("export async function callGlobalPricingPolicy"));
-  assert.ok(helper.includes('env.ENVIRONMENT!=="staging"'));
-  assert.ok(helper.includes("ADMIN_SYNC_HMAC_SECRET"));
+test("Super Admin legacy-link bridge signs the canonical staging API request", () => {
+  const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyLinks"));
+  assert.ok(helper.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
   assert.ok(helper.includes('["POST",path,timestamp,nonce,await sha256Hex(body)].join("\\n")'));
-  assert.ok(helper.includes("/internal/superadmin/legacy-bridge/readiness"));
-  assert.ok(helper.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"));
+  assert.ok(helper.includes("/internal/superadmin/legacy-links"));
+  assert.ok(helper.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"));
 });
 
 test("Global API peer request carries path-scoped Cloudflare Access service credentials", () => {
@@ -169,9 +170,9 @@ test("Global API peer request carries path-scoped Cloudflare Access service cred
 });
 
 
-test("Super Admin dashboard exposes the guarded legacy bridge readiness action", () => {
-  assert.ok(superAdminDashboard.includes("legacyBridgeTest"));
+test("Super Admin dashboard exposes the guarded legacy-link bridge test action", () => {
   assert.ok(superAdminDashboard.includes("testLegacyBridge()"));
+  assert.ok(superAdminDashboard.includes("legacyLinks"));
   assert.ok(superAdminApp.includes("function testLegacyBridge()"));
-  assert.ok(superAdminApp.includes("admins/legacy-bridge-readiness"));
+  assert.ok(superAdminApp.includes("legacy-links"));
 });
