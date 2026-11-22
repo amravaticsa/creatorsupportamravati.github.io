@@ -216,3 +216,31 @@ Evidence:
 - API validation workflow run `45001308640`: success.
 - Strict smoke coverage: six HTML routes and two JS assets returned HTTP 200 from the same immutable deployment origin; staging API health/D1 connectivity passed; seven protected API routes denied unauthenticated requests with HTTP 401.
 - All interactive workflows E2E-01 through E2E-07 remain BLOCKED pending dedicated test identities, synthetic media, and approved test-provider execution. The deployment checks do not change those results.
+
+
+## Latest setup evidence — 2026-11-22
+
+### Deployed Staging infrastructure
+- Super Admin invitation preflight/final validation, atomic invitation acceptance, OTP single-use hardening, stale-session revocation, admin role/deactivation session revocation, and Finance access controls are deployed to `csa-superadmin-isolated-staging`.
+- Finance access is carried from `csa_admin_module_access` into the Global API authorization snapshot and enforced by the canonical `csa-global-api-staging` Worker. Canonical Global bridges now include pricing policy, refund dashboard, editor sessions, Regional Admin data, and admin authorization sync.
+- Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The isolated Global API cleanup Cron remains scoped to its separate isolated D1.
+- Rush approvals have a separate Staging route on `superadmin-editor-staging.creatorsupportamravati.in`, backed by `csa-rush-admin-isolated-staging` and the isolated Super Admin D1. The legacy `superadmin.creatorsupportamravati.in` Rush routes remain unchanged.
+- Rush payment staging now rejects payment creation/verification unless `RAZORPAY_KEY_ID` starts with `rzp_test_`.
+
+### Current data inventory (read-only)
+- Client accounts: 2 active.
+- Projects: 3 submitted; assignments: 0; work submissions: 0.
+- Active Editor accounts: 0; Editor credentials: 0.
+- Global admin authorizations: 1 active and 1 revoked; no Finance Admin account is currently active.
+- Pricing policies: 0; client quotes: 0; payment records: 0.
+- Rush delivery quotes and Rush audit rows: 0 at the time of the latest check.
+- No dummy/test Client, Editor, Finance Admin, or invitation was created during this setup.
+
+### E2E blockers that require real business configuration or identities
+1. Set at least one approved pricing policy (currency, CSA margin %, minimum margin in minor units, and client advance %) in the Super Admin Pricing Policy page. The current placeholder values are not saved policy.
+2. Confirm that the canonical Global API has a Razorpay Test Mode key ID (`rzp_test_...`) and valid test secret; the runtime secret value is intentionally not exposed in this plan.
+3. Onboard and verify at least one real or explicitly approved test Editor, then assign a project to that Editor. There are currently no assignments or Editor credentials to test the workflow.
+4. Use separate authorized Client, Editor, and Admin sessions to test upload, revision, QC, final payment, refund review, and payout flows. No cross-account or browser E2E was performed in this setup.
+5. Confirm actual OTP email delivery and invitation acceptance through the browser. Code deployment and static validation do not prove delivery or end-to-end login.
+
+Production Workers, Production D1/R2, and Production DNS were not changed.
