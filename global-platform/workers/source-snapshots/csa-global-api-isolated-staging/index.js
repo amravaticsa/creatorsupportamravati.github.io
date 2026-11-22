@@ -171,7 +171,7 @@ async function handle(req,env){
    }
    if(p==="/internal/regional/finance")return bad("Sensitive finance access requires separate legal and finance approval.",403,"sensitive_permission_locked");
    return bad("Regional endpoint not found.",404,"not_found");
-  }catch(e){console.error("Regional data query failed",String(e&&e.message||e));return bad("Regional data is temporarily unavailable.",503,"regional_data_unavailable");}
+  }catch(e){console.error("Regional data query failed","internal_error");return bad("Regional data is temporarily unavailable.",503,"regional_data_unavailable");}
  }
 
  if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
@@ -185,7 +185,7 @@ async function handle(req,env){
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
   const canonical="POST\n/internal/admin-authorizations/sync\n"+ts+"\n"+nonce+"\n"+bodyHash;
-  const expected=await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
   if(!constantTime(expected,sig))return bad("Sync signature is invalid.",401,"sync_signature_invalid");
   let snapshot;
   try{snapshot=JSON.parse(raw);}catch{return bad("Invalid JSON snapshot.");}
