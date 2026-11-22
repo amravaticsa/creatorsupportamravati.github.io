@@ -164,3 +164,11 @@ Read-only Worker version metadata shows:
 This sequence is strongly consistent with a newly introduced GLOBAL_API_SYNC_HMAC_SECRET override that does not match the Global API verifier secret. Secret values were not read and cannot be compared here, so the exact mismatch is not independently confirmed.
 
 **Owner-only security action required:** ensure both sides use the exact same HMAC secret value and one canonical binding name. The minimal likely correction is to remove the new override from the Super Admin Worker so the previously working ADMIN_SYNC_HMAC_SECRET fallback is used, or deliberately synchronize the values on both Workers. Do not paste secret values into ChatGPT. After correction, verify a fresh scheduled run returns success before relying on Global Admin sync.
+
+
+Tracked-source comparison for the 401:
+- The tracked Super Admin helper in workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js requires and signs with ADMIN_SYNC_HMAC_SECRET only.
+- The live deployed Super Admin Worker version 113 instead contains the GLOBAL_API_SYNC_HMAC_SECRET || ADMIN_SYNC_HMAC_SECRET override.
+- The live Global API verifier and its deployed version 49 expose only the ADMIN_SYNC_HMAC_SECRET binding name.
+
+This is direct source/deployment drift. The repository's canonical helper already uses the single shared binding, but the live deployed bundle does not. Do not deploy the old full Worker snapshot to fix this one helper because that would overwrite newer deployed Country Management and Regional Admin UI code. Reconcile the deployed bundle/source modules first, then remove the alternate-secret ambiguity in a controlled staging deployment.
