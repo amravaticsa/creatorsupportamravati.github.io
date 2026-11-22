@@ -104,3 +104,11 @@ These checks were read-only except for the already-existing scheduled sync that 
 - The latest D1 inventory returned 11 databases. The previous 10/10 account-capacity observation is stale; the current account plan/quota was not verified.
 - Latest isolated Worker deployments were observed for Global API and Super Admin at 08:57 UTC. Their deployed source contents still did not contain the legacy readiness endpoints present in the tracked source snapshots. The Editor Portal health peer endpoint was present. See `LEGACY_BRIDGE_SECRET_SETUP.md` for deployment parity details.
 
+
+
+## Follow-up read-only checks (2026-11-22)
+
+- Aggregate counts on the shared staging legacy D1 `2d3f97a0-fa32-46ef-9913-972a59a410e4` returned 0 `video_editors`, 0 `video_editing_orders`, and 0 `video_editing_assignments`. The shared binding remains an isolation concern even though these tables are currently empty.
+- Isolated Global Admin sync now has two consecutive scheduled successes: 08:45:46 UTC and 09:00:46 UTC, each with `synced_count=1`. Earlier 500, 404 and 401 failures remain in history and should stay visible in monitoring. Aggregate Global API authorization state is one active `editor_admin` and one revoked `super_admin`; no email or personal record was queried.
+- The new read-only Worker binding preflight workflow initially returned HTTP 403 because the existing GitHub Actions Cloudflare token could not read Worker settings. The workflow now uses a separate `CLOUDFLARE_WORKERS_READ_TOKEN` secret and remains manual-only. It does not require or read secret values; a successful run still needs a token with Workers Scripts Read permission.
+
