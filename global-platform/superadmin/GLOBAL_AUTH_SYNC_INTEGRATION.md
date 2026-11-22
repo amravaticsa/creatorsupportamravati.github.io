@@ -477,3 +477,10 @@ This is a source-control implementation specification, not a deployed code chang
 - Follow-up verification: the 09:00:46 UTC scheduled run also succeeded with `synced_count=1` and no error code. Two consecutive scheduled runs (08:45 and 09:00 UTC) have now succeeded after the compatibility deployment.
 
 - Third consecutive verification: the 09:15:47 UTC scheduled run also succeeded with `synced_count=1` and no error code. The 08:45, 09:00 and 09:15 UTC runs all succeeded after the dual-secret compatibility deployment.
+
+
+### Dedicated HMAC secret provisioned — 2026-11-22 09:43 UTC
+
+- Cloudflare generated and stored one random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` on both canonical Staging Workers. Secret values are not recorded in source control or chat.
+- Cloudflare confirmed the binding exists on both Workers and created a 100% traffic deployment version on each.
+- The next Super Admin cron (`*/15 * * * *`) is the runtime acceptance check. The most recent recorded scheduled sync before this secret deployment was successful at 09:30:46 UTC; confirm a new post-deployment scheduled record before closing this item.
