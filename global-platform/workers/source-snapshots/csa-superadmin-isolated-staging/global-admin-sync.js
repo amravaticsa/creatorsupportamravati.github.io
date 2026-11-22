@@ -84,7 +84,7 @@ export async function callGlobalLegacyBridgeReadiness(env){
  if(env.ENVIRONMENT!=="staging")throw new Error("legacy_bridge_readiness_staging_only");
  if(!env.ADMIN_SYNC_HMAC_SECRET)throw new Error("admin_sync_secret_missing");
  const path="/internal/superadmin/legacy-bridge/readiness",body=JSON.stringify({purpose:"bridge-readiness"}),timestamp=String(Math.floor(Date.now()/1000)),nonce=crypto.randomUUID();
- const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\\n");
+ const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
  const signature=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
  const response=await fetch("https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
  const data=await response.json().catch(()=>({}));
