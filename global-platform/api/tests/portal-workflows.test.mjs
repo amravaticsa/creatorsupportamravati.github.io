@@ -61,11 +61,16 @@ test("Tender lifecycle requires draft, publish, close, award and configured CSA 
   assert.match(api, /minimum_margin_minor/);
 });
 
-test("Assignment is gated by verified editor deposit", () => {
+test("Assignment rechecks editor KYC, agreement, captured deposit and department access", () => {
   assert.match(api, /o\.status!=="ready_for_assignment"/);
   assert.match(api, /INSERT INTO assignments/);
   assert.match(api, /payment\.status!=="captured"/);
   assert.match(api, /SET status='ready_for_assignment' WHERE id=\?/);
+  assert.match(api, /o\.account_status!=="active"\|\|o\.verification_status!=="verified"\|\|!o\.kyc_verified/);
+  assert.match(api, /!o\.terms_accepted\|\|!o\.deposit_verified/);
+  assert.match(api, /Tender department access is required to confirm project assignment/);
+  assert.match(api, /UNIQUE constraint failed: assignments\.offer_id/);
+  assert.match(api, /assignment_already_exists/);
 });
 
 test("Editor submission enters QC and approved QC moves project to client review", () => {
