@@ -149,3 +149,11 @@ The canonical API (D1 470) and isolated API (D1 6a32) share the same R2 `MEDIA` 
 - The canonical Global API accepts `GLOBAL_API_SYNC_HMAC_SECRET` and the legacy `ADMIN_SYNC_HMAC_SECRET` for the eight private Super Admin bridge endpoints. The isolated sender prefers the dedicated secret; old bindings remain unchanged for compatibility.
 - Scheduled Global Admin sync succeeded at 10:15:46 and 10:30:46 UTC, each synchronizing one active non-Super-Admin authorization with no error.
 - Isolated Super Admin, Editor Portal and Rush Admin Workers have persisted Logs and sampled Traces enabled. Exception objects/messages are not written into Staging logs.
+
+
+### Razorpay Staging safety gate — 2026-11-22 10:47 UTC
+
+- Client quote checkout and Editor security-deposit checkout now require an `rzp_test_` key before creating a Razorpay order. Both client and editor payment verification require the Test Mode key as well.
+- Refund processing remains restricted to Staging + Razorpay Test Mode, with existing payment ownership, capture, amount/currency, QC approval, idempotency and retry-state checks.
+- `GET /v1/config` now returns a Razorpay key ID only when the key mode matches the Worker environment (Test on Staging, Live on Production). Health output reports `razorpay_mode` and mode-safe `razorpay_checkout` without revealing any secret value.
+- If the Staging Worker has a live Razorpay key ID, checkout is blocked and the public config hides the key ID. No live payment was created during this setup.
