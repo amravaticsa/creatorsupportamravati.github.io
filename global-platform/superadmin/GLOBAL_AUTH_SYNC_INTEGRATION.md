@@ -26,10 +26,10 @@
 
 ## Scheduled sync status
 
-- The last successful scheduled sync before the bridge-target/secret changes was 09:30:46 UTC and synchronized one authorization record.
-- The 09:45:46 UTC attempt failed with `global_authorization_sync_failed_401` while the old isolated target was still configured.
-- The 10:00:46 UTC attempt failed with `internal_error`; at that time error details were intentionally redacted before an HTTP status allowlist was added.
-- The next scheduled run after the 10:02:20 UTC diagnostic update must confirm a success. Until a new scheduled success is recorded, Global Admin sync remains **NOT VERIFIED**.
+- Before the final routing/secret correction, the 09:45:46 UTC attempt failed with `global_authorization_sync_failed_401` while the sender and isolated receiver had different dedicated secrets. The 10:00:46 UTC attempt failed with `internal_error` during the initial bridge-target transition.
+- After routing the four core bridges to canonical API, retaining Legacy Links on the isolated API, and setting the same 256-bit secret on all three Staging Workers, the 10:15:46 UTC scheduled sync **succeeded** with `synced_count=1` and no error code.
+- Read-only comparison confirmed the active non-Super-Admin source account and its canonical `global_admin_authorizations` row have the same source ID, role, status and Finance access level (`none`).
+- GitHub Actions validation and the Staging Pages deploy/smoke workflow both passed for commit `8e029c2d7c81bc9bb2be91eb2d5c6202af255f96` at 10:16:51 UTC. The 10:30 UTC scheduled run remains the next stability check.
 
 ## Safe acceptance criteria
 
