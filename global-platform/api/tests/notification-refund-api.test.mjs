@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
 
 test("notification API is authenticated and scoped to the signed-in user", () => {
-  assert.match(source, /if\(m==="GET"&&p==="\/v1\/notifications"\)\{\s*const a=await user\(req,env,\["client","admin"\]\)/);
+  assert.match(source, /if\(m==="GET"&&p==="\/v1\/notifications"\)\{\s*const a=await user\(req,env,\["client","admin","editor"\]\)/);
   assert.match(source, /WHERE user_id=\? AND channel='in_app'/);
   assert.match(source, /UPDATE notifications SET status='read' WHERE id=\? AND user_id=\?/);
 });
