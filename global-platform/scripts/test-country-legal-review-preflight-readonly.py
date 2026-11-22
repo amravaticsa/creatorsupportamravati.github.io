@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-SQL = (ROOT / "migrations" / "0033_country_legal_review_preflight.sql").read_text(encoding="utf-8")
+SQL = (ROOT / "migrations" / "preflight_country_legal_review_0033.sql").read_text(encoding="utf-8")
 statements = [part.strip() for part in SQL.split(";") if part.strip() and not part.strip().startswith("--")]
 assert statements, "preflight must contain statements"
 for statement in statements:
