@@ -278,3 +278,5 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - All Regional Admin queries use verified `users.country_code` or `v_project_country_scope`; self-reported `editor_profiles.country_code` is not used for access scoping. Finance/refund endpoints remain explicitly denied.
 - Super Admin Worker `GLOBAL_DB` remains canonical D1 470; its `DB` remains the separate account/session D1 2d3... No Production host or Worker was changed.
 - Runtime Regional Admin login/E2E remains blocked until an actual Regional Admin identity exists and the country legal review is approved.
+
+- The Regional Admin portal is served at `https://regional-staging.creatorsupportamravati.in`; the Super Admin Worker rejects this hostname unless `ENVIRONMENT=staging`. The custom domain maps to `csa-superadmin-isolated-staging`. Its unauthenticated dashboard endpoint returns 401; login requires the separate password + email OTP session.
