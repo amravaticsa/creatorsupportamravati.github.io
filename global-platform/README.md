@@ -242,3 +242,12 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - `csa-rush-payment-api-staging` now requires a Razorpay key ID beginning `rzp_test_` for order creation and verification; the Worker reports test-credential readiness and has `ENVIRONMENT=staging`. No Rush quote or audit rows were present during the read-only check, and no payment order was created.
 - The first 08:15 UTC scheduled Global Admin sync failed against the isolated database before the canonical target correction. The next scheduled run is the runtime confirmation point; browser E2E tests remain pending.
 - Production Workers, Production D1/R2, and Production DNS were not changed.
+
+
+### Country assignment integration — 2026-11-22 08:40 UTC
+
+- The Super Admin Worker's `GLOBAL_DB` binding now points to canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`; its `DB` binding remains Super Admin D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
+- Canonical Global D1 now includes the evidence-backed immutable country assignment audit table, verification columns, insert/update/delete guards, and the extended country assignment review view (migration `0031_country_assignment_audit.sql`).
+- Client/Editor onboarding now leaves authoritative `users.country_code` null. Self-reported country remains in profile fields; Super Admin verification with evidence is required before country scoping is activated.
+- Two existing active Client accounts currently appear as `needs_verified_country`. No country was assigned automatically and no audit rows were created.
+- The separate `csa-global-api-isolated-staging` D1 6a32 remains an isolated copy and is not used by the canonical portal or the Super Admin `GLOBAL_DB` binding.
