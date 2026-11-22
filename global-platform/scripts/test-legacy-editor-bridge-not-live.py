@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKER = ROOT / "global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js"
 API = ROOT / "global-platform/api/src/index.js"
+EDITOR_WORKER = ROOT / "global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js"
 PROPOSAL = ROOT / "global-platform/docs/legacy-editor-bridge-api-contract-proposal.md"
 
 PROPOSED_ROUTES = (
@@ -22,6 +23,7 @@ PROPOSED_ROUTES = (
 def main():
     worker = WORKER.read_text(encoding="utf-8")
     api = API.read_text(encoding="utf-8")
+    editor_worker = EDITOR_WORKER.read_text(encoding="utf-8")
     proposal = PROPOSAL.read_text(encoding="utf-8")
 
     # The deployed isolated Worker snapshot is the runtime source of record.
@@ -34,8 +36,8 @@ def main():
 
     if "Contract proposal only — routes are not implemented or enabled." not in proposal:
         raise SystemExit("FAIL: proposal status must explicitly state routes are not enabled.")
-    if "POST /internal/superadmin/legacy-bridge/readiness" not in worker:
-        raise SystemExit("FAIL: expected readiness-only bridge endpoint is missing.")
+    if 'if(p==="/editor-api/internal/legacy-bridge/health")' not in editor_worker:
+        raise SystemExit("FAIL: expected staging-only Editor Portal readiness endpoint is missing.")
 
     # Guard against accidental route-level permission grants before approval.
     permission_block = worker.split("function adminPermissionFor(req){", 1)
@@ -48,7 +50,7 @@ def main():
 
     print("PASS: proposed legacy editor mapping/transfer routes remain unregistered.")
     print("PASS: no legacy bridge admin permission has been granted.")
-    print("PASS: staging readiness probe remains present; no remote writes performed.")
+    print("PASS: staging-only Editor Portal readiness endpoint remains present; no remote writes performed.")
 
 if __name__ == "__main__":
     main()
