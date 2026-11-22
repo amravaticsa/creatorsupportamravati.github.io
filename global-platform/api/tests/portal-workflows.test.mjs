@@ -46,7 +46,7 @@ test("Client showcase is restricted to approved samples from verified editors an
 });
 
 test("Client deliverables and downloads are gated by QC approval", () => {
-  assert.match(api, /const deliver=p\.match/);
+  assert.ok(api.includes("p.startsWith(\"/v1/client/projects/\")&&p.endsWith(\"/deliverables\")"));
   assert.match(api, /WHERE x\.project_id=\? AND s\.qc_status='approved'/);
   assert.match(api, /if\(a\.role==="client"&&file\.kind==="submission"\)allowed=allowed&&file\.qc_status==="approved"/);
 });
