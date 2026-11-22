@@ -32,3 +32,13 @@
 4. Do not manually edit Global API authorization rows; the signed Super Admin snapshot is authoritative.
 5. India country activation, legal evidence and real Regional Admin identity remain external prerequisites.
 6. Keep Production and legacy Workers untouched.
+
+
+### Follow-up verification — 2026-11-22 10:40 UTC
+
+- The isolated Super Admin sender now signs the authorization snapshot with `GLOBAL_API_SYNC_HMAC_SECRET` first and retains `ADMIN_SYNC_HMAC_SECRET` only as compatibility fallback.
+- The canonical Global API verifies both dedicated and legacy HMAC keys on all eight internal bridge paths; the legacy Super Admin Worker remains unchanged.
+- The 10:30:46 UTC scheduled sync succeeded after the dedicated-secret sender deployment: one active non-Super-Admin authorization synchronized, no error.
+- The canonical Super Admin `GLOBAL_DB` must remain aligned with canonical Global API D1 470 because the country assignment route writes there and Regional Admin data reads through the canonical API. The Staging preflight now explicitly checks this binding and both secret names.
+- Super Admin, Editor Portal and Rush Admin isolated Staging Workers now have persisted Workers Logs and sampled Traces enabled. Raw exception objects/messages were sanitized before enabling observability.
+- Production and the legacy Super Admin Worker were not modified.
