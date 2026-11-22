@@ -161,3 +161,12 @@ Evidence:
 - Workflow notification API validation: GitHub Actions run 44981284270 completed successfully; schema snapshot validation also passed. The Editor notification center and API event wiring are included in the staging source.
 - Cloudflare staging Worker csa-global-api-staging deployed as Version 80 (version ID cbd3f4d7-a4a6-41f7-ab04-3db2043a94b3; deployment ID d74108be-d165-4ed4-8d01-412e16454dcb; 100% traffic). Source commit for API: ced4712547bff073f3a94218bf81cd68728bd53a. ENVIRONMENT=staging; expected staging D1 and R2 bindings unchanged; four existing secret binding names unchanged, values not read or modified.
 - A fresh post-Version-80 staging health and authorization smoke is required before declaring the notification API runtime-smoke verified. Authenticated Client/Editor notification delivery still needs multi-identity E2E.
+
+
+## Client final video approval and project completion (2026-11-22)
+
+- Added owner-scoped POST /v1/client/projects/{project_id}/approve. It accepts only when the project is in client_review, its assignment is still approved, the latest QC-approved submission exists, and no open/in-progress revision request exists.
+- The API uses a conditional D1 batch to move the project and assignment to completed, records an audit event, and notifies the assigned Editor.
+- Client Portal now offers “Approve final video & complete project” with a confirmation step and a clear note that any outstanding balance remains subject to CSA Finance reconciliation.
+- Final approval does not initiate a payment, refund or editor payout. Finance reconciliation remains separate.
+- Regression tests added. Authenticated E2E still requires separate staging Client and Editor identities plus a real staged QC-approved fixture; no client project was approved during setup.
