@@ -31,3 +31,10 @@ test("Editor security-deposit verification rejects non-test Razorpay keys", () =
   const route = source.slice(start, end);
   assert.match(route, /!env\.RAZORPAY_KEY_ID\.startsWith\("rzp_test_"\)/);
 });
+
+test("health and public config expose only mode-safe Razorpay readiness", () => {
+  assert.match(source, /environment==="staging"\?testMode:environment==="production"\?!testMode:false/);
+  assert.match(source, /razorpay_checkout:payment\.ready/);
+  assert.match(source, /razorpay_mode:payment\.mode/);
+  assert.match(source, /razorpay_key_id:payment\.ready\?env\.RAZORPAY_KEY_ID:null/);
+});
