@@ -262,3 +262,10 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Production-looking hostnames and legacy Worker routes were not changed.
 
 - The legacy Worker still has a Custom Domain record for `admin-staging.creatorsupportamravati.in`; Cloudflare documents that a matching Worker Route takes precedence over a Custom Domain. The isolated Worker does not proxy the incoming request with `fetch(request)`, so the configured route handles the request directly. Keep this route explicit and re-check it after any future custom-domain or route edits. Reference: https://developers.cloudflare.com/workers/configuration/routing/routes/.
+
+
+### India legal evidence research pack — 2026-11-22
+
+- Initial official-source research and counsel issue register: `compliance/INDIA-LAUNCH-LEGAL-EVIDENCE-REGISTER.md`.
+- India remains `setup` / `not_started`; no legal approval, country activation, or user country assignment was made. A qualified Indian advocate and CA must review the applicable entity, marketplace, GST, payment, privacy and intermediary obligations. The first Regional Admin must be a real verified person/email.
+- Global Admin authorization sync has passed two consecutive scheduled checks after the HMAC compatibility deployment (08:45 and 09:00 UTC, one authorization synchronized each time).
