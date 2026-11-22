@@ -685,7 +685,8 @@ async function handle(req,env){
   const results=await env.DB.batch([
    env.DB.prepare("UPDATE work_submissions SET qc_status=? WHERE id=? AND qc_status='pending'").bind(status,qc[1]),
    env.DB.prepare("UPDATE assignments SET status=? WHERE id=? AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(assignmentStatus,sub.assignment_id,qc[1],status),
-   env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(projectStatus,clientStatus,sub.project_id,qc[1],status)
+   env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(projectStatus,clientStatus,sub.project_id,qc[1],status),
+   env.DB.prepare("UPDATE client_revision_requests SET status='completed',resolved_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),handled_by=? WHERE assignment_id=? AND status IN ('open','in_progress') AND submission_id<>? AND ?='approved'").bind(a.id,sub.assignment_id,qc[1],status)
   ]);
   if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Submission QC was already processed. Refresh the queue before taking another action.",409,"qc_already_processed");
   await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
