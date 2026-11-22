@@ -74,7 +74,7 @@ The platform should be designed now for the full regime rather than waiting for 
 - India country registry: `status=setup`, `legal_review_status=not_started`.
 - No India legal approval has been entered.
 - Existing two active Client accounts have no verified country assignment; both remain `needs_verified_country`.
-- The immutable country assignment audit is enabled in canonical Global Staging D1. A Super Admin must use the verified-country workflow with actual evidence after the legal review is approved.
+- The immutable country assignment audit is enabled in both canonical Global D1 470 and isolated Global D1 6a32. The isolated Super Admin Worker's `GLOBAL_DB` currently points to D1 6a32, so its active country-assignment workflow uses that isolated copy. The canonical Client/Editor API remains on D1 470. No cross-database live replication is configured.
 - No Regional Admin was created and no placeholder email was inserted.
 - This file is not itself approval evidence and must not be used to mark India active.
 
