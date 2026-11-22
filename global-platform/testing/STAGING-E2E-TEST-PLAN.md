@@ -109,3 +109,19 @@ Evidence:
 - Staging Worker `csa-global-api-staging` uploaded from the updated API source as version `75` (`5ed7df9b-a05b-41bb-9847-a5348539af71`); deployment `3254979c-1305-412a-80e6-c2dbb8e957ca` routes 100% of Worker traffic to that version.
 - Worker configuration was re-read after upload: `ENVIRONMENT=staging`, both expected staging D1 bindings and both staging R2 buckets remained attached, and the four existing secret binding names remained present. Secret values were neither read nor changed.
 - These checks do not constitute a signed-in browser E2E test or a real Razorpay Test Mode payment. E2E-04 remains BLOCKED until dedicated staging client/editor/admin identities and test payment evidence are available. No offer, assignment, payment or refund was created during this hardening.
+
+## QC review security hardening (2026-11-22)
+
+The staging API's Editor submission → Admin QC → client review handoff was hardened:
+
+- QC review now requires the reviewing Admin to hold the project's Tender department route access, in addition to the global `projects.manage` role permission.
+- The decision update is compare-and-set: only a submission still in `pending` QC can be processed. Repeated or concurrent review attempts return HTTP 409 (`qc_already_processed`) instead of silently reprocessing an already-reviewed submission.
+- Assignment and project status changes are conditioned on the QC decision having been recorded for that submission in the same D1 batch.
+- API regression assertions cover the department check and one-time QC decision guard.
+
+Evidence:
+- API validation run `44978744063`: `validate` and `schema-snapshot` jobs passed.
+- Read-only staging API smoke run `44978744069`: health and public authentication configuration checks passed.
+- Staging Worker `csa-global-api-staging` version `76` (`8f652265-d6ef-41f4-8bf4-faeb23f9292f`) is deployed at 100% traffic; deployment `7d1e9af5-6877-4f86-b833-7df7f75eba1e`.
+- Worker configuration was rechecked: `ENVIRONMENT=staging`, the expected staging D1 and R2 bindings and all four secret binding names remain present. Secret values were not read or changed.
+- These are source, CI, configuration and health checks—not a signed-in Admin QC browser test. E2E-05 remains BLOCKED until test identities, an authorized Admin and synthetic submission files are available. No real client/editor work was processed.
