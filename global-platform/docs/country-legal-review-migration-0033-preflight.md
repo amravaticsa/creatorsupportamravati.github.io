@@ -27,7 +27,7 @@ Do not infer the target from a database name alone. Re-read the Worker settings 
 
 ## Read-only preflight
 
-Run migrations/0033_country_legal_review_preflight.sql against the exact target D1. It contains only:
+Run migrations/preflight_country_legal_review_0033.sql against the exact target D1. It contains only:
 - PRAGMA table_info
 - PRAGMA index_list
 - SELECT against sqlite_master
