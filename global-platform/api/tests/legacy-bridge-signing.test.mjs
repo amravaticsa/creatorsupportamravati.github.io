@@ -155,7 +155,7 @@ test("Super Admin readiness client signs the fixed staging probe using the share
   assert.ok(helper.includes("ADMIN_SYNC_HMAC_SECRET"));
   assert.ok(helper.includes('["POST",path,timestamp,nonce,await sha256Hex(body)].join("\\n")'));
   assert.ok(helper.includes("/internal/superadmin/legacy-bridge/readiness"));
-  assert.ok(helper.includes("csa-global-api-isolated-staging.workers.dev"));
+  assert.ok(helper.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"));
 });
 
 test("Global API peer request carries path-scoped Cloudflare Access service credentials", () => {
