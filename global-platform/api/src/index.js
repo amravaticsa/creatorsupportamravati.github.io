@@ -402,12 +402,12 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
    if(!stillAuthorized)return bad("CSA Super Admin authorization is no longer active.",403,"admin_authorization_revoked");
    await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status) VALUES(?,?, 'admin',?,?, 'active')").bind(newId,c.sub,c.email,new Date().toISOString()).run();
   }else if(role==="client"){
-   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',NULL)").bind(newId,c.sub,c.email,new Date().toISOString()).run();
    await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(newId,name,txt(profile.company_name,160)||null,txt(profile.country,100)||null,txt(profile.timezone,80)||null,txt(profile.language,40)||"English").run();
   }else{
    const country=txt(profile.country,100),legalName=txt(profile.legal_name,160),skills=Array.isArray(profile.specializations)?profile.specializations.map(x=>txt(x,80)).filter(Boolean).slice(0,20):[];
    if(!legalName||!country||!skills.length)return bad("Legal name, country and at least one specialization are required.");
-   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(newId,c.sub,c.email,new Date().toISOString(),txt(profile.country_code,2).toUpperCase()||null).run();
+   await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',NULL)").bind(newId,c.sub,c.email,new Date().toISOString()).run();
    await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,legal_name,country,country_code,state,district,city,village,postal_code,address_line,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(newId,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,legalName,country,txt(profile.country_code,2).toUpperCase()||null,txt(profile.state,120)||null,txt(profile.district,120)||null,txt(profile.city,120)||null,txt(profile.village,120)||null,txt(profile.postal_code,20)||null,txt(profile.address_line,240)||null,JSON.stringify(Array.isArray(profile.languages)?profile.languages:[]),txt(profile.experience_level,40)||null,JSON.stringify(Array.isArray(profile.software)?profile.software:[]),JSON.stringify(skills),null,null,txt(profile.availability,40)||"project-based",txt(profile.bio,2000)||null).run();
   }
   await log(env,newId,"google_account_registered",role,newId,{email_domain:c.email.split("@")[1]});
@@ -417,7 +417,7 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
   const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120),legalName=txt(b.legal_name,160),country=txt(b.country,100);
   if(!name||!legalName||!country||!Array.isArray(b.specializations)||!b.specializations.length)return bad("Display name, legal name, country and specializations are required.");
   const idu=uid("usr");
-  await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
+  await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'editor',?,?, 'pending',NULL)").bind(idu,c.sub,c.email,new Date().toISOString()).run();
   await env.DB.prepare("INSERT INTO editor_profiles(user_id,public_editor_code,display_name,legal_name,country,country_code,state,district,city,village,postal_code,address_line,languages_json,experience_level,software_json,specializations_json,portfolio_url,sample_url,availability,bio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(idu,"CSA-ED-"+crypto.randomUUID().slice(0,8).toUpperCase(),name,legalName,country,txt(b.country_code,2).toUpperCase()||null,txt(b.state,120)||null,txt(b.district,120)||null,txt(b.city,120)||null,txt(b.village,120)||null,txt(b.postal_code,20)||null,txt(b.address_line,240)||null,JSON.stringify(b.languages||[]),txt(b.experience_level,40)||null,JSON.stringify(b.software||[]),JSON.stringify(b.specializations),null,null,txt(b.availability,40)||"project-based",txt(b.bio,2000)||null).run();
   await log(env,idu,"editor_registration_submitted","editor",idu);
   return out({ok:true,status:"pending_verification",message:"Registration is free. No deposit is charged until an editor chooses to accept a project offer."},201);
@@ -488,7 +488,7 @@ if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_C
  if(m==="POST"&&p==="/v1/onboarding/client"){
   const c=await claims(req,env),b=await req.json(),name=txt(b.display_name,120);if(!name)return bad("Name is required.");
   const idu=uid("usr");
-  await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',?)").bind(idu,c.sub,c.email,new Date().toISOString(),txt(b.country_code,2).toUpperCase()||null).run();
+  await env.DB.prepare("INSERT INTO users(id,auth_subject,role,email,email_verified_at,account_status,country_code) VALUES(?,?, 'client',?,?, 'active',NULL)").bind(idu,c.sub,c.email,new Date().toISOString()).run();
   await env.DB.prepare("INSERT INTO client_profiles(user_id,display_name,company_name,country,timezone,preferred_language) VALUES(?,?,?,?,?,?)").bind(idu,name,txt(b.company_name,160)||null,txt(b.country,100)||null,txt(b.timezone,80)||null,txt(b.language,40)||null).run();
   return out({ok:true,status:"active"},201);
  }
