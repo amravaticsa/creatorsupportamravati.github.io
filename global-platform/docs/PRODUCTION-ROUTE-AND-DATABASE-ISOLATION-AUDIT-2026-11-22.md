@@ -95,3 +95,12 @@ A read-only query of the isolated Super Admin sync log and isolated Global API a
 - The isolated Super Admin dashboard's Central Control and HR/Finance panels load on tab selection. Their initial HTML contains placeholder text such as "Loading…"; that text in a full-page DOM extraction alone is not evidence of a live API failure. The UI code calls `loadCentral()`, `loadHR()` and `loadFinance()` when those tabs are selected.
 
 These checks were read-only except for the already-existing scheduled sync that had completed before the query. No manual sync was triggered.
+
+
+## Current staging cross-binding notes (2026-11-22)
+
+- `csa-global-api-staging` and `csa-global-api-isolated-staging` both currently bind `LEGACY_VIDEO_DB` to `2d3f97a0-fa32-46ef-9913-972a59a410e4` and `LEGACY_VIDEO_BUCKET` to `csa-global-video-isolated-staging`. The isolated API has a separate primary D1 (`6a32dda3-b8c5-413c-9f51-58f0a9fa0712)), but its legacy claim database and legacy bucket are shared with regular staging. Treat isolated staging as only partially isolated until this is deliberately resolved.
+- The isolated Super Admin Worker has a `GLOBAL_DB` binding to regular staging D1 `470a81b8-b8c5-413c-9f51-58f0a9fa0712` (resource UUID confirmed separately as `470a81b8-3d36-4e2d-942c-5cbb2746a473)); the tracked Worker source snapshot contains no `env.GLOBAL_DB` reads. Do not remove or repoint without deployed-source parity and dependency review.
+- The latest D1 inventory returned 11 databases. The previous 10/10 account-capacity observation is stale; the current account plan/quota was not verified.
+- Latest isolated Worker deployments were observed for Global API and Super Admin at 08:57 UTC. Their deployed source contents still did not contain the legacy readiness endpoints present in the tracked source snapshots. The Editor Portal health peer endpoint was present. See `LEGACY_BRIDGE_SECRET_SETUP.md` for deployment parity details.
+
