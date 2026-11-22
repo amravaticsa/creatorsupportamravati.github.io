@@ -95,3 +95,22 @@ investigation. Never choose a record by email/name similarity.
 
 Until these gates pass, this document is a design artifact. No live transfer
 or remote database mutation is authorized by it.
+
+
+## Migration draft added
+
+A source-only migration draft now exists at
+`global-platform/migrations/0029_legacy_assignment_reconciliation_state.sql`.
+It rebuilds the assignment-link table while preserving existing pending,
+created, failed, and revoked rows; adds request fingerprint, correlation ID,
+remote outcome, and reviewer evidence fields; and introduces transition and
+reconciliation audit guards.
+
+A disposable regression test is maintained at
+`global-platform/scripts/test-legacy-assignment-reconciliation-migration.py`.
+It checks legacy-row preservation, uncertain outcome persistence, reviewed
+reconciliation to created/failed, duplicate correlation protection, terminal
+states, foreign keys, and SQLite integrity.
+
+This migration has not been applied to any remote D1 database. Review the SQL
+and test results before considering isolated staging application.
