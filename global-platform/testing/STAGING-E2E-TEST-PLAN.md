@@ -157,3 +157,7 @@ Evidence:
 - Added CSA Notifications and preferences panel to the Editor Portal.
 - Email and WhatsApp are not sent; they remain preference-only until a delivery provider and verified sender setup are configured.
 - Regression coverage added. Authenticated multi-user E2E remains pending separate staging Client, Editor and Admin identities; no real users or project records were modified.
+
+- Workflow notification API validation: GitHub Actions run 44981284270 completed successfully; schema snapshot validation also passed. The Editor notification center and API event wiring are included in the staging source.
+- Cloudflare staging Worker csa-global-api-staging deployed as Version 80 (version ID cbd3f4d7-a4a6-41f7-ab04-3db2043a94b3; deployment ID d74108be-d165-4ed4-8d01-412e16454dcb; 100% traffic). Source commit for API: ced4712547bff073f3a94218bf81cd68728bd53a. ENVIRONMENT=staging; expected staging D1 and R2 bindings unchanged; four existing secret binding names unchanged, values not read or modified.
+- A fresh post-Version-80 staging health and authorization smoke is required before declaring the notification API runtime-smoke verified. Authenticated Client/Editor notification delivery still needs multi-identity E2E.
