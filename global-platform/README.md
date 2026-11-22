@@ -269,3 +269,12 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Initial official-source research and counsel issue register: `compliance/INDIA-LAUNCH-LEGAL-EVIDENCE-REGISTER.md`.
 - India remains `setup` / `not_started`; no legal approval, country activation, or user country assignment was made. A qualified Indian advocate and CA must review the applicable entity, marketplace, GST, payment, privacy and intermediary obligations. The first Regional Admin must be a real verified person/email.
 - Global Admin authorization sync has passed two consecutive scheduled checks after the HMAC compatibility deployment (08:45 and 09:00 UTC, one authorization synchronized each time).
+
+
+### Regional Admin data path corrected — 2026-11-22
+
+- The isolated Super Admin Worker's Regional Admin read proxy now targets the canonical `csa-global-api-staging` Worker rather than the separate `csa-global-api-isolated-staging` copy.
+- Canonical Global API now exposes HMAC-authenticated, replay-protected Regional Admin read endpoints for dashboard, projects, clients, editors and tenders.
+- All Regional Admin queries use verified `users.country_code` or `v_project_country_scope`; self-reported `editor_profiles.country_code` is not used for access scoping. Finance/refund endpoints remain explicitly denied.
+- Super Admin Worker `GLOBAL_DB` remains canonical D1 470; its `DB` remains the separate account/session D1 2d3... No Production host or Worker was changed.
+- Runtime Regional Admin login/E2E remains blocked until an actual Regional Admin identity exists and the country legal review is approved.
