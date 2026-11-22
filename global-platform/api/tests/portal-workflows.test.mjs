@@ -237,3 +237,15 @@ test("Client final approval is owner-scoped, requires latest QC-approved deliver
   assert.ok(portal.includes("Approve final video & complete project"));
   assert.ok(portal.includes("/approve"));
 });
+
+
+test("Admin dashboard automatically loads the private editor KYC review queue", () => {
+  const adminStart = portal.indexOf("async function loadAdmin(){");
+  const adminEnd = portal.indexOf("\nasync function ", adminStart + 1);
+  const adminLoader = portal.slice(adminStart, adminEnd);
+  assert.ok(adminLoader.includes("loadAdminKycReviews();"), "Admin dashboard must request the KYC queue on load");
+  assert.match(portal, /async function loadAdminKycReviews\(\)/);
+  assert.ok(api.includes('if(m==="GET"&&p==="/v1/admin/editors/kyc/pending")'));
+  assert.ok(api.includes('await user(req,env,["admin"])'));
+  assert.ok(api.includes('if(status==="rejected"&&!note)return bad("A rejection reason is required.")'));
+});
