@@ -903,16 +903,28 @@ async function handle(req,env){
  }
  const pay=p.match(/^\/v1\/offers\/([\w-]+)\/deposit\/checkout$/);
  if(m==="POST"&&p.startsWith("/v1/admin/offers/")&&p.endsWith("/assign")){
-  const a=await user(req,env,["admin"]),offerId=p.split("/")[4],o=await env.DB.prepare("SELECT id,project_id,editor_id,delivery_days,status FROM project_offers WHERE id=?").bind(offerId).first();
+  const a=await user(req,env,["admin"]),offerId=p.split("/")[4],o=await env.DB.prepare("SELECT o.id,o.project_id,o.editor_id,o.delivery_days,o.status,e.verification_status,u.account_status,EXISTS(SELECT 1 FROM editor_kyc_documents k WHERE k.editor_id=o.editor_id AND k.status='verified') AS kyc_verified,EXISTS(SELECT 1 FROM agreement_acceptances aa WHERE aa.offer_id=o.id AND aa.user_id=o.editor_id) AS terms_accepted,EXISTS(SELECT 1 FROM payments pay WHERE pay.offer_id=o.id AND pay.user_id=o.editor_id AND pay.payment_type='editor_security_deposit' AND pay.status='succeeded' AND pay.provider_payment_id IS NOT NULL) AS deposit_verified FROM project_offers o JOIN users u ON u.id=o.editor_id AND u.role='editor' JOIN editor_profiles e ON e.user_id=o.editor_id WHERE o.id=?").bind(offerId).first();
   if(!o||o.status!=="ready_for_assignment")return bad("Offer is not paid and ready for assignment.",409);
+  if(o.account_status!=="active"||o.verification_status!=="verified"||!o.kyc_verified)return bad("Editor must remain active with verified profile and KYC before assignment.",409,"editor_verification_required");
+  if(!o.terms_accepted||!o.deposit_verified)return bad("Accepted project agreement and captured security deposit are required before assignment.",409,"offer_requirements_incomplete");
+  const departmentAccess=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(o.project_id,a.source_admin_id).first();
+  if(!departmentAccess)return bad("Tender department access is required to confirm project assignment.",403);
   const due=new Date(Date.now()+o.delivery_days*86400000).toISOString(),assignmentId=uid("asn");
-  await env.DB.batch([
-   env.DB.prepare("INSERT INTO assignments(id,project_id,offer_id,editor_id,assigned_by,due_at,status) VALUES(?,?,?,?,?,?,'active')").bind(assignmentId,o.project_id,o.id,o.editor_id,a.id,due),
-   env.DB.prepare("UPDATE project_offers SET status='assigned' WHERE id=? AND status='ready_for_assignment'").bind(o.id),
-   env.DB.prepare("UPDATE projects SET status='assigned',client_visible_status='in_progress',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(o.project_id)
-  ]);
-  await log(env,a.id,"project_assignment_confirmed","assignment",assignmentId,{project_id:o.project_id,offer_id:o.id});
-  return out({ok:true,assignment_id:assignmentId,status:"assigned",due_at:due},201);
+  try{
+   await env.DB.batch([
+    env.DB.prepare("INSERT INTO assignments(id,project_id,offer_id,editor_id,assigned_by,due_at,status) SELECT ?,?,?,?,?,?,'active' WHERE EXISTS(SELECT 1 FROM project_offers WHERE id=? AND status='ready_for_assignment') AND NOT EXISTS(SELECT 1 FROM assignments WHERE offer_id=?)").bind(assignmentId,o.project_id,o.id,o.editor_id,a.id,due,o.id,o.id),
+    env.DB.prepare("UPDATE project_offers SET status='assigned' WHERE id=? AND status='ready_for_assignment' AND EXISTS(SELECT 1 FROM assignments WHERE offer_id=?)").bind(o.id,o.id),
+    env.DB.prepare("UPDATE projects SET status='assigned',client_visible_status='in_progress',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND EXISTS(SELECT 1 FROM assignments WHERE offer_id=?)").bind(o.project_id,o.id)
+   ]);
+  }catch(error){
+   const message=String(error?.message||error);
+   if(/UNIQUE constraint failed: assignments\.offer_id/i.test(message))return bad("This offer already has an assignment. Refresh the dashboard to see its current status.",409,"assignment_already_exists");
+   throw error;
+  }
+  const created=await env.DB.prepare("SELECT id,due_at FROM assignments WHERE offer_id=?").bind(o.id).first();
+  if(!created)return bad("Assignment could not be created. Refresh and retry only after checking the offer status.",409,"assignment_not_created");
+  await log(env,a.id,"project_assignment_confirmed","assignment",created.id,{project_id:o.project_id,offer_id:o.id});
+  return out({ok:true,assignment_id:created.id,status:"assigned",due_at:created.due_at},201);
  }
  if(m==="POST"&&p.startsWith("/v1/offers/")&&p.endsWith("/deposit/checkout")){
   const offerId=p.split("/")[3],a=await user(req,env,["editor"]);
