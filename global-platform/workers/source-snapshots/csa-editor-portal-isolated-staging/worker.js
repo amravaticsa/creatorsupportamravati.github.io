@@ -1,6 +1,6 @@
 
 const PORTAL_HOSTS=Object.freeze({
- staging:Object.freeze({editorHost:"editor-staging.creatorsupportamravati.in",adminHost:"superadmin-editor-staging.creatorsupportamravati.in"}),
+ staging:Object.freeze({editorHost:"editor-staging.creatorsupportamravati.in",adminHost:"superadmin-editor-staging.creatorsupportamravati.in",bridgeHost:"editor-api-isolated-staging.creatorsupportamravati.in"}),
  production:Object.freeze({editorHost:"editor.creatorsupportamravati.in",adminHost:"superadmin.creatorsupportamravati.in"})
 });
 export function resolvePortalHosts(env){
@@ -10,7 +10,7 @@ export function resolvePortalHosts(env){
 }
 export function isPortalHost(host,role,env){
  const config=resolvePortalHosts(env);
- const key=role==="editor"?"editorHost":role==="admin"?"adminHost":null;
+ const key=role==="editor"?"editorHost":role==="admin"?"adminHost":role==="bridge"?"bridgeHost":null;
  return !!config&&!!key&&host===config[key];
 }
 const ADMIN_HTML="<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>CSA Editor Management</title><style>\n:root{font-family:Inter,system-ui,Arial;color:#17243b;background:#f3f6fa}body{margin:0;padding:24px}.wrap{max-width:1100px;margin:auto}.hero{background:linear-gradient(120deg,#102c43,#176c70);color:white;padding:28px;border-radius:18px}.card{background:white;border:1px solid #e1e8ef;border-radius:14px;padding:20px;margin:16px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}input,select{padding:11px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;max-width:100%}button{border:0;border-radius:8px;padding:11px 15px;background:#126b58;color:white;font-weight:700;cursor:pointer}button.secondary{background:#e8eef3;color:#17324a}button:disabled{opacity:.5}.item{padding:14px;border:1px solid #e3e9ef;border-radius:10px;margin:10px 0}.muted{color:#64748b;font-size:13px}.msg{padding:12px;background:#edf7f4;border-radius:8px;white-space:pre-wrap}.pill{display:inline-block;padding:5px 9px;border-radius:20px;background:#e9f5f2;color:#116d5e;font-size:12px}.hidden{display:none!important}@media(max-width:700px){.grid{grid-template-columns:1fr}body{padding:12px}}</style></head><body><main class=\"wrap\"><header class=\"hero\"><b>CREATOR SUPPORT AMRAVATI · SUPER ADMIN</b><h1>Editor Management</h1><p>Create editor accounts, assign editing projects and monitor assignments. Editors cannot view customer contact details.</p><a href=\"/rush-approvals\" style=\"color:#fff\">← Super Admin</a></header><div id=\"msg\" class=\"msg\">Loading secure editor management…</div><section class=\"grid\"><article class=\"card\"><h2>Create editor account</h2><form id=\"createForm\"><p><input name=\"name\" placeholder=\"Editor full name\" required maxlength=\"100\" style=\"width:100%;box-sizing:border-box\"></p><p><input name=\"user\" placeholder=\"Editor User ID\" required maxlength=\"40\" pattern=\"[A-Za-z0-9._-]+\" style=\"width:100%;box-sizing:border-box\"></p><p><input name=\"password\" type=\"password\" placeholder=\"Temporary password (min. 12 characters)\" required minlength=\"12\" style=\"width:100%;box-sizing:border-box\"></p><button>Create editor</button></form><p class=\"muted\">Share login credentials privately. Editors must not share accounts.</p></article><article class=\"card\"><h2>Editor accounts</h2><div id=\"editors\">Loading…</div></article></section><section class=\"card\"><h2>Assign a project</h2><div class=\"row\"><select id=\"order\" style=\"flex:2;min-width:240px\"><option value=\"\">Select project</option></select><select id=\"editor\" style=\"flex:1;min-width:200px\"><option value=\"\">Select editor</option></select><button id=\"assign\">Assign project</button></div><div id=\"orders\"></div></section></main><script>\nconst $=id=>document.getElementById(id),msg=s=>{$(\"msg\").textContent=s};let editors=[],orders=[];\nasync function api(path,opt={}){const r=await fetch(\"/editor-api/admin/\"+path,{credentials:\"same-origin\",cache:\"no-store\",...opt,headers:{\"content-type\":\"application/json\",...(opt.headers||{})}});const d=await r.json();if(!r.ok)throw Error(d.error||\"Request failed\");return d}\nfunction el(tag,txt,cls){const n=document.createElement(tag);if(txt!==undefined)n.textContent=txt;if(cls)n.className=cls;return n}\nasync function load(){try{const [e,o]=await Promise.all([api(\"editors\"),api(\"orders\")]);editors=e.editors||[];orders=o.orders||[];render();msg(\"Secure session verified. Manage editor accounts and assignments below.\")}catch(e){msg(\"Access denied or session expired: \"+e.message)}}\nfunction render(){const root=$(\"editors\");root.replaceChildren();editors.forEach(x=>{const c=el(\"div\",undefined,\"item\"),h=el(\"b\",x.display_name+\" · \"+x.user_id),p=el(\"p\",x.status+\" · Created \"+x.created_at,\"muted\"),b=el(\"button\",x.status===\"active\"?\"Disable account\":\"Activate account\",\"secondary\");b.onclick=async()=>{try{await api(\"editors/\"+encodeURIComponent(x.id),{method:\"PATCH\",body:JSON.stringify({status:x.status===\"active\"?\"disabled\":\"active\"})});await load()}catch(e){msg(e.message)}};c.append(h,p,b);root.append(c)});if(!editors.length)root.textContent=\"No editor accounts yet.\";const os=$(\"order\"),es=$(\"editor\");os.replaceChildren(el(\"option\",\"Select project\"));orders.forEach(x=>{const o=el(\"option\",x.order_code+\" · \"+x.project_type+\" · \"+x.order_status);o.value=x.order_code;os.append(o)});es.replaceChildren(el(\"option\",\"Select editor\"));editors.filter(x=>x.status===\"active\").forEach(x=>{const o=el(\"option\",x.display_name+\" (\"+x.user_id+\")\");o.value=x.id;es.append(o)});const list=$(\"orders\");list.replaceChildren();orders.forEach(x=>{const d=el(\"div\",undefined,\"item\");d.append(el(\"b\",x.order_code+\" · \"+(x.project_type||x.service_package||\"Video project\")),el(\"p\",x.order_status+\" · \"+(x.editor_name?\"Assigned to \"+x.editor_name:\"Unassigned\"),\"muted\"));list.append(d)})}\n$(\"createForm\").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const r=await api(\"editors\",{method:\"POST\",body:JSON.stringify({name:f.get(\"name\"),user_id:f.get(\"user\"),password:f.get(\"password\")})});e.target.reset();msg(\"Editor created: \"+r.editor.user_id+\". Save/share the temporary password securely.\");await load()}catch(e){msg(e.message)}};\n$(\"assign\").onclick=async()=>{if(!$(\"order\").value||!$(\"editor\").value){msg(\"Select both a project and an active editor.\");return}try{await api(\"assign\",{method:\"POST\",body:JSON.stringify({order_code:$(\"order\").value,editor_id:$(\"editor\").value})});msg(\"Project assigned. The order has moved to Work assigned.\");await load()}catch(e){msg(e.message)}};\nload();\n</script></body></html>";
@@ -55,13 +55,70 @@ export default {async fetch(req,env){
  if(req.headers.get("Origin")&&req.headers.get("Origin")!==u.origin)return json({error:"Origin not allowed"},403);
 
  if(p==="/editor-api/internal/legacy-bridge/health"){
-  if(req.method!=="POST"||String(env.ENVIRONMENT||"").toLowerCase()!=="staging"||!isPortalHost(host,"admin",env))return json({error:"Not found"},404);
+  if(req.method!=="POST"||String(env.ENVIRONMENT||"").toLowerCase()!=="staging"||!isPortalHost(host,"bridge",env))return json({error:"Not found"},404);
   const raw=await req.text();if(raw.length>1024)return json({error:"Payload too large"},413);
   const verified=await verifyLegacyBridgeRequest(req,env,raw);
   if(!verified.ok)return json({ok:false,error:verified.code},verified.status);
   let payload={};try{payload=raw?JSON.parse(raw):{}}catch{return json({error:"Invalid JSON"},400)}
   if(payload.purpose!=="bridge-readiness")return json({error:"Unsupported bridge request"},400);
   return json({ok:true,service:"CSA Legacy Editor Bridge",environment:"staging",authenticated:true},200);
+ }
+ if(p==="/editor-api/internal/legacy-bridge/assignment"){
+  if(req.method!=="POST"||String(env.ENVIRONMENT||"").toLowerCase()!=="staging"||!isPortalHost(host,"bridge",env))return json({error:"Not found"},404);
+  const raw=await req.text();if(raw.length>4096)return json({error:"Payload too large"},413);
+  const verified=await verifyLegacyBridgeRequest(req,env,raw);
+  if(!verified.ok)return json({ok:false,error:verified.code},verified.status);
+  let payload={};try{payload=raw?JSON.parse(raw):{}}catch{return json({error:"Invalid JSON"},400)}
+  if(payload.purpose==="validate-link"){
+   if(payload.kind==="editor"){
+    const editorId=clean(payload.legacy_editor_id,100),editor=await env.CSA_VIDEO_DB.prepare("SELECT id,status FROM video_editors WHERE id=?").bind(editorId).first();
+    if(!editor||editor.status!=="active")return json({ok:false,error:"legacy_editor_not_active"},409);
+    return json({ok:true,kind:"editor",legacy_editor_id:editor.id},200);
+   }
+   if(payload.kind==="order"){
+    const orderId=clean(payload.legacy_order_id,100),orderCode=clean(payload.legacy_order_code,40),order=await env.CSA_VIDEO_DB.prepare("SELECT id,order_code,order_status,is_draft FROM video_editing_orders WHERE id=?").bind(orderId).first();
+    if(!order||Number(order.is_draft)!==0||order.order_code!==orderCode)return json({ok:false,error:"legacy_order_not_found"},404);
+    if(!["Files received","Work assigned"].includes(order.order_status))return json({ok:false,error:"legacy_order_not_assignable"},409);
+    return json({ok:true,kind:"order",legacy_order_id:order.id,legacy_order_code:order.order_code,order_status:order.order_status},200);
+   }
+   return json({error:"Unsupported legacy link validation kind"},400);
+  }
+  if(payload.purpose!=="assignment-sync")return json({error:"Unsupported bridge request"},400);
+  const globalAssignmentId=clean(payload.global_assignment_id,100),orderId=clean(payload.legacy_order_id,100),orderCode=clean(payload.legacy_order_code,40),editorId=clean(payload.legacy_editor_id,100),key=clean(payload.idempotency_key,160);
+  if(!/^[A-Za-z0-9_-]{8,100}$/.test(globalAssignmentId)||!/^[A-Za-z0-9_-]{8,100}$/.test(orderId)||!/^[A-Za-z0-9._-]{3,40}$/.test(orderCode)||!/^[A-Za-z0-9_-]{3,100}$/.test(editorId)||!/^[A-Za-z0-9._:-]{8,160}$/.test(key))return json({error:"Invalid assignment bridge identifiers"},400);
+  const order=await env.CSA_VIDEO_DB.prepare("SELECT id,order_code,order_status,is_draft FROM video_editing_orders WHERE id=?").bind(orderId).first();
+  if(!order||Number(order.is_draft)!==0||order.order_code!==orderCode)return json({error:"Legacy order not found or code mismatch"},404);
+  const editor=await env.CSA_VIDEO_DB.prepare("SELECT id,status FROM video_editors WHERE id=?").bind(editorId).first();
+  if(!editor||editor.status!=="active")return json({error:"Legacy editor is not active"},409);
+  const prior=await env.CSA_VIDEO_DB.prepare("SELECT id,editor_id,status FROM video_editing_assignments WHERE order_id=?").bind(orderId).first();
+  if(prior){
+   if(prior.editor_id===editorId&&prior.status==="active")return json({ok:true,legacy_assignment_id:prior.id,legacy_order_code:order.order_code,status:order.order_status,idempotent:true},200);
+   return json({ok:false,error:"Legacy order already has a different or inactive assignment"},409);
+  }
+  if(!["Files received","Work assigned"].includes(order.order_status))return json({error:"Legacy order is not eligible for assignment"},409);
+  const assignmentId=id();
+  try{
+   const results=await env.CSA_VIDEO_DB.batch([
+    env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_assignments(id,order_id,editor_id,assigned_by,status) SELECT ?,o.id,?,?,'active' FROM video_editing_orders o WHERE o.id=? AND o.is_draft=0 AND o.order_status IN ('Files received','Work assigned') AND EXISTS(SELECT 1 FROM video_editors e WHERE e.id=? AND e.status='active') AND NOT EXISTS(SELECT 1 FROM video_editing_assignments a WHERE a.order_id=o.id) RETURNING id").bind(assignmentId,editorId,"global-api:"+globalAssignmentId,orderId,editorId),
+    env.CSA_VIDEO_DB.prepare("UPDATE video_editing_orders SET order_status='Work assigned',updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_draft=0 AND order_status IN ('Files received','Work assigned') AND EXISTS(SELECT 1 FROM video_editing_assignments a WHERE a.order_id=? AND a.editor_id=? AND a.status='active')").bind(orderId,orderId,editorId),
+    env.CSA_VIDEO_DB.prepare("INSERT INTO video_editing_status_history(id,order_id,old_status,new_status,note,changed_by) SELECT ?,?,?,'Work assigned',?,'global-api' WHERE EXISTS(SELECT 1 FROM video_editing_assignments a WHERE a.order_id=? AND a.editor_id=? AND a.status='active')").bind(id(),orderId,order.order_status,"Assigned through CSA Global assignment "+globalAssignmentId,orderId,editorId),
+    env.CSA_VIDEO_DB.prepare("INSERT INTO video_editor_audit(id,editor_id,order_id,event_type,details_json) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM video_editing_assignments a WHERE a.order_id=? AND a.editor_id=? AND a.status='active')").bind(id(),editorId,orderId,"project.assigned_from_global",JSON.stringify({global_assignment_id:globalAssignmentId,idempotency_key:key}),orderId,editorId)
+   ]);
+   const inserted=results?.[0]?.results?.[0];
+   if(!inserted){
+    const raced=await env.CSA_VIDEO_DB.prepare("SELECT id,editor_id,status FROM video_editing_assignments WHERE order_id=?").bind(orderId).first();
+    if(raced?.editor_id===editorId&&raced.status==="active")return json({ok:true,legacy_assignment_id:raced.id,legacy_order_code:order.order_code,status:"Work assigned",idempotent:true},200);
+    return json({ok:false,error:"Legacy assignment changed concurrently; manual review required"},409);
+   }
+   const confirmed=await env.CSA_VIDEO_DB.prepare("SELECT order_status FROM video_editing_orders WHERE id=?").bind(orderId).first();
+   if(confirmed?.order_status!=="Work assigned")return json({ok:false,error:"Legacy assignment status needs reconciliation"},503);
+   return json({ok:true,legacy_assignment_id:assignmentId,legacy_order_code:order.order_code,status:"Work assigned",idempotent:false},201);
+  }catch(error){
+   const raced=await env.CSA_VIDEO_DB.prepare("SELECT id,editor_id,status FROM video_editing_assignments WHERE order_id=?").bind(orderId).first().catch(()=>null);
+   if(raced?.editor_id===editorId&&raced.status==="active")return json({ok:true,legacy_assignment_id:raced.id,legacy_order_code:order.order_code,status:"Work assigned",idempotent:true},200);
+   console.error("Legacy assignment bridge failed","internal_error");
+   return json({ok:false,error:"Legacy assignment could not be synchronized"},503);
+  }
  }
  if(p==="/health")return json({ok:!!portalConfig,service:"CSA Editor Portal",environment:portalConfig?.environment||"unconfigured"},portalConfig?200:503);
  if(!portalConfig)return json({error:"Portal environment is not configured"},503);
