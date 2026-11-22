@@ -42,3 +42,6 @@ After a successful read-only review, the next step is a separate backup/restore 
 
 
 The validation workflow also checks that this preflight SQL and its review instructions remain present in the staging source tree.
+
+
+Automated CI guard: `global-platform/scripts/test-legacy-side-assignment-preflight-readonly.py` checks that this preflight contains only `SELECT` statements and the approved inspection pragmas (`table_info`, `index_list`). This is a static safety check; it does not execute the SQL against Cloudflare D1.
