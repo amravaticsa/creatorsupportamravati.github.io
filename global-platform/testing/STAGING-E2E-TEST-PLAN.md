@@ -259,3 +259,11 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers the dedicated `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback.
 - Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
 - The new dedicated secret binding has not been provisioned. The scheduled sync remains blocked by the existing 401 until the same new random value is added to `csa-superadmin-isolated-staging` and `csa-global-api-staging` after owner authorization.
+
+
+### Country assignment integration — 2026-11-22 08:40 UTC
+
+- Canonical Global D1 now has the immutable evidence-backed country assignment audit schema and extended review view. Super Admin `GLOBAL_DB` is bound to the same D1 used by the Client/Editor Portal.
+- New Client/Editor onboarding no longer writes a user-supplied country into authoritative `users.country_code`; it remains null until Super Admin evidence review.
+- The two existing active Client accounts appear in the country review view as `needs_verified_country`. No country assignments or audit rows were created.
+- Runtime country-assignment verification still needs a Super Admin browser session, an approved active country/legal review, and evidence reference. Do not mark a country verified without owner-provided evidence.
