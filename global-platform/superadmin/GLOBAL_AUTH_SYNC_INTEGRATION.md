@@ -27,9 +27,9 @@
 ## Scheduled sync status
 
 - Before the final routing/secret correction, the 09:45:46 UTC attempt failed with `global_authorization_sync_failed_401` while the sender and isolated receiver had different dedicated secrets. The 10:00:46 UTC attempt failed with `internal_error` during the initial bridge-target transition.
-- After routing the four core bridges to canonical API, retaining Legacy Links on the isolated API, and setting the same 256-bit secret on all three Staging Workers, the 10:15:46 UTC scheduled sync **succeeded** with `synced_count=1` and no error code.
+- After routing the four core bridges to canonical API, retaining Legacy Links on the isolated API, and provisioning the dedicated 256-bit secret on the two canonical Staging Workers, the 10:15:46 UTC scheduled sync **succeeded** with `synced_count=1` and no error code.
 - Read-only comparison confirmed the active non-Super-Admin source account and its canonical `global_admin_authorizations` row have the same source ID, role, status and Finance access level (`none`).
-- GitHub Actions validation and the Staging Pages deploy/smoke workflow both passed for commit `8e029c2d7c81bc9bb2be91eb2d5c6202af255f96` at 10:16:51 UTC. The 10:30 UTC scheduled run remains the next stability check.
+- GitHub Actions validation and the Staging Pages deploy/smoke workflow both passed for commit `8e029c2d7c81bc9bb2be91eb2d5c6202af255f96` at 10:16:51 UTC. The 10:30:46 UTC scheduled run also succeeded with `synced_count=1` and no error code, after the isolated sender was changed to prefer `GLOBAL_API_SYNC_HMAC_SECRET`.
 
 ## Safe acceptance criteria
 
@@ -38,3 +38,13 @@
 3. Do not create dummy admins or invitations. A controlled lifecycle test should use a real, explicitly authorized admin change only.
 4. Do not manually edit Global API authorization rows; the signed Super Admin snapshot is authoritative.
 5. Keep Production and legacy Workers untouched.
+
+
+### Follow-up verification — 2026-11-22 10:40 UTC
+
+- The isolated Super Admin sender now signs the authorization snapshot with `GLOBAL_API_SYNC_HMAC_SECRET` first and retains `ADMIN_SYNC_HMAC_SECRET` only as compatibility fallback.
+- The canonical Global API verifies both dedicated and legacy HMAC keys on all eight internal bridge paths; the legacy Super Admin Worker remains unchanged.
+- The 10:30:46 UTC scheduled sync succeeded after the dedicated-secret sender deployment: one active non-Super-Admin authorization synchronized, no error.
+- The canonical Super Admin `GLOBAL_DB` must remain aligned with canonical Global API D1 470 because the country assignment route writes there and Regional Admin data reads through the canonical API. The Staging preflight now explicitly checks this binding and both secret names.
+- Super Admin, Editor Portal and Rush Admin isolated Staging Workers now have persisted Workers Logs and sampled Traces enabled. Raw exception objects/messages were sanitized before enabling observability.
+- Production and the legacy Super Admin Worker were not modified.
