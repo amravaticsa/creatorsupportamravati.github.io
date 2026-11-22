@@ -252,3 +252,10 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - The legacy `csa-superadmin-api-staging` also calls the canonical staging API using `ADMIN_SYNC_HMAC_SECRET`. Do not rotate that existing binding.
 - Required safe fix: create a separate random `GLOBAL_API_SYNC_HMAC_SECRET` binding on the isolated Super Admin Worker and canonical Global API; update the new isolated Super Admin bridge calls to use it; have the canonical API accept both new and legacy secrets during transition. This requires explicit owner authorization for a security-credential change.
 - Until the new secret is authorized and a scheduled run records success, Global Admin sync is deployed but not operationally verified.
+
+
+### HMAC compatibility code — 2026-11-22 08:33 UTC
+
+- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers the dedicated `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback.
+- Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
+- The new dedicated secret binding has not been provisioned. The scheduled sync remains blocked by the existing 401 until the same new random value is added to `csa-superadmin-isolated-staging` and `csa-global-api-staging` after owner authorization.
