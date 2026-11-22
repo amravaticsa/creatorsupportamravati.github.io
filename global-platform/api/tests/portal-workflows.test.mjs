@@ -163,3 +163,19 @@ test("QC pending queue and ready-for-assignment queue are scoped to each admin's
     assert.match(route, /\.bind\(a\.source_admin_id\|\|null,a\.source_admin_id\|\|null\)/);
   }
 });
+
+
+test("Editor assignment history is private to the assigned editor and exposes QC versions", () => {
+  const route = api.slice(api.indexOf('if(m==="GET"&&p.startsWith("/v1/editor/assignments/")&&p.endsWith("/submissions"))'), api.indexOf('if(m==="GET"&&p==="/v1/editor/assignments")'));
+  assert.match(route, /user\(req,env,\["editor"\]\)/);
+  assert.match(route, /WHERE id=\? AND editor_id=\?/);
+  assert.match(route, /WHERE assignment_id=\? ORDER BY version_number DESC/);
+  assert.match(route, /qc_status,submitted_at/);
+});
+
+test("Editor portal shows submission history and only enables uploads for active or revision assignments", () => {
+  assert.match(portal, /Submission and QC history/);
+  assert.match(portal, /assignment\.status==="active"\|\|assignment\.status==="revision"/);
+  assert.match(portal, /Submission received\. Upload is paused while CSA completes quality review\./);
+  assert.match(portal, /Submit revised version/);
+});
