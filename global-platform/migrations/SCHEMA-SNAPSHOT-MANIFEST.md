@@ -32,7 +32,7 @@ Schema only; no application rows or credentials are included. These counts are c
 ## Verified project country scope — migration 0032
 
 - Migration: `0032_verified_country_scope.sql`.
-- Applied to canonical Global Staging D1 `470a81b8-b8c5-413c-9f51-58f0a9fa0712` (database ID recorded in the Cloudflare deployment inventory as `470a81b8-3d36-4e2d-942c-5cbb2746a473`).
+- Applied to canonical Global Staging D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
 - Rebuilds `v_project_country_scope` so a Client's country is included only when `users.country_verified_at`, `country_verified_by`, and `country_evidence_ref` are all present and the country code is valid.
 - The isolated D1 6a32 already had this stricter view. Canonical and isolated views now use the same verified-country rule.
 - Read-only verification: all three existing canonical projects remain `country_unassigned`; no project is included in India's Regional Admin scope until evidence-backed assignment.
