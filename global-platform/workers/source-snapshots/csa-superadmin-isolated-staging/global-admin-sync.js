@@ -23,7 +23,7 @@ async function hmacHex(secret, value) {
 }
 
 export async function syncGlobalAdminAuthorizations(env) {
-  if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET)) throw new Error("admin_sync_secret_missing");
+  if (!(env.ADMIN_SYNC_HMAC_SECRET)) throw new Error("admin_sync_secret_missing");
   if (!env.DB) throw new Error("superadmin_database_binding_missing");
 
   const result = await env.DB.prepare(
@@ -58,7 +58,7 @@ export async function syncGlobalAdminAuthorizations(env) {
     nonce,
     await sha256Hex(body),
   ].join("\n");
-  const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET, canonical);
+  const signature = await hmacHex(env.ADMIN_SYNC_HMAC_SECRET, canonical);
 
   const response = await fetch(
     (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path,
@@ -133,7 +133,7 @@ export async function callGlobalLegacyLinks(env,actor,request){
  const timestamp=String(Math.floor(Date.now()/1000)),nonce=crypto.randomUUID();
  const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
  const signature=await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET,canonical);
- const response=await fetch("https://csa-global-api-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
+ const response=await fetch("https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
  const data=await response.json().catch(()=>({}));
  if(!response.ok||data.ok!==true)throw new Error("global_legacy_links_bridge_failed_"+response.status);
  return data;
