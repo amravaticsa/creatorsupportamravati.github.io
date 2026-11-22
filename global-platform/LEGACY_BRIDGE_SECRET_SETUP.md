@@ -36,8 +36,9 @@ The nonce migration `0027` was applied on 2026-11-22 only to the isolated Editor
 
 ## Required next implementation gates
 
-1. Run a real signed health request through the deployed staging endpoint, then verify nonce replay rejection and fail-closed behavior against the migrated D1. The endpoint is `/editor-api/internal/legacy-bridge/health` on the dedicated staging Admin host.
-2. Implement an authenticated test harness or controlled staging request path to verify the live signer/verifier interaction without exposing the shared secret.
+1. The Global API now contains `/internal/superadmin/legacy-bridge/readiness`, a staging-only endpoint authenticated with the existing Super Admin ↔ Global API HMAC. It consumes a one-time `admin_sync_nonces` entry, signs a fixed readiness-only request with `CSA_LEGACY_BRIDGE_SECRET`, and calls only the Editor Portal health endpoint. It returns a generic success/failure and no peer payload or customer data.
+2. Automated source regression tests cover staging restriction, both secret gates, replay protection, fixed staging peer, and absence of order/identity-transfer operations. Latest API validation passed on commit `e167980ceeafdba3d30760b163fdbc43b63dc81b` (run `44984688273`). The Global API Worker source is NOT deployed, so the new endpoint is not live yet.
+3. After separate deployment approval, deploy only `csa-global-api-isolated-staging`, then invoke the readiness route from the Super Admin Worker using its existing `ADMIN_SYNC_HMAC_SECRET` signing convention and verify peer health plus replay rejection.
 3. Implement explicit admin-reviewed Global editor ↔ legacy editor mapping; require active account, verified profile, and verified KYC. Never match by email/name alone and never copy password credentials.
 4. Implement idempotent order/assignment bridge operations and revocation handling.
 5. Only after the above tests pass, revisit the isolated Global API `LEGACY_VIDEO_DB` binding. Preserve all existing bindings and keep production untouched.
