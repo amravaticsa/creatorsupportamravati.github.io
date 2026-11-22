@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 
-const api = await readFile(new URL("../src/index.js", import.meta.url), "utf8");
+const api = await readFile(new URL("../../workers/source-snapshots/csa-global-api-isolated-staging/index.js", import.meta.url), "utf8");
 const editor = await readFile(new URL("../../workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js", import.meta.url), "utf8");
 const superAdmin = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
 const superAdminBridge = await readFile(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
@@ -152,12 +152,12 @@ test("Super Admin legacy-link test action is Super Admin-only and staging-only",
   assert.ok(helper.includes('env.ENVIRONMENT!=="staging"'));
 });
 
-test("Super Admin legacy-link bridge signs the canonical staging API request", () => {
+test("Super Admin legacy-link bridge signs the isolated legacy API request", () => {
   const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyLinks"));
   assert.ok(helper.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
   assert.ok(helper.includes('["POST",path,timestamp,nonce,await sha256Hex(body)].join("\\n")'));
   assert.ok(helper.includes("/internal/superadmin/legacy-links"));
-  assert.ok(helper.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"));
+  assert.ok(helper.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"));
 });
 
 test("Global API peer request carries path-scoped Cloudflare Access service credentials", () => {
