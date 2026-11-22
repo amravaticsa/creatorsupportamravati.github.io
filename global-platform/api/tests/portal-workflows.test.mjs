@@ -228,3 +228,12 @@ test("Workflow notifications reach Client and Editor and Editor can read/manage 
   assert.ok(portal.includes('loadCsaNotifications("editor")'));
   assert.ok(portal.includes('loadCsaNotifications("editor")'));
 });
+
+test("Client final approval is owner-scoped, requires latest QC-approved delivery and closes project assignment together", () => {
+  const start=api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/approve"))');
+  const end=api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions"))',start);
+  const route=api.slice(start,end);
+  for(const required of ['user(req,env,["client"])',"p.client_id=?","p.status='client_review'","x.status='approved'","s.qc_status='approved'","ORDER BY s2.submitted_at DESC LIMIT 1","NOT EXISTS(SELECT 1 FROM client_revision_requests","status='completed'","client_final_delivery_approved","finance_reconciliation_required:true"])assert.ok(route.includes(required),"Missing final approval safeguard: "+required);
+  assert.ok(portal.includes("Approve final video & complete project"));
+  assert.ok(portal.includes("/approve"));
+});
