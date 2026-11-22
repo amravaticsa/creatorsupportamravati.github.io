@@ -173,9 +173,10 @@ test("Super Admin legacy-link test action is Super Admin-only and staging-only",
   assert.ok(helper.includes('env.ENVIRONMENT!=="staging"'));
 });
 
-test("Super Admin legacy-link bridge signs the isolated legacy API request", () => {
+test("Super Admin legacy-link bridge signs the isolated legacy API request with the legacy secret only", () => {
   const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyLinks"));
-  assert.ok(helper.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
+  assert.ok(helper.includes("ADMIN_SYNC_HMAC_SECRET"));
+  assert.ok(!helper.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
   assert.ok(helper.includes('["POST",path,timestamp,nonce,await sha256Hex(body)].join("\\n")'));
   assert.ok(helper.includes("/internal/superadmin/legacy-links"));
   assert.ok(helper.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"));
