@@ -157,6 +157,32 @@ async function handle(req,env){
   await env.DB.batch(statements);
   return out({ok:true,synced:records.length,revoked_if_absent:true},200);
  }
+ if(m==="POST"&&p==="/internal/superadmin/legacy-bridge/readiness"){
+  // Super Admin Worker-only readiness probe. No Global Admin JWT/session is accepted.
+  if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET||!env.CSA_LEGACY_BRIDGE_SECRET)return bad("Legacy bridge readiness is not configured.",503,"bridge_readiness_unavailable");
+  const raw=await req.text();
+  if(raw.length>2048)return bad("Readiness request is too large.",413,"bridge_readiness_payload_too_large");
+  const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
+  const seconds=Number(ts),nowSeconds=Math.floor(Date.now()/1000);
+  if(!/^\\d{10}$/.test(ts)||Math.abs(nowSeconds-seconds)>60||!/^[a-f0-9-]{20,80}$/i.test(nonce)||!/^[a-f0-9]{64}$/.test(sig))return bad("Invalid readiness authentication headers.",401,"bridge_readiness_auth_invalid");
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
+  const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const canonical="POST\\n/internal/superadmin/legacy-bridge/readiness\\n"+ts+"\\n"+nonce+"\\n"+bodyHash;
+  const expected=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
+  if(!constantTime(expected,sig))return bad("Readiness authentication signature is invalid.",401,"bridge_readiness_signature_invalid");
+  let payload;try{payload=JSON.parse(raw)}catch{return bad("Invalid readiness request JSON.");}
+  if(payload?.purpose!=="bridge-readiness")return bad("Unsupported readiness purpose.",400,"bridge_readiness_purpose_invalid");
+  try{await env.DB.prepare("INSERT INTO admin_sync_nonces(nonce,expires_at) VALUES(?,?)").bind(nonce,nowSeconds+300).run();}
+  catch{return bad("Readiness request nonce was already used.",409,"bridge_readiness_replay");}
+  const bridgePath="/editor-api/internal/legacy-bridge/health",bridgeBody=JSON.stringify({purpose:"bridge-readiness"});
+  try{
+   const headers=await legacyBridgeHeaders(env,"POST",bridgePath,bridgeBody);
+   const response=await fetch("https://superadmin-editor-staging.creatorsupportamravati.in"+bridgePath,{method:"POST",headers:{"content-type":"application/json",...headers},body:bridgeBody});
+   let result={};try{result=await response.json()}catch{}
+   if(!response.ok||result?.ok!==true||result?.authenticated!==true)return bad("Legacy Editor Portal readiness check did not pass.",502,"legacy_bridge_peer_unavailable");
+   return out({ok:true,bridge:{authenticated:true,peer:"editor-portal-staging"}},200);
+  }catch{return bad("Legacy Editor Portal readiness check failed safely.",502,"legacy_bridge_peer_unavailable");}
+ }
  if(m==="POST"&&p==="/internal/superadmin/pricing-policy"){
   // Dedicated Super Admin bridge. Never accepts Global Admin JWT/session roles.
   if(env.ENVIRONMENT!=="staging"||!env.ADMIN_SYNC_HMAC_SECRET)return bad("Super Admin pricing bridge is not configured.",503,"pricing_bridge_unavailable");
