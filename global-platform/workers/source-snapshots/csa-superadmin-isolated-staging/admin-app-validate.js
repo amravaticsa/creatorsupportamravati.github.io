@@ -5,4 +5,3 @@ let challenge='',me=null;const $=id=>document.getElementById(id);async function 
 ;
 document.addEventListener('click',function(event){const button=event.target.closest('#adminLoginButton');if(!button)return;event.preventDefault();if(typeof window.handleAdminLogin==='function'){window.handleAdminLogin();return;}const messageBox=document.getElementById('msg');if(messageBox){messageBox.className='error';messageBox.textContent='Login interface did not initialize. Please refresh the page. If this continues, contact CSA support.';}});
 }
-
