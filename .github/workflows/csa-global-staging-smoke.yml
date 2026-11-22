@@ -8,6 +8,13 @@ on:
     paths:
       - "global-platform/api/src/index.js"
       - ".github/workflows/csa-global-staging-smoke.yml"
+      - "global-platform/assets/auth.js"
+      - "global-platform/assets/portal.js"
+      - "global-platform/login.html"
+      - "global-platform/portal.html"
+      - "global-platform/api/tests/client-onboarding-project-flow.test.mjs"
+      - "global-platform/api/tests/client-upload-security.test.mjs"
+      - "global-platform/api/tests/portal-workflows.test.mjs"
 
 permissions:
   contents: read
