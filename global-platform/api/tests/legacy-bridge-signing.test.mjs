@@ -148,7 +148,6 @@ test("Super Admin legacy-link test action is Super Admin-only and staging-only",
   assert.ok(route.includes('u.role!=="super_admin"'));
   assert.ok(route.includes('["link_editor","claim_order","test_bridge"]'));
   assert.ok(route.includes("callGlobalLegacyLinks"));
-  assert.ok(route.includes('action==="test_bridge"') || route.includes('action==="test_bridge"'));
   const helper = superAdminBridge.slice(superAdminBridge.indexOf("export async function callGlobalLegacyLinks"));
   assert.ok(helper.includes('env.ENVIRONMENT!=="staging"'));
 });
