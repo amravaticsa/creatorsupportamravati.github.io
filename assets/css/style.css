@@ -805,3 +805,37 @@ table{max-width:100%}
   .hero h1{font-size:31px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* CSA header spacing refinement: keep navigation and account controls visually grouped */
+@media (min-width: 681px) {
+  .header-inner {
+    justify-content: flex-start;
+    gap: 16px;
+  }
+  .brand {
+    margin-right: auto;
+    flex: 0 0 auto;
+  }
+  .main-nav {
+    margin-left: 0;
+    gap: clamp(12px, 1.35vw, 19px);
+    flex: 0 1 auto;
+  }
+  #csa-role-menu-root {
+    margin-left: 8px;
+  }
+}
+@media (max-width: 680px) {
+  .header-inner {
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .brand {
+    margin-right: auto;
+  }
+  .menu-toggle {
+    margin-left: auto;
+    flex: 0 0 44px;
+  }
+}
