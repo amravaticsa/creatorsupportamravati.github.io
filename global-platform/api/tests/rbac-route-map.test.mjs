@@ -7,7 +7,7 @@ const pricingMigration = readFileSync(new URL("../../migrations/0023_tenders_pri
 
 function extractBlock(marker) {
   const start = source.indexOf(marker);
-  assert.notEqual(start, -1, `Missing source marker: ${marker}`);
+  assert.notEqual(start, -1, "Missing source marker: " + marker);
   const open = source.indexOf("{", start);
   let depth = 0;
   for (let i = open; i < source.length; i++) {
@@ -17,16 +17,16 @@ function extractBlock(marker) {
       if (depth === 0) return source.slice(start, i + 1);
     }
   }
-  throw new Error(`Unclosed source block: ${marker}`);
+  throw new Error("Unclosed source block: " + marker);
 }
 
 const permissionBlock = extractBlock("const GLOBAL_ROLE_PERMISSIONS=");
-const rolePermissions = Function(`return (${permissionBlock.slice(permissionBlock.indexOf("=") + 1)})`)();
+const rolePermissions = Function("return (" + permissionBlock.slice(permissionBlock.indexOf("=") + 1) + ")")();
 const resolverSource = extractBlock("function adminPermissionFor(req)");
-const adminPermissionFor = Function("URL", `${resolverSource}; return adminPermissionFor;`)(URL);
+const adminPermissionFor = Function("URL", resolverSource + "; return adminPermissionFor;")(URL);
 
 function required(method, path) {
-  return adminPermissionFor({ method, url: `https://csa.test${path}` });
+  return adminPermissionFor({ method, url: "https://csa.test" + path });
 }
 function can(role, permission) {
   return (rolePermissions[role] || []).includes(permission);
@@ -37,12 +37,27 @@ function permits(role, method, path) {
   if (requirement === "__deny__") return false;
   return (Array.isArray(requirement) ? requirement : [requirement]).some(p => can(role, p));
 }
+function financePermissions(level) {
+  const permissions = [...(rolePermissions.finance_admin || [])];
+  if (["read", "write", "manage"].includes(level)) permissions.push("finance.read");
+  if (["write", "manage"].includes(level)) permissions.push("finance.refunds", "finance.payouts");
+  return permissions;
+}
+function permitsFinance(level, method, path) {
+  const requirement = required(method, path);
+  if (requirement === null) return true;
+  if (requirement === "__deny__") return false;
+  const permissions = financePermissions(level);
+  return (Array.isArray(requirement) ? requirement : [requirement]).some(p => permissions.includes(p));
+}
 
-test("only the four synchronized least-privilege roles exist", () => {
+test("five delegated role mappings exist; Super Admin is separate and Regional Admin is separately scoped", () => {
   assert.deepEqual(Object.keys(rolePermissions).sort(), [
-    "editor_admin", "finance_admin", "project_admin", "support_admin"
+    "editor_admin", "finance_admin", "project_admin", "regional_admin", "support_admin"
   ]);
   assert.equal(rolePermissions.super_admin, undefined);
+  assert.deepEqual(rolePermissions.regional_admin, []);
+  assert.equal(permits("regional_admin", "GET", "/v1/admin/overview"), false);
 });
 
 test("Project Admin can access project workflow but not finance/editor review", () => {
@@ -64,12 +79,17 @@ test("Editor Admin can manage editor KYC and agreements but not project or finan
   assert.equal(permits("editor_admin", "POST", "/v1/admin/deposits/pay_1/refund"), false);
 });
 
-test("Finance Admin has explicit refund-write permission, separate from finance read", () => {
-  assert.equal(permits("finance_admin", "GET", "/v1/admin/deposits/refunds/eligible"), true);
-  assert.equal(permits("finance_admin", "POST", "/v1/admin/deposits/pay_1/refund"), true);
-  assert.equal(permits("finance_admin", "GET", "/v1/admin/client-refunds"), true);
-  assert.equal(permits("finance_admin", "PATCH", "/v1/admin/client-refunds/crf_1"), true);
-  assert.equal(permits("finance_admin", "POST", "/v1/admin/projects/prj_1/offers"), false);
+test("Finance Admin access levels separate read from write and default to no finance permissions", () => {
+  assert.deepEqual(financePermissions("none"), []);
+  assert.equal(permitsFinance("none", "GET", "/v1/admin/deposits/refunds/eligible"), false);
+  assert.equal(permitsFinance("read", "GET", "/v1/admin/deposits/refunds/eligible"), true);
+  assert.equal(permitsFinance("read", "GET", "/v1/admin/client-refunds"), true);
+  assert.equal(permitsFinance("read", "PATCH", "/v1/admin/client-refunds/crf_1"), false);
+  assert.equal(permitsFinance("read", "POST", "/v1/admin/deposits/pay_1/refund"), false);
+  assert.equal(permitsFinance("write", "PATCH", "/v1/admin/client-refunds/crf_1"), true);
+  assert.equal(permitsFinance("write", "POST", "/v1/admin/deposits/pay_1/refund"), true);
+  assert.equal(permitsFinance("write", "POST", "/v1/admin/projects/prj_1/offers"), false);
+  assert.equal(permitsFinance("manage", "POST", "/v1/admin/finance/editor-payouts"), true);
   assert.equal(can("project_admin", "finance.refunds"), false);
 });
 
@@ -78,10 +98,11 @@ test("Support Admin is limited to upload diagnostics and incident operations", (
   assert.equal(permits("support_admin", "GET", "/v1/admin/multipart-cleanup-runs"), true);
   assert.equal(permits("support_admin", "POST", "/v1/admin/multipart-uploads/up_1/incidents"), true);
   assert.equal(permits("support_admin", "GET", "/v1/notifications"), true);
-  assert.equal(permits("finance_admin", "GET", "/v1/notifications"), true);
-  assert.equal(permits("finance_admin", "GET", "/v1/notifications/preferences"), true);
-  assert.equal(permits("finance_admin", "PUT", "/v1/notifications/preferences"), true);
-  assert.equal(permits("finance_admin", "POST", "/v1/notifications/ntf_1/read"), true);
+  assert.equal(permitsFinance("read", "GET", "/v1/notifications"), true);
+  assert.equal(permitsFinance("none", "GET", "/v1/notifications"), false);
+  assert.equal(permitsFinance("read", "GET", "/v1/notifications/preferences"), true);
+  assert.equal(permitsFinance("read", "PUT", "/v1/notifications/preferences"), true);
+  assert.equal(permitsFinance("read", "POST", "/v1/notifications/ntf_1/read"), true);
   assert.equal(permits("support_admin", "POST", "/v1/notifications/ntf_1/read"), true);
   assert.equal(permits("support_admin", "GET", "/v1/notifications/preferences"), true);
   assert.equal(permits("support_admin", "PUT", "/v1/notifications/preferences"), true);
@@ -93,10 +114,14 @@ test("Support Admin is limited to upload diagnostics and incident operations", (
 });
 
 test("shared admin views are mapped and unknown admin routes fail closed", () => {
-  for (const role of Object.keys(rolePermissions)) {
+  for (const role of ["project_admin", "editor_admin", "support_admin"]) {
     assert.equal(permits(role, "GET", "/v1/admin/departments"), true);
     assert.equal(permits(role, "GET", "/v1/admin/overview"), true);
   }
+  assert.equal(permitsFinance("read", "GET", "/v1/admin/departments"), true);
+  assert.equal(permitsFinance("read", "GET", "/v1/admin/overview"), true);
+  assert.equal(permitsFinance("none", "GET", "/v1/admin/overview"), false);
+  assert.equal(permits("regional_admin", "GET", "/v1/admin/departments"), false);
   assert.equal(required("POST", "/v1/admin/not-yet-mapped"), "__deny__");
 });
 
@@ -106,7 +131,6 @@ test("pricing policy remains explicitly locked to the separate Super Admin bound
   assert.match(source, /Only Super Admin can (manage|change) CSA pricing policy/);
   assert.equal(rolePermissions.super_admin, undefined);
 });
-
 
 test("Super Admin pricing bridge is signed, replay-protected and staging-only", () => {
   assert.equal(required("GET", "/v1/admin/pricing-policy"), "__deny__");
@@ -122,7 +146,6 @@ test("Super Admin pricing bridge is signed, replay-protected and staging-only", 
   assert.match(source, /minimum_margin_minor/);
   assert.match(source, /client_advance_bps/);
 });
-
 
 test("pricing migration defines validated CSA margin and client advance fields", () => {
   assert.match(pricingMigration, /margin_bps INTEGER CHECK\(margin_bps BETWEEN 0 AND 10000\)/);
