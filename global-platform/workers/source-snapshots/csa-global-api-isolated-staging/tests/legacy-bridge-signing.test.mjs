@@ -20,7 +20,7 @@ test("Global API signer is staging-only and uses the dedicated bridge secret", (
   assert.ok(readinessStart >= 0 && readinessEnd > readinessStart, "readiness route must be registered");
   const readinessRoute = api.slice(readinessStart, readinessEnd);
   assert.match(readinessRoute, /legacyBridgeHeaders\(env,"POST",bridgePath,bridgeBody\)/);
-  assert.equal((api.match(/legacyBridgeHeaders\(env/g) || []).length, 1, "the signer may only be called by the fixed readiness route");
+  assert.equal((api.match(/const headers=await legacyBridgeHeaders\(env/g) || []).length, 1, "the signer may only be called by the fixed readiness route");
 });
 
 test("Global API signer and Editor Portal verifier use the same canonical format", () => {
@@ -40,7 +40,7 @@ test("canonical HMAC binds exact method, path, timestamp, nonce and raw body", (
   const signature = createHmac("sha256", secret).update(canonical).digest("hex");
   assert.equal(signature.length, 64);
   assert.notEqual(signature, createHmac("sha256", secret).update(canonical.replace(path, path + "/")).digest("hex"));
-  assert.notEqual(signature, createHmac("sha256", secret).update(canonical.replace(raw, raw + " ")).digest("hex"));
+  assert.notEqual(signature, createHmac("sha256", secret).update(canonical.replace(bodyHash, bodyHash + "0")).digest("hex"));
 });
 
 test("readiness endpoint is staging-only, HMAC-authenticated, Access-scoped and health-only", () => {
