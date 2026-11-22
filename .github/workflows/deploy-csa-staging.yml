@@ -108,6 +108,23 @@ jobs:
             }
           '
 
+      - name: Verify isolated Regional Admin API health and unsigned-request rejection
+        run: |
+          set -euo pipefail
+          health_status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-regional-api-health.json -w '%{http_code}' https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev/health)"
+          if [ "$health_status" != "200" ]; then
+            echo "::error::Isolated Regional API health should return HTTP 200; received $health_status"
+            cat /tmp/csa-regional-api-health.json
+            exit 1
+          fi
+          node -e "const x=require('/tmp/csa-regional-api-health.json'); if(x.status!=='healthy'||x.d1_connected!==true||x.schema_ready!==true) { console.error(x); process.exit(1); }"
+          regional_status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-regional-api-unsigned.json -w '%{http_code}' -X POST https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev/internal/regional/projects -H 'content-type: application/json' --data '{"regional_admin_id":"probe","assignment_id":"probe","country_code":"IN","permission_key":"projects.read","access_level":"read"}')"
+          if [ "$regional_status" != "401" ]; then
+            echo "::error::Unsigned isolated Regional API request should return 401; received $regional_status"
+            cat /tmp/csa-regional-api-unsigned.json
+            exit 1
+          fi
+          echo "PASS isolated Regional API health and unsigned-request rejection."
       - name: Verify Regional Admin bridge rejects unsigned requests
         run: |
           set -euo pipefail
