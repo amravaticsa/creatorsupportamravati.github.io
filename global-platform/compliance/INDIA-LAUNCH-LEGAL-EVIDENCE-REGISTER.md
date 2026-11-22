@@ -114,3 +114,15 @@ A read-only aggregate/schema check was performed against the regular Global Plat
 This confirms the technical guardrails are present and India is not commercially enabled in the checked staging registry. It does not create legal approval, establish the legal classification of CSA, or authorise country activation. The two client records must remain unassigned until verified evidence is reviewed through the approved workflow.
 
 - Canonical Global D1 migration `0032_verified_country_scope.sql` now requires verified timestamp, reviewer identity and evidence reference before a Client project appears in country-scoped Regional Admin queries. The isolated Regional Admin D1 already had the same view logic. The three existing canonical projects are still `country_unassigned`; no India scope is enabled.
+
+
+## 11. Country legal-review schema parity — 22 November 2026
+
+The legal-review schema was checked separately in the regular and isolated Global API staging D1s:
+
+- Regular staging D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` contains `country_legal_reviews` with the expected review fields and country/time index.
+- Isolated Global API D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` does **not** currently contain `country_legal_reviews`.
+- Isolated Super Admin D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` has its own separate `csa_country_legal_reviews` table. This is not the same table or database as the Global API review history.
+- Migration `0033_country_legal_review_registry.sql` has been added to the repository with append-only review guards and a disposable SQLite test. It has not been applied to either remote D1.
+
+This is a schema-parity blocker for the isolated Global API country-management bridge. India must remain disabled until the legal review evidence is genuinely reviewed and the isolated country-management path is proven end-to-end. A technical table or UI status is not legal approval.
