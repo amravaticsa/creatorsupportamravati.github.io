@@ -101,11 +101,39 @@ jobs:
               });
               process.exit(1);
             }
+            if (health.mode !== "staging") {
+              console.error("Staging API reported an unexpected environment:", health.mode);
+              process.exit(1);
+            }
+            if (["blocked_non_test_key", "blocked_test_key", "blocked_unknown_environment"].includes(health.razorpay_mode)) {
+              console.error("Razorpay mode is unsafe for this deployment:", health.razorpay_mode);
+              process.exit(1);
+            }
+            if (health.razorpay_checkout === true && health.razorpay_mode !== "test") {
+              console.error("Staging checkout must only be enabled in Razorpay Test Mode.");
+              process.exit(1);
+            }
             if (health.d1_connected === undefined) {
               console.log("Staging API reports healthy. This deployed health response omits d1_connected; healthy status is produced only after the read-only D1 SELECT succeeds.");
             } else {
               console.log("Staging frontend responds and API reports healthy D1 connectivity.");
             }
+            console.log("Razorpay Staging mode:", health.razorpay_mode || "legacy-health-response");
+          '
+          curl --fail --silent --show-error --max-time 30 \
+            https://csa-global-api-staging.creatorsupportamravati.workers.dev/v1/config \
+            -o /tmp/csa-staging-config.json
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const config = JSON.parse(fs.readFileSync("/tmp/csa-staging-config.json", "utf8"));
+            if (config.environment !== "staging") throw new Error("Public config environment mismatch");
+            if (config.razorpay_checkout === true && (!String(config.razorpay_key_id || "").startsWith("rzp_test_") || config.razorpay_mode !== "test")) {
+              throw new Error("Public config exposed a non-test Razorpay key or enabled checkout outside Test Mode");
+            }
+            if (config.razorpay_checkout !== true && config.razorpay_key_id !== null) {
+              throw new Error("Public config must hide Razorpay key ID when checkout is not mode-safe");
+            }
+            console.log("Razorpay public config is mode-safe:", config.razorpay_mode);
           '
 
       - name: Verify isolated Regional Admin API health and unsigned-request rejection
