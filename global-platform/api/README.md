@@ -111,7 +111,7 @@ The canonical staging database has `global_admin_authorizations.finance_access_l
 
 ## Staging schedules
 - `csa-global-api-staging`: hourly multipart cleanup for the canonical Global staging D1/R2.
-- `csa-global-api-isolated-staging`: separate 15-minute cleanup for its own isolated D1/R2; it is not the Client/Editor Portal API database.
+- `csa-global-api-isolated-staging`: compatibility hostname with its own scheduled cleanup handler; it shares Global D1 470 and uses `LEGACY_VIDEO_DB` 2d3 plus the legacy video R2 bucket.
 - `csa-superadmin-isolated-staging`: 15-minute Global Admin authorization reconciliation.
 
 
