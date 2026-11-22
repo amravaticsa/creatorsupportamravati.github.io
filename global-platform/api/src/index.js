@@ -649,11 +649,17 @@ async function handle(req,env){
   if(!["approved","changes_requested","rejected"].includes(status))return bad("Invalid QC decision.");
   const sub=await env.DB.prepare("SELECT s.id,s.assignment_id,a.project_id FROM work_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=? AND s.qc_status='pending'").bind(qc[1]).first();
   if(!sub)return bad("Submission is not awaiting QC.",409);
-  await env.DB.batch([
-   env.DB.prepare("UPDATE work_submissions SET qc_status=? WHERE id=?").bind(status,qc[1]),
-   env.DB.prepare("UPDATE assignments SET status=? WHERE id=?").bind(status==="approved"?"approved":status==="changes_requested"?"revision":"active",sub.assignment_id),
-   env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(status==="approved"?"client_review":status==="changes_requested"?"revision":"in_progress",status==="approved"?"reviewing":"in_progress",sub.project_id)
+  const departmentAccess=await env.DB.prepare("SELECT 1 AS ok FROM project_department_routes dr JOIN global_admin_department_access da ON da.department_id=dr.department_id WHERE dr.project_id=? AND dr.route_key='tender' AND da.source_admin_id=?").bind(sub.project_id,a.source_admin_id).first();
+  if(!departmentAccess)return bad("Tender department access is required to review this submission.",403);
+  const assignmentStatus=status==="approved"?"approved":status==="changes_requested"?"revision":"active";
+  const projectStatus=status==="approved"?"client_review":status==="changes_requested"?"revision":"in_progress";
+  const clientStatus=status==="approved"?"reviewing":"in_progress";
+  const results=await env.DB.batch([
+   env.DB.prepare("UPDATE work_submissions SET qc_status=? WHERE id=? AND qc_status='pending'").bind(status,qc[1]),
+   env.DB.prepare("UPDATE assignments SET status=? WHERE id=? AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(assignmentStatus,sub.assignment_id,qc[1],status),
+   env.DB.prepare("UPDATE projects SET status=?,client_visible_status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND EXISTS(SELECT 1 FROM work_submissions WHERE id=? AND qc_status=?)").bind(projectStatus,clientStatus,sub.project_id,qc[1],status)
   ]);
+  if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("Submission QC was already processed. Refresh the queue before taking another action.",409,"qc_already_processed");
   await log(env,a.id,"quality_review_completed","submission",qc[1],{status});
   return out({ok:true,status});
  }
