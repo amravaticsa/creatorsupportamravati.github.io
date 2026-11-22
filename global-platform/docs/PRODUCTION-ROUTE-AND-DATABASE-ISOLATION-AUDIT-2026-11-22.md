@@ -172,3 +172,6 @@ Tracked-source comparison for the 401:
 - The live Global API verifier and its deployed version 49 expose only the ADMIN_SYNC_HMAC_SECRET binding name.
 
 This is direct source/deployment drift. The repository's canonical helper already uses the single shared binding, but the live deployed bundle does not. Do not deploy the old full Worker snapshot to fix this one helper because that would overwrite newer deployed Country Management and Regional Admin UI code. Reconcile the deployed bundle/source modules first, then remove the alternate-secret ambiguity in a controlled staging deployment.
+
+
+The live Super Admin bundle uses the alternate GLOBAL_API_SYNC_HMAC_SECRET alias in multiple cross-Worker callers, not only the scheduled Admin Authorization sync: pricing-policy bridge, legacy-links bridge, and Regional Admin data proxy also select that alias before falling back to ADMIN_SYNC_HMAC_SECRET. A mismatch can therefore break several isolated staging integrations simultaneously. The alias is present only on the Super Admin Worker version 113; the isolated Global API version 49 exposes only ADMIN_SYNC_HMAC_SECRET.
