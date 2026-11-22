@@ -170,3 +170,7 @@ Evidence:
 - Client Portal now offers “Approve final video & complete project” with a confirmation step and a clear note that any outstanding balance remains subject to CSA Finance reconciliation.
 - Final approval does not initiate a payment, refund or editor payout. Finance reconciliation remains separate.
 - Regression tests added. Authenticated E2E still requires separate staging Client and Editor identities plus a real staged QC-approved fixture; no client project was approved during setup.
+
+- Final approval API regression validation passed in runs 44981519724 and 44981526739; schema snapshot validation passed in both runs.
+- Cloudflare staging API Worker deployed as Version 81 (version ID 8e9c3241-62d7-42dc-9d71-c3141751406a; deployment ID bc52e81f-15c5-4997-a810-db807ba2ae2b; 100% traffic). Source commit: 3671913eb82d808408b4f2f94ca0c500dd8d5a5e. Staging ENVIRONMENT and D1/R2 bindings unchanged; existing secret binding names unchanged and secret values not accessed.
+- Post-Version-81 staging Pages deploy and smoke run 44981526725 passed: Pages deployment, route/asset/API health checks, and read-only API authorization boundary checks all succeeded.
