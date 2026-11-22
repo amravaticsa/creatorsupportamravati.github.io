@@ -40,6 +40,13 @@ jobs:
             printf '%s' "${response}" > "${worker}.json"
           done
 
+      - name: Warn if an alternate Global API sync secret overrides the canonical binding
+        run: |
+          set -euo pipefail
+          if jq -e '(.result.bindings // []) | any(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text")' csa-superadmin-isolated-staging.json >/dev/null; then
+            echo "::warning::GLOBAL_API_SYNC_HMAC_SECRET is present on the Super Admin Worker. The Global API verifier uses ADMIN_SYNC_HMAC_SECRET. Confirm both values are identical or remove the alternate override; this check never reads secret values."
+          fi
+
       - name: Verify current D1, R2 and secret-name bindings
         run: |
           set -euo pipefail
