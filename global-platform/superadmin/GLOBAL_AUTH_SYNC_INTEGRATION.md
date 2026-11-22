@@ -5,17 +5,17 @@
 - Super Admin source of truth: `csa-superadmin-isolated-staging`, Super Admin D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
 - Global Client/Editor API: `csa-global-api-staging`, canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
 - The Super Admin Worker's `GLOBAL_DB` binding points to canonical Global D1; its `DB` binding remains the Super Admin account/session D1.
-- All five Super Admin Global API bridges (authorization sync, pricing, refund dashboard, editor sessions and legacy links) target `csa-global-api-staging`. The Regional Admin proxy also targets this canonical API.
+- The four core Super Admin bridges (authorization sync, pricing, refund dashboard and editor sessions) target `csa-global-api-staging`. The Regional Admin proxy also targets this canonical API. The Legacy Links bridge remains on `csa-global-api-isolated-staging` because that isolated API owns the dedicated legacy Editor Portal integration route.
 - `csa-global-api-isolated-staging` and D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` remain a separate isolated test/legacy surface. They are not live-replicated with canonical D1 and are not the current Super Admin bridge target.
 
 ## HMAC configuration
 
-- A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` was generated and set to the same value on `csa-superadmin-isolated-staging` and `csa-global-api-staging`.
+- A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` was generated and set to the same value on `csa-superadmin-isolated-staging`, `csa-global-api-staging` and `csa-global-api-isolated-staging`.
 - The secret value is not stored in source control, documentation, or chat.
 - The Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains `ADMIN_SYNC_HMAC_SECRET` fallback.
-- The canonical Global API verifier accepts the dedicated secret and retains the legacy `ADMIN_SYNC_HMAC_SECRET` fallback.
+- Both Global API verifiers accept the dedicated secret and retain the legacy `ADMIN_SYNC_HMAC_SECRET` fallback.
 - The legacy `ADMIN_SYNC_HMAC_SECRET` was not rotated. The legacy `csa-superadmin-api-staging` Worker and production-looking hostnames were not changed.
-- The isolated Global API Worker has its own separate dedicated secret binding; it is not used by the current Super Admin bridge path.
+- The isolated Global API Worker uses the same dedicated Staging secret only for the Legacy Links bridge; its D1 remains separate and is not live-replicated.
 
 ## Deployment verification
 
