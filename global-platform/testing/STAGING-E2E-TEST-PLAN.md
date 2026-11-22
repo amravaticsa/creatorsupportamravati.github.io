@@ -285,3 +285,10 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - Static API contract tests added. A live Regional Admin E2E test remains unavailable because there is no real Regional Admin account and India is not legally approved/active.
 
 - Deployment smoke checks now verify that `admin-staging` and `regional-staging` serve their login pages and that unauthenticated `/api/me` / `/api/regional/dashboard` requests return 401. A signed Regional Admin request still requires a real account, active assignment and legally approved country for full E2E.
+
+
+### Shared R2 cross-stack isolation test — pending
+
+- The canonical and isolated Global API Workers share `MEDIA` bucket `csa-global-media-staging`, `LEGACY_VIDEO_DB` 2d3... and `LEGACY_VIDEO_BUCKET` `csa-global-video-isolated-staging`, while their primary D1 databases differ.
+- Before launch, use two real accounts and distinct project/assignment records to verify that neither API can fetch, overwrite, complete or abort another account's media object or multipart upload, even when a valid object key is known.
+- Do not claim physical storage isolation. Consider dedicated R2/legacy D1 resources if strict separation is required; no bucket migration has been performed.
