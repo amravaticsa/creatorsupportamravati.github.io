@@ -470,7 +470,61 @@ async function loadAdmin(){
 }
 async function loadAssignments(){
  const root=$("assignments");if(!root)return;root.textContent="Loading assignments…";
- try{const d=await api("/v1/editor/assignments");root.replaceChildren();if(!d.assignments.length){root.textContent="No active assignments yet.";return;}for(const a of d.assignments){const c=document.createElement("article");c.className="card";const h=document.createElement("h3");h.textContent=a.title+" · "+a.public_project_code;const p=document.createElement("p");p.textContent=a.brief;const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+a.due_at+" · Status: "+a.status;try{const sourceFiles=await api("/v1/projects/"+a.project_id+"/files");for(const sf of sourceFiles.files){const dl=document.createElement("button");dl.className="btn outline";dl.textContent="Download source: "+sf.original_filename;dl.onclick=async()=>{const r=await fetch(API+"/v1/files/"+sf.id,{headers:{authorization:"Bearer "+token}});if(!r.ok){alert("Source download denied");return;}const url=URL.createObjectURL(await r.blob()),a=document.createElement("a");a.href=url;a.download=sf.original_filename;a.click();URL.revokeObjectURL(url);};c.append(dl);}}catch{}const file=document.createElement("input");file.type="file";file.accept="video/*,audio/*,image/*,application/pdf,application/zip";const note=document.createElement("input");note.placeholder="Submission notes (optional)";const b=document.createElement("button");b.className="btn dark";b.textContent="Submit work to CSA";b.onclick=async()=>{const f=file.files[0];if(!f){alert("Select a file first.");return;}if(f.size>5*1024*1024*1024){alert("Staging upload limit is 5 GB per file.");return;}try{if(f.size>90*1024*1024){b.disabled=true;b.textContent="Uploading…";await multipartUpload(f,{purpose:"submission",assignment_id:a.id,notes:note.value},(sent,total,part,count)=>{b.textContent="Uploading "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},null,state=>{if(state.type==="retry")b.textContent="Retrying · "+state.attempt+"/3 · "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")b.textContent="Verifying upload…";});}else{const r=await fetch(API+"/v1/assignments/"+a.id+"/submissions",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":f.type||"application/octet-stream","x-file-name":f.name,"x-submission-notes":note.value},body:f});const result=await r.json();if(!r.ok)throw Error(result.error?.message||"Upload failed");}alert("Work submitted to CSA for quality review.");loadAssignments();}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent="Submit work to CSA";}};c.append(h,p,meta,file,note,b);root.append(c);}}catch(e){root.textContent=e.message;}
+ try{
+  const d=await api("/v1/editor/assignments");root.replaceChildren();
+  if(!d.assignments.length){root.textContent="No active assignments yet.";return;}
+  for(const assignment of d.assignments){
+   const card=document.createElement("article");card.className="card";
+   const heading=document.createElement("h3");heading.textContent=assignment.title+" · "+assignment.public_project_code;
+   const brief=document.createElement("p");brief.textContent=assignment.brief||"No additional brief supplied.";
+   const meta=document.createElement("p");meta.className="muted";meta.textContent="Due: "+assignment.due_at+" · Status: "+assignment.status+" · Delivery window: "+assignment.delivery_days+" day(s)";
+   card.append(heading,brief,meta);
+   const sourceHeading=document.createElement("h4");sourceHeading.textContent="Project source files";card.append(sourceHeading);
+   try{
+    const sourceFiles=await api("/v1/projects/"+assignment.project_id+"/files");
+    if(!sourceFiles.files?.length){const empty=document.createElement("p");empty.className="muted";empty.textContent="No source files attached.";card.append(empty);}
+    for(const sf of sourceFiles.files||[]){
+     const dl=document.createElement("button");dl.className="btn outline";dl.type="button";dl.textContent="Download source: "+sf.original_filename;
+     dl.onclick=async()=>{dl.disabled=true;try{const response=await fetch(API+"/v1/files/"+sf.id,{headers:{authorization:"Bearer "+token}});if(!response.ok)throw Error("Source download denied");const url=URL.createObjectURL(await response.blob()),link=document.createElement("a");link.href=url;link.download=sf.original_filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){alert(error.message);}finally{dl.disabled=false;}};
+     card.append(dl);
+    }
+   }catch(error){const warning=document.createElement("p");warning.className="muted";warning.textContent="Source files could not be loaded: "+error.message;card.append(warning);}
+   const historyHeading=document.createElement("h4");historyHeading.textContent="Submission and QC history";card.append(historyHeading);
+   try{
+    const history=await api("/v1/editor/assignments/"+assignment.id+"/submissions");
+    if(!history.submissions?.length){const empty=document.createElement("p");empty.className="muted";empty.textContent="No work submitted yet.";card.append(empty);}
+    for(const item of history.submissions||[]){
+     const row=document.createElement("p");row.className="muted";
+     row.textContent="Version "+item.version_number+" · "+item.original_filename+" · "+item.qc_status+" · "+new Date(item.submitted_at).toLocaleString()+(item.notes?" · Note: "+item.notes:"");
+     card.append(row);
+    }
+   }catch(error){const warning=document.createElement("p");warning.className="muted";warning.textContent="Submission history unavailable: "+error.message;card.append(warning);}
+   if(assignment.status==="active"||assignment.status==="revision"){
+    const uploadHeading=document.createElement("h4");uploadHeading.textContent=assignment.status==="revision"?"Upload requested revision":"Submit completed work";card.append(uploadHeading);
+    const file=document.createElement("input");file.type="file";file.accept="video/*,audio/*,image/*,application/pdf,application/zip";
+    const note=document.createElement("input");note.placeholder="Submission notes (optional)";
+    const submit=document.createElement("button");submit.className="btn dark";submit.type="button";submit.textContent=assignment.status==="revision"?"Submit revised version":"Submit work to CSA";
+    submit.onclick=async()=>{
+     const selected=file.files[0];if(!selected){alert("Select a file first.");return;}if(selected.size>5*1024*1024*1024){alert("Staging upload limit is 5 GB per file.");return;}
+     submit.disabled=true;
+     try{
+      if(selected.size>90*1024*1024){
+       submit.textContent="Uploading…";
+       await multipartUpload(selected,{purpose:"submission",assignment_id:assignment.id,notes:note.value},(sent,total,part,count)=>{submit.textContent="Uploading "+Math.round(sent/total*100)+"% · Part "+part+"/"+count;},null,state=>{if(state.type==="retry")submit.textContent="Retrying · "+state.attempt+"/3 · "+Math.ceil(state.delay/1000)+"s";if(state.type==="completing")submit.textContent="Verifying upload…";});
+      }else{
+       const response=await fetch(API+"/v1/assignments/"+assignment.id+"/submissions",{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":selected.type||"application/octet-stream","x-file-name":selected.name,"x-submission-notes":note.value},body:selected});
+       const result=await response.json();if(!response.ok)throw Error(result.error?.message||"Upload failed");
+      }
+      alert("Work submitted to CSA for quality review.");await loadAssignments();
+     }catch(error){alert(error.message);submit.disabled=false;submit.textContent=assignment.status==="revision"?"Submit revised version":"Submit work to CSA";}
+    };
+    card.append(file,note,submit);
+   }else{
+    const locked=document.createElement("p");locked.className="muted";locked.textContent=assignment.status==="submitted"||assignment.status==="quality_check"?"Submission received. Upload is paused while CSA completes quality review.":"This assignment is not currently accepting uploads.";card.append(locked);
+   }
+   root.append(card);
+  }
+ }catch(error){root.textContent=error.message;}
 }
 async function loadEditorRefunds(){
  const root=$("editor-refunds");if(!root)return;root.textContent="Loading deposit refund status…";
