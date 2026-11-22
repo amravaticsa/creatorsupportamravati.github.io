@@ -223,7 +223,7 @@ Evidence:
 ### Deployed Staging infrastructure
 - Super Admin invitation preflight/final validation, atomic invitation acceptance, OTP single-use hardening, stale-session revocation, admin role/deactivation session revocation, and Finance access controls are deployed to `csa-superadmin-isolated-staging`.
 - Finance access is carried from `csa_admin_module_access` into the canonical Global API authorization snapshot. Canonical bridges include pricing policy, refund dashboard, editor sessions and admin authorization sync. The Regional Admin proxy uses the compatibility hostname `csa-global-api-isolated-staging`, which currently binds canonical D1 470.
-- Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The compatibility API retains its own cleanup schedule; its Global D1 binding is 470 and legacy video data remains in `LEGACY_VIDEO_DB` 2d3.
+- Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The isolated compatibility API retains its own cleanup schedule on Global D1 6a32 and legacy video D1 b611/R2 `csa-video-editing-isolated-staging`.
 - Rush approvals have a separate Staging route on `superadmin-editor-staging.creatorsupportamravati.in`, backed by `csa-rush-admin-isolated-staging` and the isolated Super Admin D1. The legacy `superadmin.creatorsupportamravati.in` Rush routes remain unchanged.
 - Rush payment staging now rejects payment creation/verification unless `RAZORPAY_KEY_ID` starts with `rzp_test_`.
 
@@ -250,20 +250,20 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 - The 08:30 scheduled reconciliation initially returned HTTP 401. Dual-secret verification was then deployed; the 08:45 and 09:00 UTC scheduled runs both succeeded with one authorization synchronized and no error code.
 - The legacy `csa-superadmin-api-staging` also calls the canonical staging API using `ADMIN_SYNC_HMAC_SECRET`. Do not rotate that existing binding.
-- The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is provisioned on the isolated Super Admin sender and canonical Global API receiver. Global Admin sync, Pricing, Finance and Editor-session bridges use the dedicated secret against the canonical API; Regional Admin and Legacy Links compatibility calls use `ADMIN_SYNC_HMAC_SECRET` against the compatibility API.
+- The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is provisioned on the Super Admin sender and canonical Global API receiver. Global Admin sync, Pricing, Finance, Editor-session and Regional Admin data bridges use the dedicated secret against canonical API D1 470. Only Legacy Links uses `csa-global-api-isolated-staging` with `ADMIN_SYNC_HMAC_SECRET` against isolated D1 6a32 / video D1 b611.
 - Until the new secret is authorized and a scheduled run records success, Global Admin sync is deployed but not operationally verified.
 
 
 ### HMAC compatibility code — 2026-11-22 08:33 UTC
 
-- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback for canonical Admin sync. The Regional Admin data proxy targets the compatibility API hostname, which shares canonical Global D1 470.
+- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` for canonical Admin sync. The Regional Admin data proxy targets canonical `csa-global-api-staging` D1 470; Legacy Links remains on the isolated compatibility API.
 - Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
 - A cryptographically random 256-bit `GLOBAL_API_SYNC_HMAC_SECRET` is present on the Super Admin sender and canonical Global API receiver. Scheduled syncs succeeded at 10:15:46, 10:30:46 and 10:45:47 UTC with one authorization each and no errors.
 
 
 ### Country assignment integration — 2026-11-22 08:40 UTC
 
-- Canonical Global D1 470 has the immutable evidence-backed country assignment audit schema. The unbound snapshot D1 6a32 also contains the audit schema, but Super Admin `GLOBAL_DB` is bound to canonical D1 470 so country assignment matches the Global API.
+- Canonical Global D1 470 has the immutable evidence-backed country assignment audit schema. The isolated legacy D1 6a32 retains its own audit schema for legacy Editor workflows; Super Admin `GLOBAL_DB` is bound to canonical D1 470 for current Client/Editor and Regional Admin country assignment.
 - New Client/Editor onboarding no longer writes a user-supplied country into authoritative `users.country_code`; it remains null until Super Admin evidence review.
 - The two existing active Client accounts appear in the country review view as `needs_verified_country`. No country assignments or audit rows were created.
 - Runtime country-assignment verification still needs a Super Admin browser session, an approved active country/legal review, and evidence reference. Do not mark a country verified without owner-provided evidence.
@@ -279,7 +279,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 ### Regional Admin canonical data bridge — 2026-11-22
 
-- Super Admin Regional Admin read proxy calls `csa-global-api-isolated-staging`, which currently shares canonical D1 470. The separate D1 6a32 is an unbound snapshot; no live replication is configured.
+- Super Admin Regional Admin read proxy calls canonical `csa-global-api-staging` D1 470 with dedicated HMAC. Legacy Links alone calls isolated `csa-global-api-isolated-staging` D1 6a32 / video D1 b611.
 - Canonical API endpoints are HMAC-authenticated, timestamp-bound, nonce-replay-protected, path-to-permission-bound and staging-only.
 - Client/editor lists filter only on verified `users.country_code`; projects/tenders use `v_project_country_scope`. No profile-country fallback is allowed. Regional finance is denied pending separate legal/finance approval.
 - Static API contract tests added. A live Regional Admin E2E test remains unavailable because there is no real Regional Admin account and India is not legally approved/active.
@@ -293,12 +293,12 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - Before launch, use two real accounts and distinct project/assignment records to verify that neither API can fetch, overwrite, complete or abort another account's media object or multipart upload, even when a valid object key is known.
 - Do not claim physical storage isolation. Consider dedicated R2/legacy D1 resources if strict separation is required; no bucket migration has been performed.
 
-- Migration `0032_verified_country_scope.sql` is applied to canonical D1 470. It requires the full country verification evidence tuple before a project can enter `v_project_country_scope`. The unbound D1 6a32 snapshot also contains the same rule but is not an active Worker binding. Read-only check: all three existing canonical projects remain `country_unassigned` and India's verified client/editor/project counts are zero.
+- Migration `0032_verified_country_scope.sql` is applied to canonical D1 470. It requires the full country verification evidence tuple before a project can enter `v_project_country_scope`. The isolated legacy D1 6a32 also contains the same rule for its separate legacy Editor data. Read-only check: all three existing canonical projects remain `country_unassigned` and India's verified client/editor/project counts are zero.
 
 
 ### Isolated Regional stack fixture inventory — read-only snapshot
 
-- The unbound D1 6a32 snapshot retains an older copy of 2 active Client accounts and 3 projects; it is not used by the current Staging portals or APIs.
+- The isolated legacy D1 6a32 contains its own legacy Client/Editor fixture snapshot; it is used only by the isolated legacy-link API and is not the canonical Regional Admin database.
 - The Super Admin D1 contains 0 Regional Admin principals, 0 active Regional Admin assignments, 0 pending invitations and no India legal review row.
 - No synthetic accounts, assignments, projects, submissions, invitations or country approvals were inserted. Client A-to-B isolation and Editor/QC/Client end-to-end tests require real authorized accounts/data or a separately approved disposable fixture environment.
 
@@ -340,5 +340,5 @@ The current immutable staging frontend is `https://437b6fbc.csa-global-staging.p
 ### Canonical database binding re-verification — 2026-11-22 10:53 UTC
 
 - Super Admin `GLOBAL_DB` is verified on canonical D1 470, while its `DB` remains the separate Super Admin identity/session D1 c2bb.
-- The canonical Global API and the legacy-link compatibility API both bind Global `DB` to D1 470. Legacy video tables remain in `LEGACY_VIDEO_DB` 2d3.
-- D1 6a32 is an unbound isolated snapshot and is not an active backend for these Staging Workers. No user records were copied or modified as part of this binding correction.
+- The canonical Global API binds Global `DB` to D1 470 / video D1 2d3; the isolated legacy-link API binds Global `DB` to D1 6a32 / video D1 b611.
+- D1 6a32 is the active isolated legacy-link API database; it remains separate from canonical D1 470. No user records were copied or modified as part of this routing correction.
