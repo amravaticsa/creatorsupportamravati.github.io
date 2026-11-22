@@ -136,3 +136,8 @@ Evidence:
 - Client delivery view displays revision history and remaining allowance. Additional requests are blocked while one is open or when allowance is exhausted.
 - Staging D1 migration: global-platform/migrations/2026-11-22-client-revision-requests.sql. Applied only to staging D1 470a81b8-3d36-4e2d-942c-5cbb2746a473; no production D1 or route was changed.
 - Still required: authenticated E2E with a separate staging client and editor, upload a QC-approved fixture, request revision, confirm editor sees the notes, re-submit, repeat QC, and verify request count and limit. No real client request or assignment was created by this setup.
+
+- Post-implementation validation: API JavaScript and regression suite passed in GitHub Actions run 44980307966; schema-snapshot and disposable migration safety tests passed.
+- Staging Pages deployment and route/asset smoke tests passed in run 44980307990.
+- Staging API Worker csa-global-api-staging updated to Version 78 (version ID aae5fc5b-f3cb-4a17-975a-fc4b7dc7a69b; deployment ID 55bf5a08-ecec-4b6e-940e-71cafcd7197e; 100% traffic). ENVIRONMENT remains staging; D1 and R2 bindings are unchanged; existing secret binding names were preserved and secret values were not read or changed.
+- Read-only D1 verification confirmed client_revision_requests exists, all three indexes exist, and zero real client revision requests were created during setup.
