@@ -29,7 +29,7 @@ test("Editor onboarding stores self-reported profile country but does not set au
   assert.ok(start >= 0 && end > start, "Editor onboarding route must exist");
   const route = api.slice(start, end);
   assert.match(route, /VALUES\(\?,\?, 'editor',\?,\?, 'pending',NULL\)/);
-  assert.match(route, /txt\(profile\.country_code,2\)\.toUpperCase\(\)\|\|null/);
+  assert.match(route, /txt\(b\.country_code,2\)\.toUpperCase\(\)\|\|null/);
   assert.match(route, /country_code/);
 });
 
