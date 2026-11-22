@@ -31,4 +31,4 @@ Validation is triggered by changes under `global-platform/**` on the `staging` b
 - Super Admin Worker snapshot now reflects the deployed invitation, Finance access, country-assignment, Regional Admin, legacy-link and canonical Global API bridge routes.
 - Core Super Admin bridges and the Regional Admin proxy target `csa-global-api-staging` (canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`). The Legacy Links bridge remains on `csa-global-api-isolated-staging` because it owns the isolated legacy Editor Portal integration. The isolated API also remains a CI health target.
 - The Super Admin Worker logs no longer emit raw exception messages or stack traces. Sync diagnostics preserve only an allowlisted HTTP status code.
-- The isolated Global API health endpoint checks live D1 connectivity and 26 required schema tables. The latest GitHub Actions Staging deploy/smoke test passed before this snapshot refresh.
+- The isolated Global API health endpoint checks live D1 connectivity and 26 required schema tables. The latest GitHub Actions validation and Staging deploy/smoke test passed for commit `8e029c2d7c81bc9bb2be91eb2d5c6202af255f96` at 10:16:51 UTC.
