@@ -275,3 +275,11 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - The prior 08:30 UTC 401 is superseded by the successful 08:45 UTC result. A dedicated `GLOBAL_API_SYNC_HMAC_SECRET` is not required for current operation; it may be introduced during a future controlled rotation.
 
 - The 09:00:46 UTC scheduled run also succeeded with `synced_count=1`, no error code. Two consecutive scheduled runs succeeded after the compatibility deployment.
+
+
+### Regional Admin canonical data bridge — 2026-11-22
+
+- Super Admin Regional Admin read proxy now calls `csa-global-api-staging` (canonical Global D1), not the isolated API copy.
+- Canonical API endpoints are HMAC-authenticated, timestamp-bound, nonce-replay-protected, path-to-permission-bound and staging-only.
+- Client/editor lists filter only on verified `users.country_code`; projects/tenders use `v_project_country_scope`. No profile-country fallback is allowed. Regional finance is denied pending separate legal/finance approval.
+- Static API contract tests added. A live Regional Admin E2E test remains unavailable because there is no real Regional Admin account and India is not legally approved/active.
