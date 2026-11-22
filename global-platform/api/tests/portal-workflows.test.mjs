@@ -179,3 +179,18 @@ test("Editor portal shows submission history and only enables uploads for active
   assert.match(portal, /Submission received\. Upload is paused while CSA completes quality review\./);
   assert.match(portal, /Submit revised version/);
 });
+
+
+test("Editor final delivery supports resumable uploads up to 5 GB and client can download only QC-approved deliverables", () => {
+  const editorUpload = portal.slice(portal.indexOf('async function loadAssignments()'));
+  assert.match(editorUpload, /selected\.size>5\*1024\*1024\*1024/);
+  assert.match(editorUpload, /multipartUpload\(selected,\{purpose:"submission",assignment_id:assignment\.id/);
+  assert.match(editorUpload, /selected\.size>90\*1024\*1024/);
+  assert.match(editorUpload, /Submit revised version/);
+  const clientProjectView = portal.slice(portal.indexOf('async function loadClientProjects()'), portal.indexOf('async function loadPortfolioVideoReviews()'));
+  assert.match(clientProjectView, /\/v1\/client\/projects\/\+p\.id\+"\/deliverables"/);
+  assert.match(clientProjectView, /\/v1\/files\/\+file\.id/);
+  assert.match(clientProjectView, /Download approved file/);
+  assert.match(api, /WHERE x\.project_id=\? AND s\.qc_status='approved'/);
+  assert.match(api, /if\(a\.role==="client"&&file\.kind==="submission"\)allowed=allowed&&file\.qc_status==="approved"/);
+});
