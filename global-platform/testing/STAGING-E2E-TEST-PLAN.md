@@ -283,3 +283,5 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 - Canonical API endpoints are HMAC-authenticated, timestamp-bound, nonce-replay-protected, path-to-permission-bound and staging-only.
 - Client/editor lists filter only on verified `users.country_code`; projects/tenders use `v_project_country_scope`. No profile-country fallback is allowed. Regional finance is denied pending separate legal/finance approval.
 - Static API contract tests added. A live Regional Admin E2E test remains unavailable because there is no real Regional Admin account and India is not legally approved/active.
+
+- Deployment smoke checks now verify that `admin-staging` and `regional-staging` serve their login pages and that unauthenticated `/api/me` / `/api/regional/dashboard` requests return 401. A signed Regional Admin request still requires a real account, active assignment and legally approved country for full E2E.
