@@ -342,3 +342,29 @@ The current immutable staging frontend is `https://437b6fbc.csa-global-staging.p
 - Super Admin `GLOBAL_DB` is verified on canonical D1 470, while its `DB` remains the separate Super Admin identity/session D1 c2bb.
 - The canonical Global API binds Global `DB` to D1 470 / video D1 2d3; the isolated legacy-link API binds Global `DB` to D1 6a32 / video D1 b611.
 - D1 6a32 is the active isolated legacy-link API database; it remains separate from canonical D1 470. No user records were copied or modified as part of this routing correction.
+
+
+### Live Staging readiness checkpoint — 2026-11-22 12:15 UTC
+
+**Verified infrastructure/security results**
+- The latest eight scheduled Super Admin → canonical Global API authorization sync log entries all report `success`, each with `synced_count=1` and no error code. Latest checked completion: 12:00:04 UTC.
+- Both canonical D1 470 and isolated compatibility D1 6a32 have the country legal-review table, index, evidence-validation insert guard, and immutable update/delete guards.
+- Negative test: an invalid legal approval (malformed reviewer and missing evidence) was rejected by both D1s; both legal-review row counts remained zero.
+- Negative test: a country-assignment audit insert for a nonexistent user was rejected by both D1s; both audit row counts remained zero.
+- Canonical Super Admin `GLOBAL_DB` points to D1 470. The Super Admin identity/session `DB` remains D1 c2bb.
+- Latest Pages Staging deployment observed: `7f3800b271e27997d638c5dd5c7a33cc2f6da6f6`, status `success`.
+
+**Live business data still intentionally unseeded**
+- Canonical Global D1: 2 active Client accounts, 3 projects, 0 assignments, 0 work submissions, 0 revision requests, 0 Editor credentials, 0 client quotes, and 1 active non-Super-Admin authorization.
+- Pricing policy table has zero rows; CSA markup/minimum margin/advance settings have not been invented.
+- Separate Super Admin country registry has 249 countries; every country remains `setup` / `not_started`; orders, payments and payouts are disabled for all.
+- India remains `setup` / `not_started`, currency INR and timezone Asia/Kolkata; no legal review, Regional Admin, country assignment or commercial enablement exists.
+
+**Acceptance still pending**
+- Browser-authenticated Super Admin invitation/Finance access and Regional Admin workflows.
+- Real Client A/B cross-country isolation tests after evidence-backed country verification; current clients remain unassigned.
+- Real verified Editor onboarding/KYC, invitation/credentials, assignment, 5 GB multipart upload, submission, QC, revision, and final Client approval E2E; no Editor credentials or assignments currently exist.
+- Razorpay Test Mode checkout/webhook/refund/payout reconciliation with test credentials and a test transaction. No payment transaction has been created.
+- Human legal/CA review and evidence before activating India or any other country.
+
+Do not use dummy users, synthetic legal approvals, invented pricing, or live payments to make these checks appear complete.
