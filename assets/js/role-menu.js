@@ -1,5 +1,5 @@
 (()=>{"use strict";if(document.getElementById("csa-role-menu-root"))return;
-const links=[["★","Super Admin Login","/global-platform/super-admin-login.html"],["⚙","Admin Login","/global-platform/admin-login.html"],["✎","Editor Login","/global-platform/editor-login.html"],["↗","Client Login","/global-platform/login.html"]];
+const links=[["★","Super Admin Login","/global-platform/super-admin-login.html"],["⚙","Admin Login","/global-platform/admin-login.html"],["🌐","Regional Admin Login","/global-platform/regional-admin-login.html"],["✎","Editor Login","/global-platform/editor-login.html"],["↗","Client Login","/global-platform/login.html"]];
 const nav=document.querySelector(".main-nav"),hasMobileNav=!!(nav&&document.querySelector(".menu-toggle"));
 let css=`
 #csa-role-menu-root{position:fixed;top:49px;right:18px;z-index:99999;font-family:Inter,Arial,sans-serif}
