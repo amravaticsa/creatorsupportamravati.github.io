@@ -18,12 +18,15 @@ INSERT INTO assignments(id) VALUES ('assignment-1'), ('assignment-2'), ('assignm
 db.executescript(MIGRATION.read_text(encoding="utf-8"))
 
 def reject(label, sql, params=()):
+    db.execute("SAVEPOINT expected_rejection")
     try:
         db.execute(sql, params)
     except sqlite3.IntegrityError:
-        db.rollback()
+        db.execute("ROLLBACK TO expected_rejection")
+        db.execute("RELEASE expected_rejection")
         print("PASS:", label)
         return
+    db.execute("RELEASE expected_rejection")
     raise AssertionError("Expected rejection: " + label)
 
 db.execute("""INSERT INTO legacy_editor_identity_links
