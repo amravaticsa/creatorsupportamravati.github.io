@@ -20,6 +20,8 @@ jobs:
         run: python3 global-platform/scripts/verify-schema-snapshots.py
       - name: Test disposable D1 migration safety guards (no remote writes)
         run: bash global-platform/scripts/test-disposable-d1-guard.sh
+      - name: Execute legacy editor bridge migration on disposable SQLite
+        run: python3 global-platform/scripts/test-legacy-editor-bridge-migration.py
 
   validate:
     runs-on: ubuntu-latest
