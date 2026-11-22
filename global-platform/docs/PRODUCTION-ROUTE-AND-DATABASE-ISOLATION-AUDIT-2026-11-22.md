@@ -19,12 +19,14 @@ Zone ID: `683ea74f1645d22bc4a4e42cd57b12b0`
 | `superadmin.creatorsupportamravati.in/*` | `csa-superadmin-api-staging` | **BLOCKER:** production hostname routes to a Worker configured with `ENVIRONMENT=staging`. |
 | `superadmin.creatorsupportamravati.in/editor-management*` | `csa-editor-portal` | Production Editor Worker; its admin DB binding is staging (see below). |
 | `superadmin.creatorsupportamravati.in/editor-api/*` | `csa-editor-portal` | Production Editor Worker; its admin DB binding is staging (see below). |
+| `superadmin.creatorsupportamravati.in/rush-approvals*` | `csa-rush-admin-staging` | **BLOCKER:** production hostname routes to staging-named Rush Worker with staging D1 bindings. |
+| `superadmin.creatorsupportamravati.in/rush-api/*` | `csa-rush-admin-staging` | **BLOCKER:** production hostname routes to staging-named Rush Worker with staging D1 bindings. |
 | `editor.creatorsupportamravati.in/*` | `csa-editor-portal` | Production Editor Portal Worker. |
-| `employee.creatorsupportamravati.in/*` | `csa-employee-gateway` | Route observed; separate application review still required. |
+| `employee.creatorsupportamravati.in/*` | `csa-employee-gateway` | **BLOCKER:** gateway service binding points to `csa-superadmin-api-staging`, not a production backend. |
 | `superadmin-staging.creatorsupportamravati.in/*` | `csa-superadmin-api-staging` | Staging route. |
 | `superadmin-editor-staging.creatorsupportamravati.in/*` | `csa-superadmin-isolated-staging` | Isolated staging route. |
 
-The route list also includes isolated staging editor API and Rush routes. No production route was edited.
+The route list also includes isolated staging editor API and Rush routes. The employee gateway's service binding and Rush production-host routes add two more staging-to-production boundary violations. No production route was edited.
 
 ## Observed Worker binding identities
 
@@ -39,6 +41,11 @@ Only resource identifiers and non-secret environment labels are recorded. Secret
 | `csa-editor-portal` | production route | `CSA_VIDEO_DB` | `72a5d236-1ae1-4362-9a51-e6fb9b9840c8` (`csa-orders`) |
 | `csa-editor-portal-isolated-staging` | `staging` | `CSA_SUPERADMIN_DB` | `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
 | `csa-editor-portal-isolated-staging` | `staging` | `CSA_VIDEO_DB` | `b611b8ff-8f9f-43b2-95c8-a767a14987d6` (`csa-video-isolated-staging`) |
+| `csa-rush-admin-staging` | staging-named Worker | `CSA_RUSH_DB` | `198a0604-af4d-4671-8053-5df245ea754c` (`csa-video-rush-staging`) |
+| `csa-rush-admin-staging` | staging-named Worker | `CSA_SUPERADMIN_DB` | `99bc81fc-e97e-488b-a380-eb0237ff8ffc` (`csa-superadmin-staging`) |
+| `csa-rush-admin-isolated-staging` | `staging` | `CSA_RUSH_DB` | `198a0604-af4d-4671-8053-5df245ea754c` |
+| `csa-rush-admin-isolated-staging` | `staging` | `CSA_SUPERADMIN_DB` | `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
+| `csa-employee-gateway` | production hostname route | service binding `EMPLOYEE_BACKEND` | `csa-superadmin-api-staging` |
 | `csa-global-api` | `production` | `DB` | `23462947-5ab9-41ea-a25a-0fac0e6349d7` (`csa-global-platform`) |
 | `csa-global-api` | `production` | `LEGACY_VIDEO_DB` | `72a5d236-1ae1-4362-9a51-e6fb9b9840c8` (`csa-orders`) |
 | `csa-global-api-staging` | `staging` | `DB` | `470a81b8-3d36-4e2d-942c-5cbb2746a473` |
@@ -53,7 +60,7 @@ The two Global Platform D1 databases are not schema-identical: the isolated data
 
 ## Required remediation sequence
 
-1. Freeze production launch and avoid new production data entry until routing and binding ownership are resolved.
+1. Freeze production launch and avoid new production data entry until routing and binding ownership are resolved. This applies to Super Admin, Editor Management, Rush Admin and Employee Portal paths.
 2. Establish the intended production Super Admin Worker and its production D1 UUID. The current script inventory did not show a dedicated `csa-superadmin-api` production Worker; do not simply point the production route at a staging Worker.
 3. Review the production Super Admin D1 schema, backup/restore capability, and ownership before any route change.
 4. Prepare and test a production Super Admin Worker from reviewed source with `ENVIRONMENT=production`, correct production D1, correct Access configuration, and independently scoped secrets.
