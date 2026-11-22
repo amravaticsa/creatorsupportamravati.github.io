@@ -280,3 +280,10 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Runtime Regional Admin login/E2E remains blocked until an actual Regional Admin identity exists and the country legal review is approved.
 
 - The Regional Admin portal is served at `https://regional-staging.creatorsupportamravati.in`; the Super Admin Worker rejects this hostname unless `ENVIRONMENT=staging`. The custom domain maps to `csa-superadmin-isolated-staging`. Its unauthenticated dashboard endpoint returns 401; login requires the separate password + email OTP session.
+
+
+### Staging storage isolation boundary
+
+- D1 data is separated: canonical Client/Editor API uses D1 470; isolated Super Admin/Regional Admin API uses D1 6a32.
+- Object storage is **not fully isolated**: both Global API Workers currently bind `MEDIA` to `csa-global-media-staging`, and both share `LEGACY_VIDEO_DB` 2d3... plus `LEGACY_VIDEO_BUCKET` `csa-global-video-isolated-staging`. These buckets are accessed through Worker bindings, not a public bucket hostname; per-record ownership/assignment checks are the security boundary.
+- Before public launch, cross-account media access must be tested using real Client/Editor accounts. If strict physical isolation is required, provision separate R2 buckets and a separate legacy-video D1, then plan a controlled object/record migration. Do not switch bindings without that migration plan.
