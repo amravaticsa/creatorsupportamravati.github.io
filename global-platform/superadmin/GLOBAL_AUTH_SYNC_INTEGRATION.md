@@ -466,3 +466,10 @@ This is a source-control implementation specification, not a deployed code chang
 - The isolated Super Admin Worker now prefers `GLOBAL_API_SYNC_HMAC_SECRET` and falls back to `ADMIN_SYNC_HMAC_SECRET` until the new binding is provisioned.
 - The existing `ADMIN_SYNC_HMAC_SECRET` was not changed. The legacy `csa-superadmin-api-staging` Worker remains compatible.
 - The new `GLOBAL_API_SYNC_HMAC_SECRET` binding is not yet present on either canonical staging Worker. After owner authorization, create one random value and bind that same value only to `csa-superadmin-isolated-staging` and `csa-global-api-staging`. Do not send the secret in chat or commit it to Git.
+
+
+### Successful scheduled sync verification — 2026-11-22 08:45 UTC
+
+- After deploying dual-secret compatibility, the scheduled sync log recorded `outcome=success`, `synced_count=1`, and no error code at 08:45:46 UTC.
+- The preceding 08:30 UTC run failed with 401; the 08:45 UTC run confirms the existing secret fallback now authenticates successfully.
+- `GLOBAL_API_SYNC_HMAC_SECRET` is optional for a future controlled secret rotation, not a current blocker. Existing `ADMIN_SYNC_HMAC_SECRET` remains unchanged.
