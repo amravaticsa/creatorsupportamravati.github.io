@@ -192,3 +192,7 @@ Do not implement or register these routes until:
 - synthetic staging E2E test and separate explicit staging-write approval are complete.
 
 This document is a proposal only. It does not change Worker code, D1 schema, database bindings, data, or production.
+
+## Validation status
+
+The disposable SQLite contract suite is wired into `.github/workflows/csa-global-validation.yml`. It validates the proposal model only; it does not prove deployed Cloudflare D1 concurrency behavior or authorize route activation.
