@@ -28,7 +28,14 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
    }
    start=status;onProgress(0,file.size,0,status.expected_parts);
   }
-  else if(check.status===404||check.status===410){localStorage.removeItem(resumeKey);}
+  else if(check.status===404||check.status===410){
+   const history=await api("/v1/uploads/multipart/history");
+   const previous=(history.uploads||[]).find(x=>x.id===saved);
+   if(previous?.status==="unknown"||previous?.status==="completing")throw Object.assign(Error("This upload has an uncertain storage result and is blocked from automatic retry. CSA must inspect it first; do not upload the same file again yet."),{noResume:true});
+   if(previous?.status==="completed")throw Object.assign(Error("This file is already recorded as uploaded. Refresh your upload history; do not submit it again."),{noResume:true});
+   if(previous&&previous.status!=="aborted"&&!(previous.status==="open"&&new Date(previous.expires_at).getTime()<=Date.now()))throw Object.assign(Error("The previous upload is not safe to restart automatically. Contact CSA support."),{noResume:true});
+   localStorage.removeItem(resumeKey);
+  }
   else if(!check.ok)throw Error(status.error?.message||"Could not resume the previous upload.");
  }
  if(!start){
@@ -61,7 +68,7 @@ async function multipartUpload(file,details,onProgress=()=>{},resumeUploadId=nul
   return result;
  }catch(err){
   report({type:"error",message:err.message||"Upload failed"});
-  throw Error((err.message||"Upload failed")+". Upload session is saved; select the same file again to resume.");
+  throw Error((err.message||"Upload failed")+(err.noResume?"":". Upload session is saved; select the same file again to resume."));
  }
 }
 
