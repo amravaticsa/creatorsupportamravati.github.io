@@ -1,9 +1,8 @@
 // CSA Global admin authorization sync sender.
 // Import this helper into the CSA Super Admin Worker and call it only after
 // an authenticated Super Admin changes an account or accepts an invitation.
-// Prefer GLOBAL_API_SYNC_HMAC_SECRET on the isolated Staging Workers; retain
-// ADMIN_SYNC_HMAC_SECRET as a compatibility fallback for the legacy Worker.
-// Never expose either secret to browser code.
+// The shared HMAC secret must be configured as ADMIN_SYNC_HMAC_SECRET on
+// BOTH staging Workers. Never expose the secret to browser code.
 const encoder = new TextEncoder();
 
 async function sha256Hex(value) {
