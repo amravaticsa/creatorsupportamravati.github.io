@@ -10,8 +10,9 @@ test("Client quote checkout requires Razorpay Test Mode before creating an order
   assert.ok(start >= 0 && end > start);
   const route = source.slice(start, end);
   const guard = route.indexOf('startsWith("rzp_test_")');
+  const webhook = route.indexOf("!env.RAZORPAY_WEBHOOK_SECRET");
   const order = route.indexOf('https://api.razorpay.com/v1/orders');
-  assert.ok(guard >= 0 && order > guard);
+  assert.ok(guard >= 0 && webhook >= 0 && order > guard && order > webhook);
 });
 
 test("Editor security-deposit checkout requires Razorpay Test Mode before creating an order", () => {
