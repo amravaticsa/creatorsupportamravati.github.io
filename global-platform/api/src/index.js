@@ -612,6 +612,13 @@ async function handle(req,env){
   const r=await env.DB.prepare("SELECT s.id,s.version_number,s.original_filename,s.mime_type,s.size_bytes,s.submitted_at FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=? AND s.qc_status='approved' ORDER BY s.version_number DESC").bind(project.id).all();
   return out({ok:true,deliverables:r.results||[]});
  }
+ if(m==="GET"&&p.startsWith("/v1/editor/assignments/")&&p.endsWith("/submissions")){
+  const a=await user(req,env,["editor"]),assignmentId=p.split("/")[4];
+  const owned=await env.DB.prepare("SELECT id,status,due_at FROM assignments WHERE id=? AND editor_id=?").bind(assignmentId,a.id).first();
+  if(!owned)return bad("Assignment not found for this editor.",404);
+  const r=await env.DB.prepare("SELECT id,version_number,original_filename,mime_type,size_bytes,notes,qc_status,submitted_at FROM work_submissions WHERE assignment_id=? ORDER BY version_number DESC").bind(assignmentId).all();
+  return out({ok:true,assignment:{id:owned.id,status:owned.status,due_at:owned.due_at},submissions:r.results||[]});
+ }
  if(m==="GET"&&p==="/v1/editor/assignments"){
   const a=await user(req,env,["editor"]);
   const r=await env.DB.prepare("SELECT a.id,a.project_id,a.due_at,a.status,p.public_project_code,p.title,p.category,p.brief,o.delivery_days FROM assignments a JOIN projects p ON p.id=a.project_id JOIN project_offers o ON o.id=a.offer_id WHERE a.editor_id=? AND a.status IN ('active','submitted','quality_check','revision') ORDER BY a.due_at ASC").bind(a.id).all();
