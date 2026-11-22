@@ -67,3 +67,19 @@ The migration is additive and should not require dropping the table. Do not use 
 - Assigning countries or granting Regional Admin permissions.
 - Changing D1 bindings, Worker secrets, host routes, or production resources.
 - Migrating or copying legacy editor identities, orders, or assignments.
+
+
+## Recheck result — 22 November 2026
+
+The live schema was re-read after the earlier preflight note was written. Both target Global API D1s already contained the legal review table, country/time index, and all three guards in the isolated database. The canonical database had the table and index but lacked the three guards. The three trigger definitions from migration 0033 were applied to canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` with `CREATE TRIGGER IF NOT EXISTS`.
+
+Current state:
+- Canonical D1 470: table + index + insert guard + no-update guard + no-delete guard verified.
+- Isolated D1 6a32: table + index + the same three guards verified.
+- Legal review rows: zero in both databases.
+- Country registry in the separate Super Admin DB: 249 countries; all remain `setup` / `not_started`; no commercial features enabled.
+- No user, legal review, country activation, Regional Admin, permission, or invitation records were created.
+- Canonical pre-change Time Travel bookmark: `00000189-00000000-0000512b-a779a43b52b87cab2baa621970f7b99c`.
+- A D1 SQL export was completed, but its temporary signed URL returned HTTP 403 when fetched from this execution environment; no external SQL backup file was saved. D1 Time Travel remains the recovery mechanism.
+
+The schema-parity blocker is cleared. Country activation and legal approval remain explicitly blocked until a qualified human reviewer supplies genuine evidence.
