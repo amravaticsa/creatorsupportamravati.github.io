@@ -227,3 +227,18 @@ A fresh read-only inventory enumerated all 10 D1 databases, all deployed Workers
 - Disposable migration, schema, idempotency, reconciliation and read-only preflight safety tests passed in CI. These are isolated test runs and do not authorize remote D1 writes.
 - The legacy editor bridge management endpoints remain intentionally disabled. Canonical legacy D1 identity, separate staging-write approval, service-token installation and authenticated end-to-end test identities remain release gates.
 - No production Worker, route, database, R2 bucket, DNS record or live payment setting was changed by this validation.
+
+
+## Staging follow-up — 2026-11-22
+
+This update supersedes earlier staging-boundary notes above where the current Cloudflare configuration has since changed:
+
+- Canonical Client/Editor Portal remains `csa-global-api-staging` on D1 `csa-global-platform-staging` (`470a81b8-3d36-4e2d-942c-5cbb2746a473`). The Pages portal's `portal.js` targets this API.
+- A separate isolated D1 `csa-global-platform-isolated-staging` (`6a32dda3-b8c5-413c-9f51-58f0a9fa0712`) is now bound to `csa-global-api-isolated-staging`. It is a separate copy, not the canonical portal database. Super Admin bridge calls are routed to the canonical API to avoid stale finance, authorization, refund, or editor-session data.
+- Canonical staging API now exposes HMAC-protected internal bridges for admin authorization sync, pricing policy, refund dashboard, editor sessions, and Regional Admin data. Finance access is sourced from `csa_admin_module_access` and persisted as `global_admin_authorizations.finance_access_level`.
+- Super Admin authorization reconciliation runs every 15 minutes; canonical Global API multipart cleanup runs hourly. The isolated API retains its own 15-minute cleanup for its separate D1/R2 resources.
+- A separate `csa-rush-admin-isolated-staging` Worker was created. It uses Rush D1 `csa-video-rush-staging` (`198a0604-af4d-4671-8053-5df245ea754c`) and isolated Super Admin D1 `csa-superadmin-isolated-staging` (`c2bb3fb5-db22-4ed5-9283-161df57ebac2`). Routes: `superadmin-editor-staging.creatorsupportamravati.in/rush-approvals*` and `superadmin-editor-staging.creatorsupportamravati.in/rush-api/*`. Open the staging approvals page at `https://superadmin-editor-staging.creatorsupportamravati.in/rush-approvals` after signing in to the isolated Super Admin portal.
+- Existing Rush routes on `superadmin.creatorsupportamravati.in` remain unchanged and continue to target legacy `csa-rush-admin-staging` / D1 `99bc81fc-e97e-488b-a380-eb0237ff8ffc`. No Production-looking hostname route was repointed.
+- `csa-rush-payment-api-staging` now requires a Razorpay key ID beginning `rzp_test_` for order creation and verification; the Worker reports test-credential readiness and has `ENVIRONMENT=staging`. No Rush quote or audit rows were present during the read-only check, and no payment order was created.
+- The first 08:15 UTC scheduled Global Admin sync failed against the isolated database before the canonical target correction. The next scheduled run is the runtime confirmation point; browser E2E tests remain pending.
+- Production Workers, Production D1/R2, and Production DNS were not changed.
