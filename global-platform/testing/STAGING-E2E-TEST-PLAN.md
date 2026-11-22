@@ -222,7 +222,7 @@ Evidence:
 
 ### Deployed Staging infrastructure
 - Super Admin invitation preflight/final validation, atomic invitation acceptance, OTP single-use hardening, stale-session revocation, admin role/deactivation session revocation, and Finance access controls are deployed to `csa-superadmin-isolated-staging`.
-- Finance access is carried from `csa_admin_module_access` into the Global API authorization snapshot and enforced by the canonical `csa-global-api-staging` Worker. Canonical Global bridges now include pricing policy, refund dashboard, editor sessions, Regional Admin data, and admin authorization sync.
+- Finance access is carried from `csa_admin_module_access` into the canonical Global API authorization snapshot. Canonical bridges include pricing policy, refund dashboard, editor sessions and admin authorization sync. The isolated Regional Admin portal continues to read from `csa-global-api-isolated-staging` / D1 6a32.
 - Super Admin authorization reconciliation Cron: every 15 minutes. Canonical Global multipart cleanup Cron: hourly. The isolated Global API cleanup Cron remains scoped to its separate isolated D1.
 - Rush approvals have a separate Staging route on `superadmin-editor-staging.creatorsupportamravati.in`, backed by `csa-rush-admin-isolated-staging` and the isolated Super Admin D1. The legacy `superadmin.creatorsupportamravati.in` Rush routes remain unchanged.
 - Rush payment staging now rejects payment creation/verification unless `RAZORPAY_KEY_ID` starts with `rzp_test_`.
@@ -248,22 +248,22 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 ### Authorization sync runtime blocker — 2026-11-22 08:30 UTC
 
-- The 08:30 scheduled reconciliation reached the canonical Global API and returned HTTP 401. The request canonicalization in sender and receiver matches; HMAC secret binding values or header validation remain unresolved.
+- The 08:30 scheduled reconciliation initially returned HTTP 401. Dual-secret verification was then deployed; the 08:45 and 09:00 UTC scheduled runs both succeeded with one authorization synchronized and no error code.
 - The legacy `csa-superadmin-api-staging` also calls the canonical staging API using `ADMIN_SYNC_HMAC_SECRET`. Do not rotate that existing binding.
-- Required safe fix: create a separate random `GLOBAL_API_SYNC_HMAC_SECRET` binding on the isolated Super Admin Worker and canonical Global API; update the new isolated Super Admin bridge calls to use it; have the canonical API accept both new and legacy secrets during transition. This requires explicit owner authorization for a security-credential change.
+- A dedicated `GLOBAL_API_SYNC_HMAC_SECRET` binding has not been provisioned. The isolated Super Admin sender prefers it and falls back to the existing `ADMIN_SYNC_HMAC_SECRET`; the canonical API accepts both. Scheduled sync is currently verified using the existing legacy secret. The separate Regional Admin data proxy continues to use the legacy secret with the isolated API.
 - Until the new secret is authorized and a scheduled run records success, Global Admin sync is deployed but not operationally verified.
 
 
 ### HMAC compatibility code — 2026-11-22 08:33 UTC
 
-- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers the dedicated `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback.
+- Dual-secret verification is deployed on the canonical Global API; the isolated Super Admin sender prefers `GLOBAL_API_SYNC_HMAC_SECRET` and retains legacy fallback for canonical Admin sync. The Regional Admin data proxy still targets the isolated API/D1 6a32.
 - Existing `ADMIN_SYNC_HMAC_SECRET` values remain unchanged, preserving the legacy Super Admin Worker.
 - The new dedicated secret binding has not been provisioned. The scheduled sync remains blocked by the existing 401 until the same new random value is added to `csa-superadmin-isolated-staging` and `csa-global-api-staging` after owner authorization.
 
 
 ### Country assignment integration — 2026-11-22 08:40 UTC
 
-- Canonical Global D1 now has the immutable evidence-backed country assignment audit schema and extended review view. Super Admin `GLOBAL_DB` is bound to the same D1 used by the Client/Editor Portal.
+- Canonical Global D1 470 has the immutable evidence-backed country assignment audit schema. The isolated D1 6a32 already had the same audit table, triggers and review view; Super Admin `GLOBAL_DB` remains bound to 6a32 so the isolated Regional Admin portal and country-assignment workflow use the isolated stack.
 - New Client/Editor onboarding no longer writes a user-supplied country into authoritative `users.country_code`; it remains null until Super Admin evidence review.
 - The two existing active Client accounts appear in the country review view as `needs_verified_country`. No country assignments or audit rows were created.
 - Runtime country-assignment verification still needs a Super Admin browser session, an approved active country/legal review, and evidence reference. Do not mark a country verified without owner-provided evidence.
@@ -279,7 +279,7 @@ Production Workers, Production D1/R2, and Production DNS were not changed.
 
 ### Regional Admin canonical data bridge — 2026-11-22
 
-- Super Admin Regional Admin read proxy now calls `csa-global-api-staging` (canonical Global D1), not the isolated API copy.
+- Super Admin Regional Admin read proxy calls `csa-global-api-isolated-staging` (D1 6a32). The canonical API's duplicate Regional Admin endpoints are reserved for a future consolidation; no automatic live sync exists between D1 6a32 and D1 470.
 - Canonical API endpoints are HMAC-authenticated, timestamp-bound, nonce-replay-protected, path-to-permission-bound and staging-only.
 - Client/editor lists filter only on verified `users.country_code`; projects/tenders use `v_project_country_scope`. No profile-country fallback is allowed. Regional finance is denied pending separate legal/finance approval.
 - Static API contract tests added. A live Regional Admin E2E test remains unavailable because there is no real Regional Admin account and India is not legally approved/active.
