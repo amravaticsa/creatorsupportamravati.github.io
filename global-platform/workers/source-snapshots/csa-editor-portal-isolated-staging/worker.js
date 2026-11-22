@@ -24,6 +24,22 @@ const sha=async s=>hex(await crypto.subtle.digest("SHA-256",enc.encode(s)));
 const rand=n=>crypto.getRandomValues(new Uint8Array(n));
 const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
 const safeEq=(a,b)=>{if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length)return false;let x=0;for(let i=0;i<a.length;i++)x|=a.charCodeAt(i)^b.charCodeAt(i);return x===0};
+async function verifyLegacyBridgeRequest(req,env,rawBody){
+ if(String(env?.ENVIRONMENT||"").toLowerCase()!=="staging"||!env?.CSA_LEGACY_BRIDGE_SECRET||!env?.CSA_VIDEO_DB)return {ok:false,status:503,code:"bridge_unavailable"};
+ const timestamp=req.headers.get("x-csa-bridge-timestamp")||"",nonce=req.headers.get("x-csa-bridge-nonce")||"",signature=req.headers.get("x-csa-bridge-signature")||"";
+ if(!/^\\d{10}$/.test(timestamp)||Math.abs(Math.floor(Date.now()/1000)-Number(timestamp))>300)return {ok:false,status:401,code:"bridge_timestamp_invalid"};
+ if(!/^[A-Za-z0-9_-]{22,128}$/.test(nonce)||!/^[a-f0-9]{64}$/.test(signature))return {ok:false,status:401,code:"bridge_signature_invalid"};
+ const path=new URL(req.url).pathname,bodyHash=await sha(rawBody);
+ const canonical=["CSA-BRIDGE-V1",timestamp,nonce,req.method.toUpperCase(),path,bodyHash].join("\\n");
+ const key=await crypto.subtle.importKey("raw",enc.encode(env.CSA_LEGACY_BRIDGE_SECRET),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+ const expected=hex(await crypto.subtle.sign("HMAC",key,enc.encode(canonical)));
+ if(!safeEq(signature,expected))return {ok:false,status:401,code:"bridge_signature_invalid"};
+ try{
+  await env.CSA_VIDEO_DB.prepare("DELETE FROM legacy_bridge_nonces WHERE expires_at < ?").bind(Math.floor(Date.now()/1000)).run();
+  await env.CSA_VIDEO_DB.prepare("INSERT INTO legacy_bridge_nonces (nonce,expires_at) VALUES (?,?)").bind(nonce,Number(timestamp)+600).run();
+ }catch{return {ok:false,status:409,code:"bridge_nonce_replayed"};}
+ return {ok:true};
+}
 const clean=(v,n=1000)=>String(v??"").trim().slice(0,n);
 const body=async r=>{try{return await r.json()}catch{return {}}};
 const pwHash=async(p,s)=>{const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveBits"]);return b64(await crypto.subtle.deriveBits({name:"PBKDF2",salt:Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((s.length+3)%4)),c=>c.charCodeAt(0)),iterations:120000,hash:"SHA-256"},k,256))};
@@ -37,6 +53,16 @@ export default {async fetch(req,env){
  const u=new URL(req.url),p=u.pathname,host=u.hostname,portalConfig=resolvePortalHosts(env);
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{"access-control-allow-origin":u.origin,"access-control-allow-methods":"GET,POST,PATCH,OPTIONS","access-control-allow-headers":"Content-Type,Authorization","cache-control":"no-store"}});
  if(req.headers.get("Origin")&&req.headers.get("Origin")!==u.origin)return json({error:"Origin not allowed"},403);
+
+ if(p==="/internal/legacy-bridge/health"){
+  if(req.method!=="POST"||String(env.ENVIRONMENT||"").toLowerCase()!=="staging"||!isPortalHost(host,"admin",env))return json({error:"Not found"},404);
+  const raw=await req.text();if(raw.length>1024)return json({error:"Payload too large"},413);
+  const verified=await verifyLegacyBridgeRequest(req,env,raw);
+  if(!verified.ok)return json({ok:false,error:verified.code},verified.status);
+  let payload={};try{payload=raw?JSON.parse(raw):{}}catch{return json({error:"Invalid JSON"},400)}
+  if(payload.purpose!=="bridge-readiness")return json({error:"Unsupported bridge request"},400);
+  return json({ok:true,service:"CSA Legacy Editor Bridge",environment:"staging",authenticated:true},200);
+ }
  if(p==="/health")return json({ok:!!portalConfig,service:"CSA Editor Portal",environment:portalConfig?.environment||"unconfigured"},portalConfig?200:503);
  if(!portalConfig)return json({error:"Portal environment is not configured"},503);
  if(isPortalHost(host,"admin",env)&&p==="/editor-management"){if(!await adminUser(req,env))return new Response("Super Admin authentication required",{status:401});return html(ADMIN_HTML)}
