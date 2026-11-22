@@ -130,3 +130,8 @@ The dedicated `GLOBAL_API_SYNC_HMAC_SECRET` binding is optional for a future con
 The staging API exposes the signed, private routes `POST /internal/regional/dashboard`, `/projects`, `/clients`, `/editors` and `/tenders`. Requests are timestamp-bound, HMAC-SHA256 authenticated using the dedicated/legacy secret verifier, nonce-replay protected, limited to 12 KB, and restricted to an exact path-to-permission mapping. The Super Admin Worker is the trusted caller and checks the live Regional Admin session, active assignment, country legal state and permission level before signing.
 
 All client/editor rows are filtered on authoritative `users.country_code`; project/tender rows use `v_project_country_scope`, which derives scope from the verified Client `users.country_code`. Self-reported profile country is never an authorization key. Regional finance/refund endpoints remain denied pending separate legal and finance approval. The current isolated Super Admin Worker calls `csa-global-api-isolated-staging` (D1 6a32) for Regional Admin data. The canonical `csa-global-api-staging` Worker also exposes the same HMAC-protected Regional Admin read routes as a future consolidation path, but it is not the active Regional Admin portal data source. The two D1 databases are not live-replicated.
+
+
+### Staging storage note
+
+The canonical API (D1 470) and isolated API (D1 6a32) share the same R2 `MEDIA` bucket `csa-global-media-staging`, plus legacy-video D1 2d3... and bucket `csa-global-video-isolated-staging`. This is logical D1 separation, not physical object-storage separation. Keep every upload/download/complete/abort operation tied to an authenticated project/assignment record; cross-account media isolation remains a required live E2E test before launch.
