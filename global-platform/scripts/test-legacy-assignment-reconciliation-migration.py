@@ -16,7 +16,7 @@ CREATE TABLE assignments (id TEXT PRIMARY KEY);
 INSERT INTO users(id) VALUES ('admin-1'),('admin-2'),('editor-1');
 INSERT INTO editor_profiles(user_id) VALUES ('editor-1');
 INSERT INTO assignments(id) VALUES ('as-pending'),('as-created'),('as-failed'),('as-revoked'),
- ('as-uncertain'),('as-absent');
+ ('as-uncertain'),('as-absent'),('as-duplicate');
 """)
 db.executescript(BASE.read_text(encoding="utf-8"))
 db.executescript("""
@@ -150,7 +150,7 @@ reject("duplicate correlation ID rejected", """
 INSERT INTO legacy_assignment_links
 (global_assignment_id,legacy_order_id,idempotency_key,bridge_status,last_error_code,
  request_hash,correlation_id,remote_result_state)
-VALUES ('as-pending','order-dup','key-dup','reconciliation_required',
+VALUES ('as-duplicate','order-dup','key-dup','reconciliation_required',
  'remote_result_uncertain',?,?,'unknown')
 """, ("c"*64,"corr-uncertain"))
 
