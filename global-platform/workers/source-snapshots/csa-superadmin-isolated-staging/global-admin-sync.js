@@ -127,12 +127,12 @@ export async function callGlobalEditorSessions(env, actor, request) {
 
 export async function callGlobalLegacyLinks(env,actor,request){
  if(env.ENVIRONMENT!=="staging")throw new Error("legacy_links_bridge_staging_only");
- if(!(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET))throw new Error("legacy_links_bridge_secret_missing");
+ if(!env.ADMIN_SYNC_HMAC_SECRET)throw new Error("legacy_links_bridge_secret_missing");
  const path="/internal/superadmin/legacy-links";
  const body=JSON.stringify({...request,actor_admin_id:String(actor?.id||""),actor_email:String(actor?.email||"").trim().toLowerCase(),actor_role:String(actor?.role||"")});
  const timestamp=String(Math.floor(Date.now()/1000)),nonce=crypto.randomUUID();
  const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
- const signature=await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET||env.ADMIN_SYNC_HMAC_SECRET,canonical);
+ const signature=await hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical);
  const response=await fetch("https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
  const data=await response.json().catch(()=>({}));
  if(!response.ok||data.ok!==true)throw new Error("global_legacy_links_bridge_failed_"+response.status);
