@@ -1,6 +1,6 @@
 # CSA Global — Staging Test Identity Setup
 
-Date: 2026-11-21
+Date: 2026-11-22
 Branch: `staging`
 Status: **Preparation only — no accounts created by this document.**
 
@@ -112,11 +112,11 @@ After retaining redacted evidence, remove test projects and uploads only through
 
 Use the immutable deployment below as the authoritative frontend target for this test cycle:
 
-- Frontend: https://2f2ef3b0.csa-global-staging.pages.dev
+- Frontend: https://2add6c07.csa-global-staging.pages.dev
 - Staging API: https://csa-global-api-staging.creatorsupportamravati.workers.dev
-- Staging branch commit: `5f6574e3e361c1271e3427d93d1252537c355ee4`
-- Deployment workflow: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/45001237131 (success).
-- API validation workflow: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/45001237109 (success).
+- Staging branch commit: `5ac3a7dc979424b6689a64418b49f820bdbb0e15`
+- Deployment workflow: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/45001308790 (success).
+- API validation workflow: https://github.com/amravaticsa/creatorsupportamravati.github.io/actions/runs/45001308640 (success).
 
 The previous `csa-global-staging.pages.dev` address above is a project alias and may resolve to a different deployment over time. For reproducible QA evidence, record and use the immutable deployment URL shown here. Before any sign-in, verify the browser remains on this Pages deployment and API calls remain on the staging Worker hostname. Never enter credentials after a redirect to a production hostname.
 
@@ -125,7 +125,7 @@ This deployment proves frontend route availability, staging API health/D1 connec
 
 ### Deployment smoke hardening — 2026-11-22
 
-The staging Pages workflow now fails closed if any required frontend route or asset does not return HTTP 200, rather than logging a warning and continuing. It also checks the final URL origin after redirects and fails if a route or asset leaves the immutable staging deployment origin. The updated workflow passed on commit `5f6574e3e361c1271e3427d93d1252537c355ee4` (run 45001237131). This is a CI/deployment guard only; it does not change API routes, data, secrets, or production resources.
+The staging Pages workflow now fails closed if any required frontend route or asset does not return HTTP 200, rather than logging a warning and continuing. It also checks the final URL origin after redirects and fails if a route or asset leaves the immutable staging deployment origin. The updated workflow passed on commit `5f6574e3e361c1271e3427d93d1252537c355ee4` (run 45001308790). This is a CI/deployment guard only; it does not change API routes, data, secrets, or production resources.
 
 
 ### Latest fail-closed smoke verification — 2026-11-22
@@ -133,6 +133,11 @@ The staging Pages workflow now fails closed if any required frontend route or as
 - Immutable Pages deployment: https://2f2ef3b0.csa-global-staging.pages.dev
 - Source commit: `5f6574e3e361c1271e3427d93d1252537c355ee4`.
 - Deployment workflow: run 45001237131 — success.
-- API validation workflow: run 45001237109 — success, including independent schema-snapshot job.
+- API validation workflow: run 45001308640 — success, including independent schema-snapshot job.
 - The hardened smoke test returned HTTP 200 on all six HTML routes and both portal assets, verified no redirect escaped the immutable deployment origin, confirmed staging API/D1 health, and received HTTP 401 on all seven protected unauthenticated API routes.
 - This remains a read-only deployment/security smoke test. Signed-in E2E-01…E2E-07, provider payment/refund tests, and production release gates remain separate.
+
+
+### Documentation refresh — 2026-11-22
+
+The authoritative immutable staging URL for the current cycle is `https://2add6c07.csa-global-staging.pages.dev` on commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15`. Use the latest deployment and validation runs listed above; earlier immutable URLs are historical and must not be used for new QA evidence.
