@@ -37,6 +37,7 @@ test("WhatsApp stays an explicit opt-in and client UI does not expose editor ide
 
 
 const api = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+const revisionMigration = readFileSync(new URL("../../migrations/2026-11-22-client-revision-requests.sql", import.meta.url), "utf8");
 
 test("Client showcase is restricted to approved samples from verified editors and KYC", () => {
   assert.match(api, /SELECT v\.id,v\.title,v\.description,v\.category,v\.mime_type FROM editor_portfolio_videos/);
@@ -200,7 +201,7 @@ test("Client revision requests enforce ownership, latest approved delivery, one-
   for (const required of ["user(req,env,[\"client\"])","p.client_id=?","project.status!==\"client_review\"","s.qc_status='approved'","s2.version_number","p.revisions_included","NOT EXISTS(SELECT 1 FROM client_revision_requests","revision_request_conflict","revision_limit_reached"]) {
     assert.ok(route.includes(required), "Missing revision safeguard: "+required);
   }
-  assert.ok(api.includes("idx_client_revision_requests_one_open_per_project"));
+  assert.ok(revisionMigration.includes("idx_client_revision_requests_one_open_per_project"));
   assert.ok(api.includes("UPDATE assignments SET status='revision'"));
 });
 
