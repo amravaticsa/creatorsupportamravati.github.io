@@ -105,9 +105,12 @@ jobs:
               console.error("Staging API reported an unexpected environment:", health.mode);
               process.exit(1);
             }
-            if (["blocked_non_test_key", "blocked_test_key", "blocked_unknown_environment"].includes(health.razorpay_mode)) {
+            if (["blocked_test_key", "blocked_unknown_environment"].includes(health.razorpay_mode)) {
               console.error("Razorpay mode is unsafe for this deployment:", health.razorpay_mode);
               process.exit(1);
+            }
+            if (health.razorpay_mode === "blocked_non_test_key") {
+              console.warn("Staging checkout is safely disabled because a non-test Razorpay key is configured. Replace it with an rzp_test_ key before payment E2E; the public config must hide the key ID.");
             }
             if (health.razorpay_checkout === true && health.razorpay_mode !== "test") {
               console.error("Staging checkout must only be enabled in Razorpay Test Mode.");
