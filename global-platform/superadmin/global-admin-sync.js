@@ -1,8 +1,8 @@
 // CSA Global admin authorization sync sender.
 // Import this helper into the CSA Super Admin Worker and call it only after
 // an authenticated Super Admin changes an account or accepts an invitation.
-// The shared HMAC secret must be configured as ADMIN_SYNC_HMAC_SECRET on
-// BOTH staging Workers. Never expose the secret to browser code.
+// Prefer GLOBAL_API_SYNC_HMAC_SECRET on canonical Staging bridges; retain
+// ADMIN_SYNC_HMAC_SECRET as a compatibility fallback. Never expose secrets to browser code.
 const encoder = new TextEncoder();
 
 async function sha256Hex(value) {
@@ -61,7 +61,7 @@ export async function syncGlobalAdminAuthorizations(env) {
   const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET, canonical);
 
   const response = await fetch(
-    (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev") + path,
+    (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path,
     {
       method: "POST",
       headers: {
@@ -87,7 +87,7 @@ export async function callGlobalPricingPolicy(env,payload){
  const path="/internal/superadmin/pricing-policy",body=JSON.stringify(payload),timestamp=String(Math.floor(Date.now()/1000)),nonce=crypto.randomUUID();
  const canonical=["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
  const signature=await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET,canonical);
- const response=await fetch("https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
+ const response=await fetch("https://csa-global-api-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
  const data=await response.json().catch(()=>({}));
  if(!response.ok||data.ok!==true)throw new Error("global_pricing_bridge_failed_"+response.status);
  return data;
@@ -103,7 +103,7 @@ export async function callGlobalRefundDashboard(env, actor, request={}) {
   const nonce = crypto.randomUUID();
   const canonical = ['POST',path,timestamp,nonce,await sha256Hex(body)].join('\n');
   const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET,canonical);
-  const response = await fetch('https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev'+path,{method:'POST',headers:{'content-type':'application/json','x-csa-sync-timestamp':timestamp,'x-csa-sync-nonce':nonce,'x-csa-sync-signature':signature},body});
+  const response = await fetch('https://csa-global-api-staging.creatorsupportamravati.workers.dev'+path,{method:'POST',headers:{'content-type':'application/json','x-csa-sync-timestamp':timestamp,'x-csa-sync-nonce':nonce,'x-csa-sync-signature':signature},body});
   const data = await response.json().catch(()=>({}));
   if (!response.ok || data.ok !== true) throw new Error('global_refund_dashboard_bridge_failed_'+response.status);
   return data;
@@ -119,7 +119,7 @@ export async function callGlobalEditorSessions(env, actor, request) {
  const nonce = crypto.randomUUID();
  const canonical = ["POST",path,timestamp,nonce,await sha256Hex(body)].join("\n");
  const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET,canonical);
- const response = await fetch("https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
+ const response = await fetch("https://csa-global-api-staging.creatorsupportamravati.workers.dev"+path,{method:"POST",headers:{"content-type":"application/json","x-csa-sync-timestamp":timestamp,"x-csa-sync-nonce":nonce,"x-csa-sync-signature":signature},body});
  const data = await response.json().catch(()=>({}));
  if (!response.ok || data.ok !== true) throw new Error("global_editor_sessions_bridge_failed_"+response.status);
  return data;
