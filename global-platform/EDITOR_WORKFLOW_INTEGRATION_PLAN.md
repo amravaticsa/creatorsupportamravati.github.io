@@ -81,3 +81,16 @@ Do not deploy an adapter or migrate records until:
 ## 6. Current blocker
 
 The Global KYC/showcase workflow already exists and has source-level regression tests. The remaining gap is the cross-system identity and order adapter between Global `users/projects` and legacy `video_editors/video_editing_orders`. This is a real integration task, not a missing KYC-table task.
+
+
+## 7. Staging-only bridge schema preparation (2026-11-22)
+
+A new additive migration has been authored at `global-platform/migrations/0026_legacy_editor_identity_bridge.sql`.
+
+It defines:
+- `legacy_editor_identity_links`: explicit Global editor user ID ↔ legacy editor ID mapping, with pending/active/revoked review states and unique one-to-one constraints.
+- `legacy_assignment_links`: Global assignment ↔ legacy order/assignment mapping, with unique idempotency key and pending/created/failed/revoked bridge states.
+
+A source-level regression test is at `global-platform/api/tests/legacy-editor-bridge-schema.test.mjs`. CI is configured to require the migration file.
+
+Important: this is schema preparation only. The migration has **not** been applied to any remote D1 database. No legacy editor accounts, credentials, orders, or assignments were copied. The runtime adapter endpoints and end-to-end bridge are not implemented yet.
