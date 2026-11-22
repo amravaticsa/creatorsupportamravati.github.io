@@ -218,3 +218,13 @@ test("A client revision stays open through editor re-upload and closes only afte
   assert.ok(api.includes("submission_id<>? AND ?='approved'"));
   assert.ok(api.includes("handled_by=?"));
 });
+
+test("Workflow notifications reach Client and Editor and Editor can read/manage preferences", () => {
+  assert.ok(api.includes("async function notifyInApp"));
+  assert.ok(api.includes("client_revision_requested"));
+  assert.ok(api.includes("work_submitted_for_qc"));
+  assert.ok(api.includes("quality_review_"+status));
+  assert.ok(api.includes('user(req,env,["client","admin","editor"])'));
+  assert.ok(portal.includes('loadCsaNotifications("editor")'));
+  assert.ok(portal.includes("editor-notifications"));
+});
