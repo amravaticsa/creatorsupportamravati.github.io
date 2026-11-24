@@ -315,10 +315,10 @@ The staging preflight requires `CANONICAL_GLOBAL_DB` to point to D1 470. A regre
 The canonical Global Platform staging data path is:
 
 - `csa-global-api-staging` → D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`
-- `csa-superadmin-isolated-staging` → local identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` and **`GLOBAL_DB` → canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`**
+- `csa-superadmin-isolated-staging` → local identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`, **`CANONICAL_GLOBAL_DB` → canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`**, and legacy `GLOBAL_DB` → compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
 - `csa-global-api-isolated-staging` → legacy/compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`; this database is not the canonical Regional Admin data source.
 
-Do not bind the isolated Super Admin Worker's `GLOBAL_DB` to `6a32...`. The legacy API database has additional compatibility columns used only by that legacy API; the canonical API and Super Admin country/project review use D1 `470...`.
+Country registry, country verification, and assignment review must use `CANONICAL_GLOBAL_DB` only. The legacy `GLOBAL_DB` binding is retained for compatibility and must not be used by country-verification code.
 
 The read-only preflight workflow checks these exact bindings on every staging infrastructure change and hourly. If the binding differs, treat the check as a blocking configuration drift; do not resolve it by changing the documented canonical database.
 
