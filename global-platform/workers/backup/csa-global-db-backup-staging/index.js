@@ -274,6 +274,7 @@ async function runBackupForDatabase(env, databaseName, cron) {
     quick_check: result.quick_check,
     foreign_key_violations: result.foreign_key_violations,
     compressed_bytes: result.compressed_bytes,
+    verification_status: result.verification_status,
     deleted_expired_objects: deleted,
   }));
 }
