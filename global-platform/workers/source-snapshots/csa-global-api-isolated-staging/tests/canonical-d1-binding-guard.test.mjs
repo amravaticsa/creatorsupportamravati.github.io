@@ -26,9 +26,11 @@ const healthRoute = source.slice(healthStart, healthEnd);
 test("Global API health validates canonical D1 required tables and columns", () => {
   assert.ok(healthStart >= 0, "health route exists");
   assert.match(healthRoute, /country_legal_evidence/);
+  assert.match(healthRoute, /v_tender_country_scope/);
+  assert.match(healthRoute, /missing_views:missingViews/);
   assert.match(healthRoute, /pragma_table_info/);
   assert.match(healthRoute, /missing_columns:missingColumns/);
-  assert.match(healthRoute, /schemaReady=missingTables.length===0&&missingColumns.length===0/);
+  assert.match(healthRoute, /schemaReady=missingTables.length===0&&missingViews.length===0&&missingColumns.length===0/);
   for (const column of [
     "created_by_source_admin_id",
     "reviewed_by_source_admin_id",
