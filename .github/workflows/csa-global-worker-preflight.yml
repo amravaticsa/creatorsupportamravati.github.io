@@ -2,6 +2,13 @@ name: CSA Global staging Worker preflight
 
 on:
   workflow_dispatch:
+  push:
+    branches: [staging]
+    paths:
+      - "global-platform/**"
+      - ".github/workflows/csa-global-worker-preflight.yml"
+  schedule:
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
