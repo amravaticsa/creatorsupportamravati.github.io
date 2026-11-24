@@ -170,12 +170,18 @@ jobs:
       - name: Verify admin and Regional Admin Staging portals are routed and session-protected
         run: |
           set -euo pipefail
-          admin_status="$(curl --location --silent --show-error --max-time 30 -o /tmp/csa-admin-staging.html -w '%{http_code}' https://admin-staging.creatorsupportamravati.in/)"
-          if [ "$admin_status" != "200" ] || ! grep -qi '<html' /tmp/csa-admin-staging.html; then
-            echo "::error::Admin Staging portal route did not return HTML 200 (HTTP $admin_status)"
+          admin_status="$(curl --retry 3 --retry-all-errors --retry-delay 2 --silent --show-error --max-time 30 -D /tmp/csa-admin.headers -o /tmp/csa-admin-staging.html -w '%{http_code}' https://admin-staging.creatorsupportamravati.in/)"
+          if [ "$admin_status" = "302" ]; then
+            location="$(awk 'tolower($1)=="location:" {print $2}' /tmp/csa-admin.headers | tail -n 1 | tr -d '\r')"
+            case "$location" in
+              https://small-hill-75c4.cloudflareaccess.com/*) ;;
+              *) echo "::error::Admin Staging portal Access redirect used an unexpected destination."; exit 1 ;;
+            esac
+          elif [ "$admin_status" != "401" ] && [ "$admin_status" != "403" ]; then
+            echo "::error::Admin Staging portal must require Cloudflare Access (302/401/403); received $admin_status"
             exit 1
           fi
-          admin_api_status="$(curl --silent --show-error --max-time 30 -D /tmp/csa-admin-me.headers -o /tmp/csa-admin-me.json -w '%{http_code}' https://admin-staging.creatorsupportamravati.in/api/me)"
+          admin_api_status="$(curl --retry 3 --retry-all-errors --retry-delay 2 --silent --show-error --max-time 30 -D /tmp/csa-admin-me.headers -o /tmp/csa-admin-me.json -w '%{http_code}' https://admin-staging.creatorsupportamravati.in/api/me)"
           if [ "$admin_api_status" = "302" ]; then
             location="$(awk 'tolower($1)=="location:" {print $2}' /tmp/csa-admin-me.headers | tail -n 1 | tr -d '\r')"
             case "$location" in
