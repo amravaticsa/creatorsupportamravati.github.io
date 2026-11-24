@@ -34,9 +34,9 @@ test("role permissions remain least-privilege; finance and regional access are s
   assert.ok(source.includes('finance_admin:[]'));
   assert.ok(source.includes('support_admin:["support.manage"]'));
   assert.ok(source.includes('regional_admin:[]'));
-  assert.ok(source.includes('a.source_role==="finance_admin"&&["read","write","manage"].includes(a.finance_access_level)'));
+  assert.ok(source.includes('a.source_role==="finance_admin"&&a.finance_access_level==="read"'));
   assert.ok(source.includes('rolePermissions.push("finance.read")'));
-  assert.ok(source.includes('rolePermissions.push("finance.refunds","finance.payouts")'));
+  assert.ok(!source.includes('rolePermissions.push("finance.refunds","finance.payouts")'));
 });
 
 test("Global Admin HMAC verification supports dedicated and legacy secrets", () => {
