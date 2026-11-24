@@ -1,6 +1,6 @@
 # CSA Global staging release-readiness audit
 
-**Audit timestamp:** 2026-11-24 16:32 UTC  
+**Audit timestamp:** 2026-11-24 16:43 UTC  
 **Environment:** Cloudflare staging only  
 **Result:** Main and isolated staging stacks are separated. Technical staging is ready for controlled onboarding tests; commercial activation and production release remain blocked.
 
@@ -34,7 +34,7 @@ The isolated Super Admin Cloudflare Access audience allowlist now contains all f
 
 ## 3. D1 structural and data checks
 
-All ten D1 databases attached to the backup Worker were checked with `PRAGMA foreign_key_check`. Each returned **zero foreign-key violations**.
+All ten D1 databases attached to the backup Worker were checked with `PRAGMA foreign_key_check`; each returned **zero foreign-key violations**. A separate `PRAGMA quick_check` on all ten also returned `ok`.
 
 | Logical database | Tables | FK violations |
 |---|---:|---:|
@@ -51,7 +51,7 @@ All ten D1 databases attached to the backup Worker were checked with `PRAGMA for
 
 Both Global D1 databases currently contain 249 country rows, 2 users and 3 projects. All three projects remain country-unassigned. The isolated Super Admin country registry contains 249 rows; legal-review records remain zero. No country was legally approved or commercially activated by this setup.
 
-Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync succeeded at 16:30:03.637–16:30:04.317 UTC (1 record) against D1 6a32; the isolated country registry last updated at 16:30:05 UTC with all 249 countries. The isolated 16:15 attempt returned 503 while the schema-role guard was being corrected; the corrected 16:30 run passed. The main HMAC admin sync last succeeded at 16:15:21.998–16:15:22.970 UTC (1 record) against D1 470. The two syncs target their matching Global API Worker/D1 pair.
+Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync succeeded at 16:30:03.637–16:30:04.317 UTC (1 record) against D1 6a32; the isolated country registry last updated at 16:30:05 UTC with all 249 countries. The isolated 16:15 attempt returned 503 while the schema-role guard was being corrected; the corrected 16:30 run passed. The main HMAC admin sync last succeeded at 16:30:22.288–16:30:23.603 UTC (1 record) against D1 470. The two syncs target their matching Global API Worker/D1 pair.
 
 ## 4. Backup, storage and large uploads
 
@@ -59,13 +59,13 @@ Both D1s have the `country_legal_evidence` table and zero evidence rows. Only is
 - The private backup bucket is `csa-global-db-backups-staging`, in APAC Infrequent Access.
 - Its R2 lifecycle expires `daily/` backups after 30 days and aborts incomplete multipart uploads after 7 days.
 - The backup source verifies each database's role before export: `global` must be isolated D1 6a32, while `global_legacy` must be main D1 470. It captures schema, rows, indexes, views, triggers, quick-check and foreign-key results, gzip-compresses, reads back and verifies the R2 object, then writes a manifest.
-- The backup Worker has been rebound to `DB_GLOBAL` 6a32 and `DB_GLOBAL_LEGACY` 470. The first daily backup cycle after this role correction and the new schema-role guards remains pending.
+- The backup Worker has been rebound to `DB_GLOBAL` 6a32 and `DB_GLOBAL_LEGACY` 470. R2 contains earlier test artifacts for all ten D1s; the 03:50 UTC set predates the corrected Global database labels and is diagnostic only. The later 05:32–06:47 UTC test artifacts have `quickCheck=ok` and zero FK violations, but only the `global` and `superadmin` objects have explicit read-back verification records. Do not use these partial test artifacts as a complete restore set. The current Worker now writes a manifest and read-back verification record for every database. The first full daily cycle with the final bindings and schema-role guards is scheduled for 25 November, 02:02–02:47 UTC (07:32–08:17 IST); a restore drill remains pending.
 - Six inspected staging R2 buckets have no custom public domains and disabled managed public domains. The backup Worker has no public workers.dev or preview subdomain.
 - Large uploads use direct upload up to 90 MB and resumable R2 multipart uploads above 90 MB up to 5 GB per file. Parts are 50 MB, sessions expire after 24 hours, each part is SHA-256 checked, and upload operations are scoped to the authenticated uploader. The canonical upload tables currently show zero open sessions and zero orphaned parts; cleanup logs contain 179 successful runs.
 
 ## 5. Application and CI validation
 
-- Staging Pages deployment, frontend/API health, Regional Admin API rejection of unsigned requests, and admin/regional/editor portal route/session-protection smoke checks passed in the latest staging deployment.
+- Staging Pages deployment, frontend/API health, Regional Admin API rejection of unsigned requests, and admin/regional/editor portal route/session-protection smoke checks passed in the latest staging deployment. Client Login, Admin Login, Editor Login and Editor Registration pages are now plain shells without shared top bar, header or footer; a CI regression test covers all four.
 - API validation includes Google auth, client upload security, project/country scope, finance read-only, regional bridge authentication, editor workflows, and schema/migration checks.
 - Finance Admin is enforced as `finance.read` only; Write/Manage options are hidden/disabled in the Super Admin UI.
 - Razorpay checkout remains unconfigured; no payment, refund or payout was executed.
