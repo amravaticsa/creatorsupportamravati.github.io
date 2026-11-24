@@ -32,3 +32,13 @@ test("logical backup captures triggers and records foreign-key violations", () =
   assert.match(source, /foreign_key_violations/);
   assert.match(source, /triggers,/);
 });
+
+
+test("each uploaded gzip backup is read back, decompressed and verified", () => {
+  assert.match(source, /async function verifyStoredBackup/);
+  assert.match(source, /await bucket\.get\(key\)/);
+  assert.match(source, /new DecompressionStream\("gzip"\)/);
+  assert.match(source, /backup_object_content_verification_failed/);
+  assert.match(source, /\.verification\.json/);
+  assert.match(source, /verification_status: verification\.status/);
+});
