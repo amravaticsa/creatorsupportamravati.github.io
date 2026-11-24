@@ -323,3 +323,11 @@ Country registry, country verification, and assignment review must use `CANONICA
 The read-only preflight workflow checks these exact bindings on every staging infrastructure change and hourly. If the binding differs, treat the check as a blocking configuration drift; do not resolve it by changing the documented canonical database.
 
 The legacy `csa-superadmin-api-staging` Worker remains separate. It has a staging environment/database despite also being attached to non-suffixed `admin` and `superadmin` hostnames. Do not treat those hostnames as proof of a production deployment; hostname routing must be resolved before launch.
+
+
+## Staging HMAC key roles — 2026-11-24
+
+- `GLOBAL_API_SYNC_HMAC_SECRET` signs canonical Super Admin → `csa-global-api-staging` admin-authorization snapshots and other canonical API bridges. The canonical API verifies this key; `ADMIN_SYNC_HMAC_SECRET` remains a migration fallback where explicitly supported.
+- `ADMIN_SYNC_HMAC_SECRET` signs the isolated Legacy Links bridge to `csa-global-api-isolated-staging`.
+- `CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET` is reserved for the isolated compatibility API's admin-sync path. Do not substitute it for the canonical Global API key unless both sender and receiver are deliberately migrated together.
+- Secret values must never be read into logs, source control, or browser code.
