@@ -32,14 +32,14 @@ R2 media objects are not copied by this Worker. Each uploaded gzip object is fet
 The R2 bucket must remain private. Do not add a public R2 domain or public bucket policy.
 
 
-### Canonical versus compatibility Global D1 IDs
+### Isolated versus legacy Global D1 IDs
 
-- `DB_GLOBAL` → canonical `csa-global-platform-staging`, D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
-- `DB_GLOBAL_LEGACY` → compatibility `csa-global-platform-isolated-staging`, D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- `DB_GLOBAL` → isolated canonical `csa-global-platform-isolated-staging`, D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- `DB_GLOBAL_LEGACY` → older compatibility `csa-global-platform-staging`, D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
 
-The binding names and backup object names are intentionally aligned: `global.json.gz` is canonical; `global_legacy.json.gz` is compatibility.
+The isolated Global API Worker uses the isolated D1 as its source of truth. The legacy database is retained as a compatibility/archival store and must not be rebound to isolated Workers unless its schema and migration are explicitly validated. The backup Worker source and D1 bindings must agree: `global.json.gz` is the isolated database; `global_legacy.json.gz` is the older compatibility database.
 
 
 ### 24-November pre-correction artifacts
 
-The first 24-November backup set was created before the Global D1 binding correction and does not embed D1 UUIDs. Its `global`/`global_legacy` labels must not be treated as authoritative recovery identities. Keep those files for diagnostics only; do not restore them into a live or recovery D1. The first daily run after the corrected binding deployment will include explicit D1 UUIDs and post-upload `.verification.json` markers.
+Backups created before the final source-to-binding alignment at 2026-11-24 16:10 UTC must be treated as diagnostic only when their database UUID or binding mapping cannot be independently verified. The first complete daily backup after the alignment will include explicit D1 UUIDs, a readback/decompression verification, and a `.verification.json` success marker. Do not restore an artifact without matching its database UUID to the intended recovery database.
