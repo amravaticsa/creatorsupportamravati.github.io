@@ -308,7 +308,7 @@ The isolated Super Admin Worker uses the isolated Global D1, separate from the r
 - Main staging Global API D1 is `470a81b8-3d36-4e2d-942c-5cbb2746a473`; it is not the isolated staging database.
 - `DB` remains the isolated Super Admin identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
 
-The isolated API and isolated Super Admin must use D1 6a32 together. The main API and its separate Super Admin service use D1 470 together. The `country_legal_evidence` table is a schema-role marker present in main D1 470 and absent from isolated D1 6a32. Runtime guards fail closed if either stack is pointed at the other stack's database.
+The isolated API and isolated Super Admin must use D1 6a32 together. The main API and its separate Super Admin service use D1 470 together. The `v_tender_country_scope` view exists only in isolated D1 6a32 and is the unique isolated-stack schema marker. Both databases contain `country_legal_evidence`; the main API guard requires that table and rejects the isolated view, while isolated API/Super Admin guards require the isolated view.
 
 ## Staging binding contract — 2026-11-24
 
@@ -326,7 +326,7 @@ The two staging stacks are deliberately isolated from one another:
 
 The main Global API uses legacy-video D1 `2d3f97a0-fa32-46ef-9913-972a59a410e4` and main media bucket `csa-global-media-staging`. The isolated Global API uses legacy-video D1 `b611b8ff-8f9f-43b2-95c8-a767a14987d6`, isolated media bucket `csa-global-media-isolated-staging`, and isolated video bucket `csa-video-editing-isolated-staging`.
 
-The isolated Super Admin country-registry sync and the isolated admin-authorization HMAC receiver must both target D1 6a32. The main Super Admin sync targets the main API on D1 470. Do not merge these stacks or change the isolated binding to 470 simply because that database has the additional main-stack `country_legal_evidence` table.
+The isolated Super Admin country-registry sync and the isolated admin-authorization HMAC receiver must both target D1 6a32. The main Super Admin sync targets the main API on D1 470. Do not merge these stacks or change the isolated binding to 470. The isolated-only `v_tender_country_scope` view distinguishes D1 6a32 from main D1 470.
 
 The read-only preflight checks these exact bindings, HMAC secret names, Access audiences, backup schedules and private Worker exposure. If the check cannot read Worker settings, it must report a skipped check—not a passed configuration audit.
 
@@ -348,7 +348,7 @@ This section supersedes earlier staging snapshots in this README where their D1 
 - Isolated Super Admin uses identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`; all three Global aliases (`GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, `GLOBAL_DB`) point to isolated D1 6a32.
 - Main Super Admin remains a separate staging service using D1 `99bc81fc-e97e-488b-a380-eb0237ff8ffc`; it syncs to main Global API D1 470.
 - Isolated Editor Portal uses Super Admin D1 c2bb and video D1 b611.
-- The main-stack marker `country_legal_evidence` exists in D1 470 and is absent from isolated D1 6a32. Main API guards require it; isolated API and isolated Super Admin guards reject it. This prevents cross-stack database drift from silently writing to the wrong D1.
+- The isolated-stack marker `v_tender_country_scope` exists only in D1 6a32. Main API guards require `country_legal_evidence` and reject the isolated view; isolated API and isolated Super Admin guards require the view. This prevents cross-stack database drift from silently writing to the wrong D1.
 
 ### Verified controls
 - Both main and isolated Global D1s contain 249 country rows, 2 users and 3 projects. The 249-row isolated country registry matches the isolated Super Admin registry. Projects remain country-unassigned. All countries remain planned; orders, payments and payouts are disabled. No legal approval, country evidence or Regional Admin invitation was fabricated.
