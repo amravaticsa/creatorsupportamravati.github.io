@@ -63,7 +63,7 @@ jobs:
           done
           echo "available=true" >> "$GITHUB_OUTPUT"
 
-      - name: Verify dedicated and legacy HMAC secret bindings on canonical staging Workers
+      - name: Verify dedicated and legacy HMAC secret bindings on isolated staging sender and receiver
         if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
         run: |
           set -euo pipefail
@@ -75,7 +75,7 @@ jobs:
               and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
             ' "$file" >/dev/null
           done
-          echo "PASS: both canonical Staging Workers have dedicated and legacy HMAC secret bindings; values remain hidden."
+          echo "PASS: isolated Super Admin sender and isolated Global API receiver have dedicated and legacy HMAC secret bindings; values remain hidden."
 
       - name: Verify isolated Super Admin Cloudflare Access audience allowlist
         if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
@@ -131,7 +131,7 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
-            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
+            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-video-editing-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-isolated-staging") ] | length == 1)
@@ -144,8 +144,8 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
-            and ([ $b[] | select(.name == "CANONICAL_GLOBAL_DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
-            and ([ $b[] | select(.name == "GLOBAL_API_DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
+            and ([ $b[] | select(.name == "CANONICAL_GLOBAL_DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
+            and ([ $b[] | select(.name == "GLOBAL_API_DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
             and ([ $b[] | select(.name == "GLOBAL_DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
             and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
@@ -161,15 +161,15 @@ jobs:
           ' csa-editor-portal-isolated-staging.json >/dev/null
 
           echo "PASS: all four staging Worker binding maps match the current read-only audit."
-          echo "NOTE: both main and isolated Global API Worker scripts share canonical D1 470; their legacy-video D1 bindings are 2d3 and b611 respectively. Super Admin country registry/legal-review sync targets D1 470; legacy Global D1 6a32 remains a separate compatibility store."
+          echo "NOTE: main staging Global API uses D1 470; isolated Global API and isolated Super Admin country registry/legal-review sync use isolated D1 6a32. Their legacy-video D1 bindings are 2d3 and b611 respectively. Backup DB_GLOBAL is isolated D1 6a32; DB_GLOBAL_LEGACY is main staging D1 470."
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
             and ([ $b[] | select(.name == "BACKUPS" and .type == "r2_bucket" and .bucket_name == "csa-global-db-backups-staging") ] | length == 1)
-            and ([ $b[] | select(.name == "DB_GLOBAL" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
+            and ([ $b[] | select(.name == "DB_GLOBAL" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
             and ([ $b[] | select(.name == "DB_SUPERADMIN" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
             and ([ $b[] | select(.name == "DB_SUPERADMIN_LEGACY" and .type == "d1" and .id == "99bc81fc-e97e-488b-a380-eb0237ff8ffc") ] | length == 1)
-            and ([ $b[] | select(.name == "DB_GLOBAL_LEGACY" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
+            and ([ $b[] | select(.name == "DB_GLOBAL_LEGACY" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
             and ([ $b[] | select(.name == "DB_VIDEO" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
             and ([ $b[] | select(.name == "DB_GLOBAL_VIDEO_LEGACY" and .type == "d1" and .id == "2d3f97a0-fa32-46ef-9913-972a59a410e4") ] | length == 1)
             and ([ $b[] | select(.name == "DB_EDITOR_SUPERADMIN" and .type == "d1" and .id == "1fc2979f-52e2-420e-80f5-b70a51f6ac6c") ] | length == 1)
