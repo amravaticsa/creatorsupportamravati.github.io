@@ -300,6 +300,16 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` is the active isolated legacy-link API database, not the canonical Client/Editor or Regional Admin database. The Staging preflight checks the canonical `GLOBAL_DB` binding.
 
 
+## Explicit canonical database binding — 2026-11-24
+
+The isolated Super Admin Worker uses two separate Global D1 connections by purpose:
+
+- `CANONICAL_GLOBAL_DB` → D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` for country registry, country verification, and country assignment review.
+- `GLOBAL_DB` may remain on D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` as a legacy compatibility binding only; country verification and assignment code must never use it.
+- `DB` → Super Admin identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
+
+The staging preflight requires `CANONICAL_GLOBAL_DB` to point to D1 470. A regression test asserts all country-verification routes use the explicit binding and do not use `env.GLOBAL_DB`. This prevents a legacy compatibility binding update from silently changing the Regional Admin country-verification data source.
+
 ## Staging binding contract — 2026-11-24
 
 The canonical Global Platform staging data path is:
