@@ -192,5 +192,37 @@ jobs:
             exit 1
           fi
           echo "PASS Admin and Regional Admin Staging routes respond and require authenticated sessions."
+      - name: Verify isolated Super Admin and Editor Staging portals
+        run: |
+          set -euo pipefail
+          for host in superadmin-isolated-staging admin-isolated-staging; do
+            status="$(curl --location --silent --show-error --max-time 30 -o "/tmp/${host}.html" -w '%{http_code}' "https://${host}.creatorsupportamravati.in/")"
+            if [ "${status}" != "200" ] || ! grep -qi '<html' "/tmp/${host}.html"; then
+              echo "::error::Isolated admin portal ${host} did not return HTML 200 (HTTP ${status})"
+              exit 1
+            fi
+            api_status="$(curl --silent --show-error --max-time 30 -o "/tmp/${host}-me.json" -w '%{http_code}' "https://${host}.creatorsupportamravati.in/api/me")"
+            if [ "${api_status}" != "401" ]; then
+              echo "::error::Unauthenticated isolated admin session on ${host} should return 401; received ${api_status}"
+              cat "/tmp/${host}-me.json"
+              exit 1
+            fi
+            echo "PASS isolated admin host ${host}: HTML 200 and unauthenticated API 401."
+          done
+
+          editor_status="$(curl --location --silent --show-error --max-time 30 -o /tmp/csa-editor-staging.html -w '%{http_code}' https://editor-staging.creatorsupportamravati.in/)"
+          if [ "${editor_status}" != "200" ] || ! grep -qi '<html' /tmp/csa-editor-staging.html; then
+            echo "::error::Editor Staging portal did not return HTML 200 (HTTP ${editor_status})"
+            exit 1
+          fi
+
+          bridge_status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-editor-bridge-unsigned.json -w '%{http_code}' -X POST https://editor-api-isolated-staging.creatorsupportamravati.in/editor-api/internal/legacy-bridge/assignment -H 'content-type: application/json' --data '{}')"
+          if [ "${bridge_status}" != "401" ] && [ "${bridge_status}" != "403" ]; then
+            echo "::error::Unsigned Editor bridge request must fail closed with HTTP 401/403; received ${bridge_status}"
+            cat /tmp/csa-editor-bridge-unsigned.json
+            exit 1
+          fi
+          echo "PASS Editor Staging portal route and unsigned Editor bridge rejection."
+
       - name: Verify staging API authorization boundaries (read-only)
         run: bash global-platform/testing/staging-auth-boundary-smoke.sh
