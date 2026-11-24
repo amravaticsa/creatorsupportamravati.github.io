@@ -41,4 +41,5 @@ const options={key:order.keyId,amount:order.amount,currency:order.currency,name:
 const checkout=new Razorpay(options);checkout.on("payment.failed",function(r){showStatus("Payment failed: "+(r.error&&r.error.description?r.error.description:"Please try again or contact CSA."),"error");btn.disabled=false;btn.textContent="Continue to secure payment"});checkout.open();
 }catch(err){showStatus(err.message,"error");btn.disabled=false;btn.textContent="Continue to secure payment"}});
 </script><script src="assets/js/firebase-config.js"></script><script src="assets/js/csa-engagement.js"></script><script src="/assets/js/role-menu.js?v=20261121"></script>
+<script src="assets/js/csa-analytics.js" defer></script>
 </body></html>
