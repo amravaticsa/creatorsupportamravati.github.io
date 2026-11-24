@@ -14,16 +14,16 @@ const DATABASES = {
 // One D1 database per invocation keeps each scheduled run small and recoverable.
 // The */5 entry is temporary first-run verification; production schedule is daily below.
 const CRON_TO_DATABASE = {
-  "0 2 * * *": "global",
-  "5 2 * * *": "superadmin",
-  "10 2 * * *": "superadmin_legacy",
-  "15 2 * * *": "global_legacy",
-  "20 2 * * *": "video_legacy",
-  "25 2 * * *": "global_video_legacy",
-  "30 2 * * *": "editor_superadmin",
-  "35 2 * * *": "video_workflow",
-  "40 2 * * *": "rush",
-  "45 2 * * *": "rush_isolated",
+  "2 2 * * *": "global",
+  "7 2 * * *": "superadmin",
+  "12 2 * * *": "superadmin_legacy",
+  "17 2 * * *": "global_legacy",
+  "22 2 * * *": "video_legacy",
+  "27 2 * * *": "global_video_legacy",
+  "32 2 * * *": "editor_superadmin",
+  "37 2 * * *": "video_workflow",
+  "42 2 * * *": "rush",
+  "47 2 * * *": "rush_isolated",
 };
 
 const PAGE_SIZE = 1000;
