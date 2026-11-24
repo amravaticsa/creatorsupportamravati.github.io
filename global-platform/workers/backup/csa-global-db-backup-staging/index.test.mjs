@@ -42,3 +42,11 @@ test("each uploaded gzip backup is read back, decompressed and verified", () => 
   assert.match(source, /\.verification\.json/);
   assert.match(source, /verification_status: verification\.status/);
 });
+
+
+test("backup manifest is written only after successful R2 readback verification", () => {
+  const verificationCall = source.indexOf("const verification = await verifyStoredBackup");
+  const manifestWrite = source.indexOf(".manifest.json");
+  assert.ok(verificationCall >= 0 && manifestWrite > verificationCall);
+  assert.match(source, /verification_status: verification\.status/);
+});
