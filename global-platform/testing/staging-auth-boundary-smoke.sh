@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Intentionally pinned to the staging Worker hostname. Never accept a caller-supplied
 # URL here: this test must not be redirected to production by workflow variables.
-API="https://csa-global-api-isolated-staging.amravaticsa.workers.dev"
+API="https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"
 case "$API" in
-  https://csa-global-api-isolated-staging.amravaticsa.workers.dev) ;;
+  https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev) ;;
   *) echo "Refusing to run against a non-staging API." >&2; exit 2 ;;
 esac
 
