@@ -152,11 +152,6 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     foreign_key_violations: foreignKeyViolations,
     compressed_bytes: compressed.byteLength,
   };
-  await bucket.put(
-    `daily/${date}/${stamp}/${databaseName}.manifest.json`,
-    JSON.stringify({ format: "csa-d1-logical-backup-manifest-v1", generated_at: generatedAt, ...result }, null, 2),
-    { httpMetadata: { contentType: "application/json" } }
-  );
   const verification = await verifyStoredBackup(bucket, key, {
     database: databaseName,
     generated_at: generatedAt,
@@ -165,6 +160,11 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     trigger_count: result.trigger_count,
     compressed_bytes: result.compressed_bytes,
   });
+  await bucket.put(
+    `daily/${date}/${stamp}/${databaseName}.manifest.json`,
+    JSON.stringify({ format: "csa-d1-logical-backup-manifest-v1", generated_at: generatedAt, verification_status: verification.status, ...result }, null, 2),
+    { httpMetadata: { contentType: "application/json" } }
+  );
   await bucket.put(
     `daily/${date}/${stamp}/${databaseName}.verification.json`,
     JSON.stringify(verification, null, 2),
