@@ -22,12 +22,12 @@ jobs:
       - name: Check Cloudflare credential availability
         id: token
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${CF_API_TOKEN}" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::CLOUDFLARE_WORKERS_READ_TOKEN is not configured; read-only Cloudflare preflight checks are skipped."
+            echo "::notice::Neither CLOUDFLARE_WORKERS_READ_TOKEN nor the existing CLOUDFLARE_API_TOKEN is configured; read-only Cloudflare preflight checks are skipped."
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
@@ -35,7 +35,7 @@ jobs:
       - name: Read isolated and regular staging Worker settings
         if: ${{ steps.token.outputs.available == 'true' }}
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
         run: |
           set -euo pipefail
@@ -68,7 +68,7 @@ jobs:
       - name: Verify daily backup schedule and private Worker exposure
         if: ${{ steps.token.outputs.available == 'true' }}
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
         run: |
           set -euo pipefail
