@@ -195,19 +195,27 @@ jobs:
       - name: Verify isolated Super Admin and Editor Staging portals
         run: |
           set -euo pipefail
+          ACCESS_LOGIN_PREFIX="https://small-hill-75c4.cloudflareaccess.com/"
+
           for host in superadmin-isolated-staging admin-isolated-staging; do
             status="$(curl --location --silent --show-error --max-time 30 -o "/tmp/${host}.html" -w '%{http_code}' "https://${host}.creatorsupportamravati.in/")"
             if [ "${status}" != "200" ] || ! grep -qi '<html' "/tmp/${host}.html"; then
               echo "::error::Isolated admin portal ${host} did not return HTML 200 (HTTP ${status})"
               exit 1
             fi
-            api_status="$(curl --silent --show-error --max-time 30 -o "/tmp/${host}-me.json" -w '%{http_code}' "https://${host}.creatorsupportamravati.in/api/me")"
-            if [ "${api_status}" != "401" ]; then
-              echo "::error::Unauthenticated isolated admin session on ${host} should return 401; received ${api_status}"
+            api_status="$(curl --silent --show-error --max-time 30 -D "/tmp/${host}-me.headers" -o "/tmp/${host}-me.json" -w '%{http_code}' "https://${host}.creatorsupportamravati.in/api/me")"
+            if [ "${api_status}" = "302" ]; then
+              location="$(awk 'tolower($1)=="location:" {print $2}' "/tmp/${host}-me.headers" | tail -n 1 | tr -d '\r')"
+              case "${location}" in
+                "${ACCESS_LOGIN_PREFIX}"*) ;;
+                *) echo "::error::Isolated admin Access redirect used an unexpected destination."; exit 1 ;;
+              esac
+            elif [ "${api_status}" != "401" ] && [ "${api_status}" != "403" ]; then
+              echo "::error::Unauthenticated isolated admin API must return 401/403 or redirect to configured Cloudflare Access; received ${api_status}"
               cat "/tmp/${host}-me.json"
               exit 1
             fi
-            echo "PASS isolated admin host ${host}: HTML 200 and unauthenticated API 401."
+            echo "PASS isolated admin host ${host}: HTML 200 and unauthenticated API fail-closed."
           done
 
           editor_status="$(curl --location --silent --show-error --max-time 30 -o /tmp/csa-editor-staging.html -w '%{http_code}' https://editor-staging.creatorsupportamravati.in/)"
@@ -216,9 +224,15 @@ jobs:
             exit 1
           fi
 
-          bridge_status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-editor-bridge-unsigned.json -w '%{http_code}' -X POST https://editor-api-isolated-staging.creatorsupportamravati.in/editor-api/internal/legacy-bridge/assignment -H 'content-type: application/json' --data '{}')"
-          if [ "${bridge_status}" != "401" ] && [ "${bridge_status}" != "403" ]; then
-            echo "::error::Unsigned Editor bridge request must fail closed with HTTP 401/403; received ${bridge_status}"
+          bridge_status="$(curl --silent --show-error --max-time 30 -D /tmp/csa-editor-bridge.headers -o /tmp/csa-editor-bridge-unsigned.json -w '%{http_code}' -X POST https://editor-api-isolated-staging.creatorsupportamravati.in/editor-api/internal/legacy-bridge/assignment -H 'content-type: application/json' --data '{}')"
+          if [ "${bridge_status}" = "302" ]; then
+            location="$(awk 'tolower($1)=="location:" {print $2}' /tmp/csa-editor-bridge.headers | tail -n 1 | tr -d '\r')"
+            case "${location}" in
+              "${ACCESS_LOGIN_PREFIX}"*) ;;
+              *) echo "::error::Editor bridge Access redirect used an unexpected destination."; exit 1 ;;
+            esac
+          elif [ "${bridge_status}" != "401" ] && [ "${bridge_status}" != "403" ]; then
+            echo "::error::Unsigned Editor bridge request must fail closed with HTTP 401/403 or configured Access redirect; received ${bridge_status}"
             cat /tmp/csa-editor-bridge-unsigned.json
             exit 1
           fi
