@@ -4,17 +4,26 @@ const DATABASES = {
   superadmin_legacy: "DB_SUPERADMIN_LEGACY",
   global_legacy: "DB_GLOBAL_LEGACY",
   video_legacy: "DB_VIDEO",
+  global_video_legacy: "DB_GLOBAL_VIDEO_LEGACY",
+  editor_superadmin: "DB_EDITOR_SUPERADMIN",
+  video_workflow: "DB_VIDEO_WORKFLOW",
+  rush: "DB_RUSH",
+  rush_isolated: "DB_RUSH_ISOLATED",
 };
 
 // One D1 database per invocation keeps each scheduled run small and recoverable.
 // The */5 entry is temporary first-run verification; production schedule is daily below.
 const CRON_TO_DATABASE = {
-  "*/5 * * * *": "superadmin_legacy",
   "0 2 * * *": "global",
   "5 2 * * *": "superadmin",
   "10 2 * * *": "superadmin_legacy",
   "15 2 * * *": "global_legacy",
   "20 2 * * *": "video_legacy",
+  "25 2 * * *": "global_video_legacy",
+  "30 2 * * *": "editor_superadmin",
+  "35 2 * * *": "video_workflow",
+  "40 2 * * *": "rush",
+  "45 2 * * *": "rush_isolated",
 };
 
 const PAGE_SIZE = 1000;
