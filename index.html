@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Use the device system font stack on the homepage to avoid a render-blocking web-font request. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20261122-header-quicklinks">
+<link rel="stylesheet" href="assets/css/style.css?v=20261124-unified-header">
 <!-- Existing Google Analytics tag retained -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FE2SEB8NPH"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-FE2SEB8NPH');</script>
@@ -70,13 +70,17 @@
 </script>
 </head>
 <body>
-<div class="topbar"><div class="container"><span>Creator Support Amravati · Creative production & digital growth</span><span><a href="tel:+919225515679">Call: 92255 15679</a> &nbsp; · &nbsp; <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a></span></div></div>
+<div class="topbar"><div class="container"><span>Creator Support Amravati · Creative production &amp; digital growth</span><span><a href="tel:+919225515679">Call: 92255 15679</a> &nbsp; · &nbsp; <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a></span></div></div>
 <header class="site-header"><div class="container header-inner">
-<a class="brand" href="index.html"><img src="assets/images/logo.png" alt="Creator Support Amravati logo" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a>
-<div class="header-quicklinks" aria-label="Quick links"><a href="portfolio.html"><span aria-hidden="true">▣</span> Portfolio</a><a href="case-studies.html"><span aria-hidden="true">✦</span> Case Studies</a><a href="events-projects.html"><span aria-hidden="true">◷</span> Events</a></div>
-<button class="menu-toggle" aria-label="Open navigation" aria-expanded="false" onclick="const n=document.querySelector('.main-nav');const o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">☰</button>
-<nav class="main-nav" aria-label="Main navigation"><a href="index.html" aria-current="page">Home</a><a href="about.html">About</a><a href="services.html">Services</a><a href="blog.html">Blog</a><a href="portfolio.html">Portfolio</a><a href="contact.html">Contact</a></nav>
+<a class="brand" href="/index.html"><img src="/assets/images/logo.png" alt="Creator Support Amravati logo" width="48" height="48"><span>Creator Support <span>Amravati</span></span></a>
+<div class="header-quicklinks" aria-label="Quick links"><a href="/portfolio.html"><span aria-hidden="true">▣</span> Portfolio</a><a href="/case-studies.html"><span aria-hidden="true">✦</span> Case Studies</a><a href="/events-projects.html"><span aria-hidden="true">◷</span> Events</a></div>
+<button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false" onclick="const n=document.querySelector('.site-header .main-nav');const o=n.classList.toggle('open');this.setAttribute('aria-expanded',o)">☰</button>
+<nav class="main-nav" aria-label="Main navigation"><a href="/index.html">Home</a><a href="/about.html">About</a><a href="/services.html">Services</a><a href="/blog.html">Blog</a><a href="/portfolio.html">Portfolio</a><a href="/contact.html">Contact</a></nav>
 </div></header>
+<script>(function(){var p=location.pathname;if(p.indexOf('/blog/')===0)p='/blog.html';else if(p.indexOf('/portfolio/')===0)p='/portfolio.html';else if(p==='/')p='/index.html';document.querySelectorAll('.site-header .main-nav a').forEach(function(a){if(new URL(a.href,location.href).pathname===p)a.setAttribute('aria-current','page')})})();</script>
+
+<div class="topbar"><div class="container"><span>Creator Support Amravati · Creative production & digital growth</span><span><a href="tel:+919225515679">Call: 92255 15679</a> &nbsp; · &nbsp; <a href="mailto:amravati.csa@gmail.com">amravati.csa@gmail.com</a></span></div></div>
+
 
 <main>
 <section class="hero"><div class="container hero-grid"><div><span class="eyebrow">Your creative growth partner · Amravati</span><h1>Make your brand <em>impossible to ignore.</em></h1><p>From powerful videos and podcasts to websites and digital marketing, Creator Support Amravati helps businesses, creators and professionals build a stronger presence online.</p><div class="hero-actions"><a class="button" href="services.html">Explore Our Services</a><a class="hero-text-link" href="portfolio.html">View our work →</a></div></div><aside class="hero-panel"><div class="big">One team.</div><p>Creative production, content strategy and digital services under one roof.</p><div class="hero-points"><div class="hero-point">🎬 Video & photo production</div><div class="hero-point">🎙️ Podcast production</div><div class="hero-point">📈 Digital marketing</div><div class="hero-point">💻 Website development</div></div></aside></div></section>
