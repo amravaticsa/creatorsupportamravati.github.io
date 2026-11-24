@@ -65,6 +65,28 @@ jobs:
           done
           echo "PASS: both canonical Staging Workers have dedicated and legacy HMAC secret bindings; values remain hidden."
 
+      - name: Verify daily backup schedule and private Worker exposure
+        if: ${{ steps.token.outputs.available == 'true' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN }}
+          CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/scripts/csa-global-db-backup-staging/schedules" \
+            -o backup-schedules.json
+          jq -e '
+            ([.result.schedules[].cron] | sort) ==
+            (["0 2 * * *","5 2 * * *","10 2 * * *","15 2 * * *","20 2 * * *","25 2 * * *","30 2 * * *","35 2 * * *","40 2 * * *","45 2 * * *"] | sort)
+          ' backup-schedules.json >/dev/null
+          curl --fail --silent --show-error --max-time 30 \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/scripts/csa-global-db-backup-staging/subdomain" \
+            -o backup-subdomain.json
+          jq -e '.result.enabled == false and .result.previews_enabled == false' backup-subdomain.json >/dev/null
+          echo "PASS: all ten daily backup Cron schedules are present; workers.dev and preview subdomains are disabled."
+
       - name: Verify current D1, R2 and secret-name bindings
         if: ${{ steps.token.outputs.available == 'true' }}
         run: |
