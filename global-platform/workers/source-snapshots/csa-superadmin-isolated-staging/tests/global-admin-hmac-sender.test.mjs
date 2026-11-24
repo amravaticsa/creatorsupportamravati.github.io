@@ -17,5 +17,5 @@ test("Super Admin authorization sync retries with a fresh nonce using the altern
   assert.match(block, /const nonce = crypto\.randomUUID\(\)/);
   assert.match(block, /hmacHex\(secret, canonical\)/);
   assert.ok(block.indexOf("CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET") < block.indexOf("GLOBAL_API_SYNC_HMAC_SECRET"));
-  assert.match(block, /https:\/\/csa-global-api-staging\.creatorsupportamravati\.workers\.dev/);
+  assert.match(block, /https:\/\/csa-global-api-isolated-staging\.creatorsupportamravati\.workers\.dev/);
 });
