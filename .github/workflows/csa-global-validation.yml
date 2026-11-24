@@ -68,8 +68,47 @@ jobs:
       - name: Test staging backup schedule mapping
         run: node --test global-platform/workers/backup/csa-global-db-backup-staging/index.test.mjs
 
-      - name: Test canonical Global API routes and security
-        run: node --test global-platform/api/tests/*.test.mjs
+      - name: Test API admin-authorization
+        run: node --test global-platform/api/tests/admin-authorization.test.mjs
+
+      - name: Test API client-onboarding-project-flow
+        run: node --test global-platform/api/tests/client-onboarding-project-flow.test.mjs
+
+      - name: Test API client-upload-security
+        run: node --test global-platform/api/tests/client-upload-security.test.mjs
+
+      - name: Test API country-legal-review-health
+        run: node --test global-platform/api/tests/country-legal-review-health.test.mjs
+
+      - name: Test API global-admin-hmac-compat
+        run: node --test global-platform/api/tests/global-admin-hmac-compat.test.mjs
+
+      - name: Test API google-auth-security
+        run: node --test global-platform/api/tests/google-auth-security.test.mjs
+
+      - name: Test API legacy-bridge-signing
+        run: node --test global-platform/api/tests/legacy-bridge-signing.test.mjs
+
+      - name: Test API legacy-editor-bridge-schema
+        run: node --test global-platform/api/tests/legacy-editor-bridge-schema.test.mjs
+
+      - name: Test API migration-consistency
+        run: node --test global-platform/api/tests/migration-consistency.test.mjs
+
+      - name: Test API notification-refund-api
+        run: node --test global-platform/api/tests/notification-refund-api.test.mjs
+
+      - name: Test API payment-mode-guard
+        run: node --test global-platform/api/tests/payment-mode-guard.test.mjs
+
+      - name: Test API portal-workflows
+        run: node --test global-platform/api/tests/portal-workflows.test.mjs
+
+      - name: Test API rbac-route-map
+        run: node --test global-platform/api/tests/rbac-route-map.test.mjs
+
+      - name: Test API regional-admin-bridge
+        run: node --test global-platform/api/tests/regional-admin-bridge.test.mjs
 
       - name: Test Editor Portal source and host policy
         run: |
