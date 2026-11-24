@@ -259,6 +259,15 @@ async function runBackupForDatabase(env, databaseName, cron) {
   const bindingName = databaseConfig.binding;
   const db = env[bindingName];
   if (!db) throw new Error("Missing D1 binding: " + bindingName);
+  if (databaseName === "global") {
+    const isolatedSchema = await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_reviews'").first();
+    const mainStackSchema = await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_evidence'").first();
+    if (!isolatedSchema || mainStackSchema) throw new Error("isolated_global_d1_binding_mismatch");
+  }
+  if (databaseName === "global_legacy") {
+    const mainStackSchema = await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_evidence'").first();
+    if (!mainStackSchema) throw new Error("main_global_d1_binding_mismatch");
+  }
   const generatedAt = new Date().toISOString();
   console.log(JSON.stringify({ event: "csa_d1_backup_started", database: databaseName, database_id: databaseConfig.database_id, cron, generated_at: generatedAt }));
   const result = await exportDatabase(db, databaseName, databaseConfig.database_id, generatedAt, env.BACKUPS);
