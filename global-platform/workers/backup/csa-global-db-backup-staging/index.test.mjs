@@ -9,7 +9,7 @@ test("daily backup maps all ten staging D1 databases", () => {
   const schedules = source.match(/^  "\d+ 2 \* \* \*": "[a-z_]+",$/gm) || [];
   assert.equal(bindings.length, 10);
   assert.equal(schedules.length, 10);
-  const cronMap = source.match(/^  "\\d+ 2 \\* \\* \\*": "[a-z_]+",$/gm) || [];
+  const cronMap = schedules;
   assert.deepEqual(cronMap, [
     '  "2 2 * * *": "global",',
     '  "7 2 * * *": "superadmin",',
