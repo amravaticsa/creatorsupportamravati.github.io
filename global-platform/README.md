@@ -327,10 +327,10 @@ The legacy `csa-superadmin-api-staging` Worker remains separate. It has a stagin
 
 ## Staging HMAC key roles — 2026-11-24
 
-- `CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET` is the dedicated key for the isolated Super Admin → canonical `csa-global-api-staging` admin-authorization snapshot. It is accepted only by the canonical admin-sync receiver route; it is not a general-purpose bridge key.
-- `GLOBAL_API_SYNC_HMAC_SECRET` signs the other canonical API bridges (Regional Admin read proxy, pricing policy, refund dashboard and editor-session operations) and remains a migration fallback for admin snapshots.
+- `CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET` is the dedicated key for the isolated Super Admin → `csa-global-api-isolated-staging` admin-authorization snapshot. That isolated API Worker is backed by canonical Global D1 `470a81b8…`; it is accepted only by the dedicated admin-sync receiver route, not as a general-purpose bridge key.
+- `GLOBAL_API_SYNC_HMAC_SECRET` signs the other isolated Global API bridges (Regional Admin read proxy, pricing policy, refund dashboard and editor-session operations) and remains a migration fallback for admin snapshots.
 - `ADMIN_SYNC_HMAC_SECRET` remains a migration fallback where explicitly supported and signs the isolated Legacy Links bridge to `csa-global-api-isolated-staging`.
-- The dedicated key must be present on both the isolated Super Admin sender and canonical Global API staging receiver. Secret values must never be read into logs, source control, or browser code.
+- The dedicated key must be present on both the isolated Super Admin sender and the isolated Global API staging receiver. Secret values must never be read into logs, source control, or browser code.
 
 
 ## Verified staging recheck — 24 November 2026
