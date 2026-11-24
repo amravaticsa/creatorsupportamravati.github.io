@@ -58,5 +58,5 @@ test("legacy Editor peer request is staging-only and uses Cloudflare Access plus
   assert.match(helper, /CSA-BRIDGE-V1/);
   assert.match(helper, /CF-Access-Client-Id/);
   assert.match(helper, /CF-Access-Client-Secret/);
-  assert.match(helper, /https:\/\/superadmin-editor-staging\.creatorsupportamravati\.in/);
+  assert.match(helper, /https:\/\/editor-api-isolated-staging\.creatorsupportamravati\.in/);
 });

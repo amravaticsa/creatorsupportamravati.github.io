@@ -105,7 +105,7 @@ test("legacy bridge signer and Editor verifier use identical canonical HMAC comp
   const result = await h.verify(signed);
   assert.deepEqual(JSON.parse(JSON.stringify(result)), { ok: true });
   assert.equal(h.db.used.size, 1);
-  assert.equal(new URL(signed.req.url).hostname, "superadmin-editor-staging.creatorsupportamravati.in");
+  assert.equal(new URL(signed.req.url).hostname, "editor-api-isolated-staging.creatorsupportamravati.in");
 });
 
 test("a repeated legacy bridge nonce is rejected as replay (409)", async () => {
@@ -189,7 +189,7 @@ test("Legacy Editor peer request carries path-scoped Cloudflare Access service c
   assert.ok(helper.includes("CF_ACCESS_CLIENT_ID"));
   assert.ok(helper.includes("CF_ACCESS_CLIENT_SECRET"));
   assert.ok(helper.includes("CSA_LEGACY_BRIDGE_SECRET"));
-  assert.ok(helper.includes("superadmin-editor-staging.creatorsupportamravati.in"));
+  assert.ok(helper.includes("editor-api-isolated-staging.creatorsupportamravati.in"));
 });
 
 test("Super Admin dashboard exposes the guarded legacy-link bridge test action", () => {
