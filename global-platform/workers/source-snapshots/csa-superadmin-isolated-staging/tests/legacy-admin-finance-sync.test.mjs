@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(
-  new URL("../../../../staging/csa-superadmin-api-staging/global-admin-sync.js", import.meta.url),
+  new URL("../../../staging/csa-superadmin-api-staging/global-admin-sync.js", import.meta.url),
   "utf8",
 );
 
