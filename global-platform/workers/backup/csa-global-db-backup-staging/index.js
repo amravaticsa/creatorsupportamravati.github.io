@@ -56,7 +56,7 @@ function normalizeRow(row) {
 async function exportDatabase(db, databaseName, generatedAt, bucket) {
   const schemaResult = await db.prepare(
     "SELECT type, name, sql FROM sqlite_master " +
-    "WHERE type IN ('table','view','index') " +
+    "WHERE type IN ('table','view','index','trigger') " +
     "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' " +
     "ORDER BY type, name"
   ).all();
@@ -66,6 +66,12 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     name: item.name,
     sql: item.sql,
   }));
+  const triggers = schema.filter(item => item.type === "trigger").map(item => ({
+    name: item.name,
+    sql: item.sql,
+  }));
+  const fkCheck = await db.prepare("PRAGMA foreign_key_check").all();
+  const foreignKeyViolations = (fkCheck.results || []).length;
   const tables = [];
 
   for (let start = 0; start < tableDefinitions.length; start += BATCH_SIZE) {
@@ -103,6 +109,8 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     generated_at: generatedAt,
     tables,
     views,
+    triggers,
+    integrity: { foreign_key_violations: foreignKeyViolations },
     indexes: schema.filter(item => item.type === "index").map(item => ({
       name: item.name,
       sql: item.sql,
@@ -124,6 +132,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
       format: "csa-d1-logical-backup-v1",
       tableCount: String(tables.length),
       rowCount: String(tables.reduce((sum, table) => sum + table.row_count, 0)),
+      foreignKeyViolations: String(foreignKeyViolations),
     },
   });
 
@@ -132,6 +141,8 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     key,
     table_count: tables.length,
     row_count: tables.reduce((sum, table) => sum + table.row_count, 0),
+    trigger_count: triggers.length,
+    foreign_key_violations: foreignKeyViolations,
     compressed_bytes: compressed.byteLength,
   };
   await bucket.put(
@@ -178,6 +189,8 @@ async function runBackupForDatabase(env, databaseName, cron) {
     database: databaseName,
     table_count: result.table_count,
     row_count: result.row_count,
+    trigger_count: result.trigger_count,
+    foreign_key_violations: result.foreign_key_violations,
     compressed_bytes: result.compressed_bytes,
     deleted_expired_objects: deleted,
   }));
