@@ -302,32 +302,37 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 
 ## Explicit canonical database binding — 2026-11-24
 
-The isolated Super Admin Worker uses two separate Global D1 connections by purpose:
+The isolated Super Admin Worker uses the isolated Global D1, separate from the regular/main staging Global API database:
 
-- `CANONICAL_GLOBAL_DB` → D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` for country registry, country verification, and country assignment review.
-- `GLOBAL_DB` may remain on D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` as a legacy compatibility binding only; country verification and assignment code must never use it.
-- `DB` → Super Admin identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
+- `GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, and the retained `GLOBAL_DB` alias all point to isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- Main staging Global API D1 is `470a81b8-3d36-4e2d-942c-5cbb2746a473`; it is not the isolated staging database.
+- `DB` remains the isolated Super Admin identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
 
-The staging preflight requires `CANONICAL_GLOBAL_DB` to point to D1 470. A regression test asserts all country-verification routes use the explicit binding and do not use `env.GLOBAL_DB`. This prevents a legacy compatibility binding update from silently changing the Regional Admin country-verification data source.
+The isolated API and isolated Super Admin must use D1 6a32 together. The main API and its separate Super Admin service use D1 470 together. The `country_legal_evidence` table is a schema-role marker present in main D1 470 and absent from isolated D1 6a32. Runtime guards fail closed if either stack is pointed at the other stack's database.
 
 ## Staging binding contract — 2026-11-24
 
-The canonical Global Platform staging data path is:
+The two staging stacks are deliberately isolated from one another:
 
-- `csa-global-api-staging` → D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`
-- `csa-superadmin-isolated-staging` → local identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`, **`CANONICAL_GLOBAL_DB` → canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`**, and legacy `GLOBAL_DB` → compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
-- `csa-global-api-isolated-staging` → legacy/compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`; this database is not the canonical Regional Admin data source.
+| Worker | Database binding | Correct D1 |
+|---|---|---|
+| `csa-global-api-staging` | `DB` | Main staging Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` |
+| `csa-superadmin-api-staging` | `DB` | Main Super Admin D1 `99bc81fc-e97e-488b-a380-eb0237ff8ffc`; its sync receiver is the main API above |
+| `csa-global-api-isolated-staging` | `DB` | Isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` |
+| `csa-superadmin-isolated-staging` | `DB` | Isolated Super Admin identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
+| `csa-superadmin-isolated-staging` | `GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, `GLOBAL_DB` | Isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` |
+| `csa-editor-portal-isolated-staging` | `CSA_SUPERADMIN_DB`, `CSA_VIDEO_DB` | Isolated Super Admin D1 `c2bb3fb5…`; isolated video D1 `b611b8ff…` |
+| `csa-global-db-backup-staging` | `DB_GLOBAL`, `DB_GLOBAL_LEGACY` | Isolated Global D1 `6a32dda3…`; main staging Global D1 `470a81b8…` |
 
-Country registry, country verification, and assignment review must use `CANONICAL_GLOBAL_DB` only. The legacy `GLOBAL_DB` binding is retained for compatibility and must not be used by country-verification code.
+The main Global API uses legacy-video D1 `2d3f97a0-fa32-46ef-9913-972a59a410e4` and main media bucket `csa-global-media-staging`. The isolated Global API uses legacy-video D1 `b611b8ff-8f9f-43b2-95c8-a767a14987d6`, isolated media bucket `csa-global-media-isolated-staging`, and isolated video bucket `csa-video-editing-isolated-staging`.
 
-The read-only preflight workflow checks these exact bindings on every staging infrastructure change and hourly. If the binding differs, treat the check as a blocking configuration drift; do not resolve it by changing the documented canonical database.
+The isolated Super Admin country-registry sync and the isolated admin-authorization HMAC receiver must both target D1 6a32. The main Super Admin sync targets the main API on D1 470. Do not merge these stacks or change the isolated binding to 470 simply because that database has the additional main-stack `country_legal_evidence` table.
 
-The legacy `csa-superadmin-api-staging` Worker remains separate. It has a staging environment/database despite also being attached to non-suffixed `admin` and `superadmin` hostnames. Do not treat those hostnames as proof of a production deployment; hostname routing must be resolved before launch.
-
+The read-only preflight checks these exact bindings, HMAC secret names, Access audiences, backup schedules and private Worker exposure. If the check cannot read Worker settings, it must report a skipped check—not a passed configuration audit.
 
 ## Staging HMAC key roles — 2026-11-24
 
-- `CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET` is the dedicated key for the isolated Super Admin → `csa-global-api-isolated-staging` admin-authorization snapshot. That isolated API Worker is backed by canonical Global D1 `470a81b8…`; it is accepted only by the dedicated admin-sync receiver route, not as a general-purpose bridge key.
+- `CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET` is the dedicated key for the isolated Super Admin → `csa-global-api-isolated-staging` admin-authorization snapshot. That isolated API Worker is backed by isolated Global D1 `6a32dda3…`; it is accepted only by the dedicated admin-sync receiver route, not as a general-purpose bridge key.
 - `GLOBAL_API_SYNC_HMAC_SECRET` signs the other isolated Global API bridges (Regional Admin read proxy, pricing policy, refund dashboard and editor-session operations) and remains a migration fallback for admin snapshots.
 - `ADMIN_SYNC_HMAC_SECRET` remains a migration fallback where explicitly supported and signs the isolated Legacy Links bridge to `csa-global-api-isolated-staging`.
 - The dedicated key must be present on both the isolated Super Admin sender and the isolated Global API staging receiver. Secret values must never be read into logs, source control, or browser code.
@@ -338,26 +343,27 @@ The legacy `csa-superadmin-api-staging` Worker remains separate. It has a stagin
 This section supersedes earlier staging snapshots in this README where their D1 bindings, payment state, or route checks differ.
 
 ### Runtime and data boundaries
-- Isolated Super Admin Worker: `csa-superadmin-isolated-staging`, `ENVIRONMENT=staging`, identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
-- Super Admin `CANONICAL_GLOBAL_DB` and `GLOBAL_API_DB` both point to canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
-- Super Admin compatibility `GLOBAL_DB` remains on legacy D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
-- Isolated Global API `csa-global-api-isolated-staging` uses canonical D1 470 and legacy video D1 `b611b8ff-8f9f-43b2-95c8-a767a14987d6`.
+- Main staging Global API `csa-global-api-staging` uses main staging Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
+- Isolated Global API `csa-global-api-isolated-staging` uses isolated Global D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` and isolated video D1 `b611b8ff-8f9f-43b2-95c8-a767a14987d6`.
+- Isolated Super Admin uses identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`; all three Global aliases (`GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, `GLOBAL_DB`) point to isolated D1 6a32.
+- Main Super Admin remains a separate staging service using D1 `99bc81fc-e97e-488b-a380-eb0237ff8ffc`; it syncs to main Global API D1 470.
 - Isolated Editor Portal uses Super Admin D1 c2bb and video D1 b611.
-- The regular staging Global API also uses canonical D1 470. Production Workers and D1 databases were not modified.
+- The main-stack marker `country_legal_evidence` exists in D1 470 and is absent from isolated D1 6a32. Main API guards require it; isolated API and isolated Super Admin guards reject it. This prevents cross-stack database drift from silently writing to the wrong D1.
 
 ### Verified controls
-- 249/249 country registry rows match between the Super Admin registry and canonical Global D1. All countries remain `planned`; orders, payments and payouts are disabled. Legal review rows: 0; Regional Admin principals/invitations: 0.
-- The 15-minute Super Admin authorization sync succeeded at 2026-11-24 10:45:03 UTC and wrote one synchronized record set to canonical D1 470. The nonce/replay-protection table is active.
+- Both main and isolated Global D1s contain 249 country rows, 2 users and 3 projects. The 249-row isolated country registry matches the isolated Super Admin registry. Projects remain country-unassigned. All countries remain planned; orders, payments and payouts are disabled. No legal approval, country evidence or Regional Admin invitation was fabricated.
+- The isolated Super Admin HMAC sync has previously completed successfully against isolated D1 6a32; the main Super Admin sync separately targets main D1 470. The 15-minute schedules remain configured. Recheck the next isolated run after the schema-role guard deployment.
 - Finance Admin permissions remain `finance.read` only. Super Admin retains its separate management capability. No Finance Admin account is enrolled.
-- Ten staging D1 databases have daily logical backups in private R2 bucket `csa-global-db-backups-staging`. Latest 24-Nov artifacts for all ten report `quickCheck=ok` and zero foreign-key violations; 36 backup/manifest/verification objects were listed. Retention is 30 days and public R2 domains are disabled. The initial 24-November backup objects predate the Global D1 binding correction and lack embedded D1 UUIDs; retain them for diagnostics only, not as restore inputs. New post-fix backups will include D1 UUIDs and R2 readback verification markers. The corrected backup Worker is now deployed with canonical `DB_GLOBAL` → D1 470 and legacy `DB_GLOBAL_LEGACY` → D1 6a32, and the ten daily schedules are restored. The new readback-verification path passed source regression tests; its first scheduled runtime verification is pending the next daily cycle.
-- Main staging Razorpay secret bindings were removed after the health gate reported `blocked_non_test_key`. Checkout is now unconfigured and must remain disabled until Test Mode credentials are supplied.
-- Post-deploy smoke run 45378143866 succeeded: frontend routes/assets, main and isolated API health, unauthenticated API denial, isolated Super Admin/Admin portals, Editor portal and unsigned Editor bridge rejection all passed.
+- Ten staging D1 databases have daily logical backups in private R2 bucket `csa-global-db-backups-staging`. The backup Worker maps `DB_GLOBAL` to isolated D1 6a32 and `DB_GLOBAL_LEGACY` to main staging D1 470; schema-role guards prevent the two Global databases from being mislabeled. Retention is 30 days and public R2 domains are disabled. Backup verification after the corrected binding cycle remains pending.
+- Main staging Razorpay secret bindings were removed after the health gate reported `blocked_non_test_key`. Checkout is unconfigured and must remain disabled until Test Mode credentials are supplied.
+- Large media uploads support direct uploads up to 90 MB and resumable multipart uploads above 90 MB up to 5 GB per file, with 50 MB parts, 24-hour sessions, SHA-256 part checks and authenticated uploader ownership checks. The multipart cleanup log contains 179 successful runs; there are no open multipart sessions or orphaned parts.
+- Staging Pages deployment and API validation workflows passed. The admin-host smoke test had one connection-reset failure on the `admin-staging` alias; the Access audience allowlist and no-follow redirect test are being corrected before that route is certified.
 
 ### Remaining staging release gates
 - Authenticated client/editor/admin end-to-end execution is still blocked: 2 client accounts and 3 country-unassigned projects exist; there are 0 editor profiles/credentials, 0 tenders/assignments, and no Regional Admin identities.
 - Pricing policies: 0. Payments, refunds and payouts: 0. No live or test payment was executed.
 - Genuine country legal evidence and approval by an authorized human reviewer are required before any country, including India, can be commercially activated.
-- GitHub's Worker configuration preflight cannot read Worker settings with the existing Pages token (HTTP 403), so all detailed Worker checks are skipped. Add a separate `CLOUDFLARE_WORKERS_READ_TOKEN` repository secret with Workers Scripts Read permission to enable the full read-only preflight. Add a separate least-privilege `CLOUDFLARE_WORKERS_READ_TOKEN` repository secret to enable the full automated preflight. Manual Cloudflare read-only verification was performed for this recheck.
+- GitHub's Worker configuration preflight cannot read Worker settings with the existing Pages token (HTTP 403), so all detailed Worker checks are skipped. Add a separate `CLOUDFLARE_WORKERS_READ_TOKEN` repository secret with Workers Scripts Read permission to enable the full read-only preflight. Manual Cloudflare read-only verification is performed during setup.
 - Production route audit still identifies production hostnames routed to staging-named admin/Rush services and a production Editor Worker using a staging Super Admin D1. No production routes or bindings were changed; production launch remains blocked pending an explicitly approved migration plan.
 
-Do not treat the green staging smoke checks as proof of authenticated business workflow completion or production readiness.
+Do not treat green staging smoke checks as proof of authenticated business workflow completion or production readiness.

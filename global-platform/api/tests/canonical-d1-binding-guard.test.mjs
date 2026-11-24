@@ -10,7 +10,8 @@ const syncRoute = source.slice(start, end);
 test("main Global API rejects admin sync on a non-canonical D1 before nonce or authorization writes", () => {
   assert.ok(start >= 0, "admin authorization sync route exists");
   assert.match(syncRoute, /country_legal_evidence/);
-  assert.match(syncRoute, /canonical_database_mismatch/);
+  assert.match(syncRoute, /v_tender_country_scope/);
+  assert.match(syncRoute, /main_database_mismatch/);
   const guard = syncRoute.indexOf("country_legal_evidence");
   const nonce = syncRoute.indexOf("INSERT INTO admin_sync_nonces");
   const write = syncRoute.indexOf("await env.DB.batch(statements)");

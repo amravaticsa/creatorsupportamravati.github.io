@@ -200,9 +200,9 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   const canonical="POST\n/internal/admin-authorizations/sync\n"+ts+"\n"+nonce+"\n"+bodyHash;
   const validSignature=await verifyGlobalAdminSyncHmac(env,canonical,sig);
   if(!validSignature)return bad("Sync signature is invalid.",401,"sync_signature_invalid");
-  let canonicalMarker=null;
-  try{canonicalMarker=await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_evidence'").first();}catch{}
-  if(!canonicalMarker)return bad("Canonical Global D1 binding is not configured.",503,"canonical_database_mismatch");
+  let mainSchema=null,isolatedSchema=null;
+  try{mainSchema=await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_evidence'").first();isolatedSchema=await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='view' AND name='v_tender_country_scope'").first();}catch{}
+  if(!mainSchema||isolatedSchema)return bad("Main Global D1 binding is not configured.",503,"main_database_mismatch");
   let snapshot;
   try{snapshot=JSON.parse(raw);}catch{return bad("Invalid JSON snapshot.");}
   if(!Array.isArray(snapshot)||snapshot.length>100)return bad("Snapshot must be an array of at most 100 admin records.");
