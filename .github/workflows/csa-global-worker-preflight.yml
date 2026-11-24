@@ -90,7 +90,7 @@ jobs:
             -o backup-schedules.json
           jq -e '
             ([.result.schedules[].cron] | sort) ==
-            (["2 2 * * *","7 2 * * *","12 2 * * *","17 2 * * *","22 2 * * *","27 2 * * *","32 2 * * *","37 2 * * *","42 2 * * *","47 2 * * *"] - [.result.schedules[].cron] | length == 0)
+            (["2 2 * * *","7 2 * * *","12 2 * * *","17 2 * * *","22 2 * * *","27 2 * * *","32 2 * * *","37 2 * * *","42 2 * * *","47 2 * * *"] | sort)
           ' backup-schedules.json >/dev/null
           curl --fail --silent --show-error --max-time 30 \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
