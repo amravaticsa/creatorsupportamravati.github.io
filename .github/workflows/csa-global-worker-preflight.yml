@@ -116,7 +116,7 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
-            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "6a32dda3-b8c5-413c-9f51-58f0a9fa0712") ] | length == 1)
+            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-video-editing-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
@@ -145,7 +145,7 @@ jobs:
           ' csa-editor-portal-isolated-staging.json >/dev/null
 
           echo "PASS: all four staging Worker binding maps match the current read-only audit."
-          echo "NOTE: canonical Global API uses D1 470 and legacy video D1 2d3; the isolated legacy-link API uses D1 6a32 and video D1 b611. Super Admin Regional Admin data proxy targets the canonical API; only Legacy Links uses the isolated API."
+          echo "NOTE: both main and isolated Global API Worker scripts share canonical D1 470; their legacy-video D1 bindings are 2d3 and b611 respectively. Super Admin country registry/legal-review sync targets D1 470; legacy Global D1 6a32 remains a separate compatibility store."
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
