@@ -11,13 +11,20 @@ function blockFor(name) {
   return helper.slice(start, next < 0 ? helper.length : next);
 }
 
-test("Canonical Super Admin bridges use the dedicated HMAC with legacy fallback", () => {
-  assert.ok(helper.includes("if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET))"));
-  assert.ok(helper.includes("hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET"));
-  for (const fn of ["syncGlobalAdminAuthorizations","callGlobalPricingPolicy","callGlobalRefundDashboard","callGlobalEditorSessions"]) {
+test("Admin authorization sync uses the dedicated CSA HMAC secret only", () => {
+  const block = blockFor("syncGlobalAdminAuthorizations");
+  assert.ok(block.includes("if (!env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET)"));
+  assert.ok(block.includes("hmacHex(env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET, canonical)"));
+  assert.ok(!block.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
+  assert.ok(!block.includes("ADMIN_SYNC_HMAC_SECRET"));
+  assert.ok(block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"));
+});
+
+test("Other canonical bridges retain the separate Global API HMAC key", () => {
+  for (const fn of ["callGlobalPricingPolicy","callGlobalRefundDashboard","callGlobalEditorSessions"]) {
     const block = blockFor(fn);
-    assert.ok(block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"), fn + " must target canonical Staging API");
-    assert.ok(!block.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"), fn + " must not target isolated legacy API");
+    assert.ok(block.includes("GLOBAL_API_SYNC_HMAC_SECRET"), fn + " uses Global API bridge secret");
+    assert.ok(block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"), fn + " targets canonical Staging API");
   }
 });
 
@@ -27,4 +34,5 @@ test("Legacy-link bridge stays isolated and signs with the legacy HMAC secret on
   assert.ok(!block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"));
   assert.ok(block.includes("hmacHex(env.ADMIN_SYNC_HMAC_SECRET,canonical)"));
   assert.ok(!block.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
+  assert.ok(!block.includes("CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET"));
 });
