@@ -101,6 +101,10 @@ body{background:#fff;color:var(--wd-ink)}.wd-page{font-family:Inter,"Noto Sans D
 <script>
 document.getElementById('wd-find').addEventListener('click',function(){const type=document.getElementById('wd-business').value;const goal=document.getElementById('wd-goal').value;const budget=document.getElementById('wd-budget').value;const box=document.getElementById('wd-result');box.innerHTML='<strong>'+type+'</strong><span>आपकी प्राथमिकता: '+goal+'<br>बजट की स्थिति: '+budget+'<br><br>यह शुरुआती सुझाव है। सही scope समझने के लिए CSA से बात करें।</span><br><br><a style="color:#fff;font-weight:800;text-decoration:underline" target="_blank" rel="noopener" href="https://wa.me/919225515679?text='+encodeURIComponent('Namaste CSA, mera business: '+document.getElementById('wd-business').selectedOptions[0].text+'. Meri need: '+goal+'. Budget: '+budget+'. Mujhe suitable website/app solution discuss karna hai.')+'">WhatsApp पर अपनी जरूरत भेजें →</a>';box.style.display='block';});
 document.querySelectorAll('[data-wd-consult-open]').forEach(function(link){link.addEventListener('click',function(e){e.preventDefault();var modal=document.getElementById('wd-consultation');modal.classList.add('open');document.body.style.overflow='hidden';});});
+function wdOpenConsult(){var modal=document.getElementById('wd-consultation');if(!modal)return;modal.classList.add('open');document.body.style.overflow='hidden';}
+function wdHandleConsultHash(){if(window.location.hash==='#wd-consultation')wdOpenConsult();}
+window.addEventListener('hashchange',wdHandleConsultHash);
+wdHandleConsultHash();
 function wdCloseConsult(){document.getElementById('wd-consultation').classList.remove('open');document.body.style.overflow='';}
 document.querySelectorAll('[data-wd-consult-close]').forEach(function(btn){btn.addEventListener('click',wdCloseConsult);});
 document.getElementById('wd-consultation').addEventListener('click',function(e){if(e.target===this)wdCloseConsult();});
