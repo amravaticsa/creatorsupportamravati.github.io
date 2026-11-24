@@ -298,3 +298,18 @@ This update supersedes earlier staging-boundary notes above where the current Cl
 - Verified live settings after the latest Super Admin deployment: `csa-superadmin-isolated-staging` uses `DB=c2bb3fb5-db22-4ed5-9283-161df57ebac2` for Super Admin identities/sessions and `GLOBAL_DB=470a81b8-3d36-4e2d-942c-5cbb2746a473` for country review/assignment against the canonical Global Platform D1.
 - Both `csa-global-api-staging` and the legacy-link compatibility Worker `csa-global-api-isolated-staging` currently bind `DB=470a81b8-3d36-4e2d-942c-5cbb2746a473`. The latter keeps its legacy video data in `LEGACY_VIDEO_DB=2d3f97a0-fa32-46ef-9913-972a59a410e4`.
 - D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` is the active isolated legacy-link API database, not the canonical Client/Editor or Regional Admin database. The Staging preflight checks the canonical `GLOBAL_DB` binding.
+
+
+## Staging binding contract — 2026-11-24
+
+The canonical Global Platform staging data path is:
+
+- `csa-global-api-staging` → D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`
+- `csa-superadmin-isolated-staging` → local identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` and **`GLOBAL_DB` → canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`**
+- `csa-global-api-isolated-staging` → legacy/compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`; this database is not the canonical Regional Admin data source.
+
+Do not bind the isolated Super Admin Worker's `GLOBAL_DB` to `6a32...`. The legacy API database has additional compatibility columns used only by that legacy API; the canonical API and Super Admin country/project review use D1 `470...`.
+
+The read-only preflight workflow checks these exact bindings on every staging infrastructure change and hourly. If the binding differs, treat the check as a blocking configuration drift; do not resolve it by changing the documented canonical database.
+
+The legacy `csa-superadmin-api-staging` Worker remains separate. It has a staging environment/database despite also being attached to non-suffixed `admin` and `superadmin` hostnames. Do not treat those hostnames as proof of a production deployment; hostname routing must be resolved before launch.
