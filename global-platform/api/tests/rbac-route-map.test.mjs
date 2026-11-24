@@ -30,9 +30,7 @@ function required(method, path) {
 }
 function can(role, permission, financeAccessLevel = "none") {
   if (role === "finance_admin") {
-    if (["read", "write", "manage"].includes(financeAccessLevel) && permission === "finance.read") return true;
-    if (["write", "manage"].includes(financeAccessLevel) && ["finance.refunds", "finance.payouts"].includes(permission)) return true;
-    return false;
+    return financeAccessLevel === "read" && permission === "finance.read";
   }
   return (rolePermissions[role] || []).includes(permission);
 }
@@ -44,8 +42,7 @@ function permits(role, method, path, financeAccessLevel = "none") {
 }
 function financePermissions(level) {
   const permissions = [...(rolePermissions.finance_admin || [])];
-  if (["read", "write", "manage"].includes(level)) permissions.push("finance.read");
-  if (["write", "manage"].includes(level)) permissions.push("finance.refunds", "finance.payouts");
+  if (level === "read") permissions.push("finance.read");
   return permissions;
 }
 function permitsFinance(level, method, path) {
@@ -90,17 +87,23 @@ test("Editor Admin can manage editor KYC and agreements but not project or finan
   assert.equal(permits("editor_admin", "POST", "/v1/admin/deposits/pay_1/refund"), false);
 });
 
-test("Finance Admin access levels separate read from write and default to no finance permissions", () => {
+test("Finance Admin is strictly read-only; stale write/manage access fails closed", () => {
   assert.deepEqual(financePermissions("none"), []);
+  assert.deepEqual(financePermissions("read"), ["finance.read"]);
+  assert.deepEqual(financePermissions("write"), []);
+  assert.deepEqual(financePermissions("manage"), []);
   assert.equal(permitsFinance("none", "GET", "/v1/admin/deposits/refunds/eligible"), false);
   assert.equal(permitsFinance("read", "GET", "/v1/admin/deposits/refunds/eligible"), true);
   assert.equal(permitsFinance("read", "GET", "/v1/admin/client-refunds"), true);
   assert.equal(permitsFinance("read", "PATCH", "/v1/admin/client-refunds/crf_1"), false);
   assert.equal(permitsFinance("read", "POST", "/v1/admin/deposits/pay_1/refund"), false);
-  assert.equal(permitsFinance("write", "PATCH", "/v1/admin/client-refunds/crf_1"), true);
-  assert.equal(permitsFinance("write", "POST", "/v1/admin/deposits/pay_1/refund"), true);
-  assert.equal(permitsFinance("write", "POST", "/v1/admin/projects/prj_1/offers"), false);
-  assert.equal(permitsFinance("manage", "POST", "/v1/admin/finance/editor-payouts"), true);
+  assert.equal(permitsFinance("read", "POST", "/v1/admin/finance/editor-payouts"), false);
+  assert.equal(permitsFinance("write", "GET", "/v1/admin/deposits/refunds/eligible"), false);
+  assert.equal(permitsFinance("write", "PATCH", "/v1/admin/client-refunds/crf_1"), false);
+  assert.equal(permitsFinance("write", "POST", "/v1/admin/deposits/pay_1/refund"), false);
+  assert.equal(permitsFinance("manage", "POST", "/v1/admin/finance/editor-payouts"), false);
+  assert.equal(can("finance_admin", "finance.read", "write"), false);
+  assert.equal(can("finance_admin", "finance.refunds", "manage"), false);
   assert.equal(can("project_admin", "finance.refunds"), false);
 });
 

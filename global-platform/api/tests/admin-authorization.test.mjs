@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+const syncSource = readFileSync(new URL("../../superadmin/global-admin-sync.js", import.meta.url), "utf8");
+const isolatedWorkerSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
+const isolatedSyncSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
 
 test("admin identity registration requires a verified identity-provider email", () => {
   assert.ok(source.includes("c.email_verified!==true"));
@@ -34,9 +37,9 @@ test("role permissions remain least-privilege; finance and regional access are s
   assert.ok(source.includes('finance_admin:[]'));
   assert.ok(source.includes('support_admin:["support.manage"]'));
   assert.ok(source.includes('regional_admin:[]'));
-  assert.ok(source.includes('a.source_role==="finance_admin"&&["read","write","manage"].includes(a.finance_access_level)'));
+  assert.ok(source.includes('a.source_role==="finance_admin"&&a.finance_access_level==="read"'));
   assert.ok(source.includes('rolePermissions.push("finance.read")'));
-  assert.ok(source.includes('rolePermissions.push("finance.refunds","finance.payouts")'));
+  assert.ok(!source.includes('rolePermissions.push("finance.refunds","finance.payouts")'));
 });
 
 test("Global Admin HMAC verification supports dedicated and legacy secrets", () => {
@@ -48,4 +51,15 @@ test("Global Admin HMAC verification supports dedicated and legacy secrets", () 
 test("Super Admin pricing bridge accepts a 10-digit timestamp and signs newline-delimited canonical data", () => {
   assert.ok(source.includes("if(!/^\\d{10}$/.test(ts)"));
   assert.ok(source.includes('const canonical="POST\\n/internal/superadmin/pricing-policy\\n"+ts+"\\n"+nonce+"\\n"+bodyHash'));
+});
+
+test("Finance Admin sync grants are normalized to read-only", () => {
+  const mapping = 'finance_access_level: account.role === "finance_admin" ? (account.finance_access_level === "none" ? "none" : ["read","write","manage"].includes(account.finance_access_level) ? "read" : "none") : "none",';
+  assert.ok(syncSource.includes(mapping));
+  assert.ok(isolatedSyncSource.includes(mapping));
+});
+
+test("isolated Super Admin backend rejects Finance Admin write/manage even with stale module access", () => {
+  assert.ok(isolatedWorkerSource.includes('if(u.role==="finance_admin"&&moduleKey==="finance"&&required!=="read")return false;'));
+  assert.ok(isolatedWorkerSource.includes('if(!["none","read"].includes(level))'));
 });

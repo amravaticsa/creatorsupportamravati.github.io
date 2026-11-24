@@ -38,7 +38,7 @@ export async function syncGlobalAdminAuthorizations(env) {
       source_admin_id: account.id,
       email: String(account.email || "").trim().toLowerCase(),
       source_role: account.role,
-      finance_access_level: account.role === "finance_admin" ? (["none","read","write","manage"].includes(account.finance_access_level) ? account.finance_access_level : "none") : "none",
+      finance_access_level: account.role === "finance_admin" ? (account.finance_access_level === "none" ? "none" : ["read","write","manage"].includes(account.finance_access_level) ? "read" : "none") : "none",
       status:
         account.status === "active"
           ? "active"
