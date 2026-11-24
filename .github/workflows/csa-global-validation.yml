@@ -127,6 +127,9 @@ jobs:
       - name: Test isolated Global API Finance Admin read-only permissions
         run: node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/finance-admin-read-only.test.mjs
 
+      - name: Test isolated Global API canonical D1 binding guard
+        run: node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/canonical-d1-binding-guard.test.mjs
+
       - name: Check Super Admin Worker JavaScript syntax
         run: node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
 
