@@ -1,6 +1,6 @@
 # CSA Global staging release-readiness audit
 
-**Audit timestamp:** 2026-11-24 16:14 UTC  
+**Audit timestamp:** 2026-11-24 16:32 UTC  
 **Environment:** Cloudflare staging only  
 **Result:** Main and isolated staging stacks are separated. Technical staging is ready for controlled onboarding tests; commercial activation and production release remain blocked.
 
@@ -30,7 +30,7 @@ The `v_tender_country_scope` view exists only in isolated D1 6a32 and is the uni
 | `csa-editor-portal-isolated-staging` | `CSA_SUPERADMIN_DB` → c2bb; `CSA_VIDEO_DB` → b611 | `csa-video-editing-isolated-staging` |
 | `csa-global-db-backup-staging` | Ten staging D1 bindings; `DB_GLOBAL` → isolated D1 6a32; `DB_GLOBAL_LEGACY` → main D1 470 | Private `csa-global-db-backups-staging` |
 
-The isolated Super Admin Cloudflare Access audience allowlist now contains all four isolated staging host-app audiences, and the Worker parses comma-separated audience values. The `admin-staging` Access app remains restricted by its allow policy. Its unauthenticated smoke test previously encountered a connection reset; the CI check now validates the Access redirect without following the external login flow and retries transient network failures.
+The isolated Super Admin Cloudflare Access audience allowlist now contains all four isolated staging host-app audiences, and the Worker parses comma-separated audience values. The `admin-staging` Access app remains restricted by its allow policy. The CI smoke test now checks the Access redirect without following the external login flow, retries transient network failures, and passed in the latest staging deployment. The isolated API auth-boundary smoke test now uses the actual Workers account subdomain rather than the incorrect `amravaticsa.workers.dev` hostname.
 
 ## 3. D1 structural and data checks
 
@@ -51,7 +51,7 @@ All ten D1 databases attached to the backup Worker were checked with `PRAGMA for
 
 Both Global D1 databases currently contain 249 country rows, 2 users and 3 projects. All three projects remain country-unassigned. The isolated Super Admin country registry contains 249 rows; legal-review records remain zero. No country was legally approved or commercially activated by this setup.
 
-Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync and main HMAC admin sync are separate and target their matching Global API Worker/D1 pair.
+Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync succeeded at 16:30:03.637–16:30:04.317 UTC (1 record) against D1 6a32; the isolated country registry last updated at 16:30:05 UTC with all 249 countries. The isolated 16:15 attempt returned 503 while the schema-role guard was being corrected; the corrected 16:30 run passed. The main HMAC admin sync last succeeded at 16:15:21.998–16:15:22.970 UTC (1 record) against D1 470. The two syncs target their matching Global API Worker/D1 pair.
 
 ## 4. Backup, storage and large uploads
 
@@ -65,7 +65,7 @@ Both D1s have the `country_legal_evidence` table and zero evidence rows. Only is
 
 ## 5. Application and CI validation
 
-- Staging Pages deployment and frontend/API smoke checks have passed on recent runs.
+- Staging Pages deployment, frontend/API health, Regional Admin API rejection of unsigned requests, and admin/regional/editor portal route/session-protection smoke checks passed in the latest staging deployment.
 - API validation includes Google auth, client upload security, project/country scope, finance read-only, regional bridge authentication, editor workflows, and schema/migration checks.
 - Finance Admin is enforced as `finance.read` only; Write/Manage options are hidden/disabled in the Super Admin UI.
 - Razorpay checkout remains unconfigured; no payment, refund or payout was executed.
@@ -94,7 +94,7 @@ The separate production route audit still finds production hostnames routed to s
 
 ## 8. Release decision
 
-**Main and isolated staging technical status:** ready for controlled onboarding tests after the remaining CI checks and the first corrected backup cycle.  
+**Main and isolated staging technical status:** ready for controlled onboarding tests; the first corrected daily backup cycle remains pending.  
 **Commercial activation:** not ready.  
 **Production launch:** blocked.
 
