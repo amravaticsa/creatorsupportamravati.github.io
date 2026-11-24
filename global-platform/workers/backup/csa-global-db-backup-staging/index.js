@@ -70,8 +70,13 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     name: item.name,
     sql: item.sql,
   }));
+  const quickCheckResult = await db.prepare("PRAGMA quick_check").all();
+  const quickCheckRows = quickCheckResult.results || [];
+  const quickCheck = quickCheckRows.length === 1 ? String(quickCheckRows[0].quick_check || "") : "";
+  if (quickCheck !== "ok") throw new Error("backup_quick_check_failed");
   const fkCheck = await db.prepare("PRAGMA foreign_key_check").all();
   const foreignKeyViolations = (fkCheck.results || []).length;
+  if (foreignKeyViolations !== 0) throw new Error("backup_foreign_key_check_failed");
   const tables = [];
 
   for (let start = 0; start < tableDefinitions.length; start += BATCH_SIZE) {
@@ -110,7 +115,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     tables,
     views,
     triggers,
-    integrity: { foreign_key_violations: foreignKeyViolations },
+    integrity: { quick_check: quickCheck, foreign_key_violations: foreignKeyViolations },
     indexes: schema.filter(item => item.type === "index").map(item => ({
       name: item.name,
       sql: item.sql,
@@ -132,6 +137,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
       format: "csa-d1-logical-backup-v1",
       tableCount: String(tables.length),
       rowCount: String(tables.reduce((sum, table) => sum + table.row_count, 0)),
+      quickCheck,
       foreignKeyViolations: String(foreignKeyViolations),
     },
   });
@@ -142,6 +148,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     table_count: tables.length,
     row_count: tables.reduce((sum, table) => sum + table.row_count, 0),
     trigger_count: triggers.length,
+    quick_check: quickCheck,
     foreign_key_violations: foreignKeyViolations,
     compressed_bytes: compressed.byteLength,
   };
@@ -190,6 +197,7 @@ async function runBackupForDatabase(env, databaseName, cron) {
     table_count: result.table_count,
     row_count: result.row_count,
     trigger_count: result.trigger_count,
+    quick_check: result.quick_check,
     foreign_key_violations: result.foreign_key_violations,
     compressed_bytes: result.compressed_bytes,
     deleted_expired_objects: deleted,
