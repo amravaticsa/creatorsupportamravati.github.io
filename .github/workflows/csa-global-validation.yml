@@ -156,6 +156,12 @@ jobs:
       - name: Test Super Admin sensitive logging controls
         run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/sensitive-logging.test.mjs
 
+      - name: Check legacy Super Admin sync syntax
+        run: node --input-type=module --check < global-platform/workers/staging/csa-superadmin-api-staging/global-admin-sync.js
+
+      - name: Test legacy Super Admin Finance access sync
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/legacy-admin-finance-sync.test.mjs
+
       - name: Check browser JavaScript syntax
         run: |
           node --check global-platform/assets/auth.js
