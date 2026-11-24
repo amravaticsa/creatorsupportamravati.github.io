@@ -124,14 +124,37 @@ jobs:
       - name: Test isolated Global API Finance Admin read-only permissions
         run: node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/finance-admin-read-only.test.mjs
 
-      - name: Test Super Admin source and authorization
+      - name: Check Super Admin Worker JavaScript syntax
+        run: node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
+
+      - name: Check Super Admin app source syntax
+        run: node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js
+
+      - name: Check Super Admin app validator syntax
+        run: node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-validate.js
+
+      - name: Check Super Admin dashboard and HMAC helper syntax
         run: |
-          node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
-          node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js
-          node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-validate.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-dashboard.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js
-          node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/*.test.mjs
+
+      - name: Test Super Admin canonical Global D1 binding
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/canonical-global-db-binding.test.mjs
+
+      - name: Test Super Admin HMAC sender
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/global-admin-hmac-sender.test.mjs
+
+      - name: Test Super Admin HMAC key selection
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/global-admin-sync-secret.test.mjs
+
+      - name: Test Super Admin portal host policy
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/portal-host-policy.test.mjs
+
+      - name: Test Super Admin Regional Admin proxy HMAC
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/regional-proxy-hmac.test.mjs
+
+      - name: Test Super Admin sensitive logging controls
+        run: node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/sensitive-logging.test.mjs
 
       - name: Check browser JavaScript syntax
         run: |
