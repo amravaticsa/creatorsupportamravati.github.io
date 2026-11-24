@@ -8,6 +8,41 @@ const st=document.createElement("style");st.textContent=css;document.head.append
 let auth,db,rtdb,user=null;
 const el=id=>document.getElementById(id),note=s=>{if(el("csa-eng-note"))el("csa-eng-note").textContent=s};
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
+
+function trackEvent(name,params){
+ try{
+  if(typeof window.gtag==="function")window.gtag("event",name,params||{});
+ }catch(_){}
+}
+function installConversionTracking(){
+ if(window.__csaConversionTrackingInstalled)return;
+ window.__csaConversionTrackingInstalled=true;
+ const servicePaths=new Set(["/digital-marketing.html","/website-development.html","/video-photo-production.html","/podcast-production.html","/social-media-creative.html","/studio-equipment-support.html","/video-editing.html","/live-event-coverage.html"]);
+ document.addEventListener("click",event=>{
+  const link=event.target&&event.target.closest?event.target.closest("a[href]"):null;
+  if(!link)return;
+  const raw=link.getAttribute("href")||"",pagePath=location.pathname||"/";
+  if(/^tel:/i.test(raw)){trackEvent("phone_click",{page_path:pagePath});return}
+  if(/^mailto:/i.test(raw)){trackEvent("email_click",{page_path:pagePath});return}
+  if(/(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)/i.test(raw)){trackEvent("whatsapp_click",{page_path:pagePath});return}
+  if(/(?:forms\.gle|docs\.google\.com\/forms)/i.test(raw)){trackEvent("enquiry_form_open",{page_path:pagePath,form_provider:"google_forms"});return}
+  let destination;
+  try{destination=new URL(raw,location.href)}catch(_){return}
+  const path=destination.pathname;
+  if(path.endsWith("/booking.html"))trackEvent("booking_page_open",{source_page:pagePath});
+  if(path.endsWith("/contact.html"))trackEvent("contact_page_open",{source_page:pagePath});
+  if(path.endsWith("/payment.html"))trackEvent("payment_page_open",{source_page:pagePath});
+  if(path.endsWith("/portfolio.html"))trackEvent("portfolio_open",{source_page:pagePath});
+  if(/\/global-platform\/(?:login|portal)\.html$/.test(path))trackEvent("client_portal_open",{source_page:pagePath});
+  if(pagePath.startsWith("/blog/")&&servicePaths.has(path))trackEvent("blog_to_service_click",{destination_page:path});
+  if(pagePath==="/youtube-complete-course.html"&&path.startsWith("/blog/"))trackEvent("course_chapter_open",{chapter_path:path});
+ },true);
+ document.addEventListener("change",event=>{
+  const box=event.target&&event.target.closest?event.target.closest("[data-course-chapter]"):null;
+  if(box)trackEvent("course_progress_update",{chapter_number:box.dataset.courseChapter,completed:!!box.checked});
+ },true);
+}
+
 function ensurePill(){if(el("csa-live-pill"))return;const p=document.createElement("div");p.id="csa-live-pill";p.setAttribute("role","status");p.innerHTML='<span class="dot"></span><span id="csa-live-text">Live visitor data loading…</span>';document.body.appendChild(p)}
 function liveText(s){if(el("csa-live-text"))el("csa-live-text").textContent=s}
 function render(){
@@ -57,6 +92,6 @@ async function boot(){
  try{await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js");if(article){await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js");await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js")}if(!firebase.apps.length)firebase.initializeApp(cfg);rtdb=firebase.database();presence();if(article){auth=firebase.auth();db=firebase.firestore();render();auth.onAuthStateChanged(u=>{user=u;authUI()});watchArticle()}}
  catch(e){console.error("CSA engagement init:",e);liveText("Analytics temporarily unavailable");if(article){render();note("Engagement service अभी उपलब्ध नहीं है।")}}
 }
-function start(){ensurePill();if("requestIdleCallback"in window)requestIdleCallback(boot,{timeout:2500});else setTimeout(boot,700)}
+function start(){installConversionTracking();ensurePill();if("requestIdleCallback"in window)requestIdleCallback(boot,{timeout:2500});else setTimeout(boot,700)}
 if(document.readyState==="complete")start();else window.addEventListener("load",start,{once:true});
 })();
