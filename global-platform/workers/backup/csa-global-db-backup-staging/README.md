@@ -38,3 +38,8 @@ The R2 bucket must remain private. Do not add a public R2 domain or public bucke
 - `DB_GLOBAL_LEGACY` → compatibility `csa-global-platform-isolated-staging`, D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
 
 The binding names and backup object names are intentionally aligned: `global.json.gz` is canonical; `global_legacy.json.gz` is compatibility.
+
+
+### 24-November pre-correction artifacts
+
+The first 24-November backup set was created before the Global D1 binding correction and does not embed D1 UUIDs. Its `global`/`global_legacy` labels must not be treated as authoritative recovery identities. Keep those files for diagnostics only; do not restore them into a live or recovery D1. The first daily run after the corrected binding deployment will include explicit D1 UUIDs and post-upload `.verification.json` markers.
