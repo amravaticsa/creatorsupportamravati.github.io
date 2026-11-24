@@ -12,7 +12,7 @@ const DATABASES = {
 };
 
 // One D1 database per invocation keeps each scheduled run small and recoverable.
-// The */5 entry is temporary first-run verification; production schedule is daily below.
+// All ten entries below are daily UTC schedules.
 const CRON_TO_DATABASE = {
   "2 2 * * *": "global",
   "7 2 * * *": "superadmin",
@@ -152,12 +152,78 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     foreign_key_violations: foreignKeyViolations,
     compressed_bytes: compressed.byteLength,
   };
+  const verification = await verifyStoredBackup(bucket, key, {
+    database: databaseName,
+    generated_at: generatedAt,
+    table_count: result.table_count,
+    row_count: result.row_count,
+    trigger_count: result.trigger_count,
+    compressed_bytes: result.compressed_bytes,
+  });
   await bucket.put(
     `daily/${date}/${stamp}/${databaseName}.manifest.json`,
-    JSON.stringify({ format: "csa-d1-logical-backup-manifest-v1", generated_at: generatedAt, ...result }, null, 2),
+    JSON.stringify({ format: "csa-d1-logical-backup-manifest-v1", generated_at: generatedAt, verification_status: verification.status, ...result }, null, 2),
     { httpMetadata: { contentType: "application/json" } }
   );
-  return result;
+  await bucket.put(
+    `daily/${date}/${stamp}/${databaseName}.verification.json`,
+    JSON.stringify(verification, null, 2),
+    {
+      httpMetadata: { contentType: "application/json" },
+      customMetadata: {
+        environment: "staging",
+        database: databaseName,
+        status: verification.status,
+        quickCheck: verification.quick_check,
+        foreignKeyViolations: String(verification.foreign_key_violations),
+      },
+    }
+  );
+  return { ...result, verification_status: verification.status };
+}
+
+async function verifyStoredBackup(bucket, key, expected) {
+  const stored = await bucket.get(key);
+  if (!stored) throw new Error("backup_object_missing_after_put");
+  const decompressed = stored.body.pipeThrough(new DecompressionStream("gzip"));
+  const text = await new Response(decompressed).text();
+  const payload = JSON.parse(text);
+  if (
+    payload.format !== "csa-d1-logical-backup-v1" ||
+    payload.environment !== "staging" ||
+    payload.database !== expected.database ||
+    payload.generated_at !== expected.generated_at
+  ) throw new Error("backup_object_identity_verification_failed");
+
+  const tables = Array.isArray(payload.tables) ? payload.tables : [];
+  const rowCount = tables.reduce((sum, table) => {
+    if (!Array.isArray(table.rows) || Number(table.row_count) !== table.rows.length) {
+      throw new Error("backup_object_table_row_count_mismatch");
+    }
+    return sum + table.rows.length;
+  }, 0);
+  const triggerCount = Array.isArray(payload.triggers) ? payload.triggers.length : -1;
+  const integrity = payload.integrity || {};
+  if (
+    tables.length !== expected.table_count ||
+    rowCount !== expected.row_count ||
+    triggerCount !== expected.trigger_count ||
+    integrity.quick_check !== "ok" ||
+    Number(integrity.foreign_key_violations) !== 0
+  ) throw new Error("backup_object_content_verification_failed");
+
+  return {
+    status: "verified",
+    database: expected.database,
+    object_key: key,
+    verified_at: new Date().toISOString(),
+    table_count: tables.length,
+    row_count: rowCount,
+    trigger_count: triggerCount,
+    quick_check: integrity.quick_check,
+    foreign_key_violations: Number(integrity.foreign_key_violations),
+    compressed_bytes: expected.compressed_bytes,
+  };
 }
 
 async function pruneOldBackups(bucket) {
