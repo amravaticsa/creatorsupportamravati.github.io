@@ -7,7 +7,7 @@ const start = source.indexOf('if(m==="POST"&&p==="/internal/admin-authorizations
 const end = source.indexOf('if(m==="POST"&&p==="/internal/superadmin/finance/refund-dashboard")', start);
 const syncRoute = source.slice(start, end);
 
-test("admin authorization sync rejects the legacy Global D1 before nonce or authorization writes", () => {
+test("admin authorization sync rejects the main-stack Global D1 before nonce or authorization writes", () => {
   assert.ok(start >= 0, "admin authorization sync route exists");
   assert.match(syncRoute, /v_tender_country_scope/);
   assert.match(syncRoute, /isolated_database_mismatch/);
