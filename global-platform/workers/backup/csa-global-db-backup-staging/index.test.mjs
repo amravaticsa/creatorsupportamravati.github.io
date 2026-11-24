@@ -52,7 +52,7 @@ test("backup manifest is written only after successful R2 readback verification"
 });
 
 
-test("isolated and legacy Global backups use their semantic D1 bindings", () => {
+test("isolated and main staging Global backups use their semantic D1 bindings", () => {
   const databaseMap = source.slice(source.indexOf("const DATABASES"), source.indexOf("const CRON_TO_DATABASE"));
   const entries = [...databaseMap.matchAll(/^  ([a-z_]+): \{ binding: "(DB_[A-Z_]+)", database_id: "([0-9a-f-]{36})" \},$/gm)];
   assert.equal(entries.length, 10);
