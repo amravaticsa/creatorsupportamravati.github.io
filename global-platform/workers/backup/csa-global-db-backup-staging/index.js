@@ -1,14 +1,14 @@
 const DATABASES = {
-  global: "DB_GLOBAL",
-  superadmin: "DB_SUPERADMIN",
-  superadmin_legacy: "DB_SUPERADMIN_LEGACY",
-  global_legacy: "DB_GLOBAL_LEGACY",
-  video_legacy: "DB_VIDEO",
-  global_video_legacy: "DB_GLOBAL_VIDEO_LEGACY",
-  editor_superadmin: "DB_EDITOR_SUPERADMIN",
-  video_workflow: "DB_VIDEO_WORKFLOW",
-  rush: "DB_RUSH",
-  rush_isolated: "DB_RUSH_ISOLATED",
+  global: { binding: "DB_GLOBAL", database_id: "470a81b8-3d36-4e2d-942c-5cbb2746a473" },
+  superadmin: { binding: "DB_SUPERADMIN", database_id: "c2bb3fb5-db22-4ed5-9283-161df57ebac2" },
+  superadmin_legacy: { binding: "DB_SUPERADMIN_LEGACY", database_id: "99bc81fc-e97e-488b-a380-eb0237ff8ffc" },
+  global_legacy: { binding: "DB_GLOBAL_LEGACY", database_id: "6a32dda3-b8c5-413c-9f51-58f0a9fa0712" },
+  video_legacy: { binding: "DB_VIDEO", database_id: "b611b8ff-8f9f-43b2-95c8-a767a14987d6" },
+  global_video_legacy: { binding: "DB_GLOBAL_VIDEO_LEGACY", database_id: "2d3f97a0-fa32-46ef-9913-972a59a410e4" },
+  editor_superadmin: { binding: "DB_EDITOR_SUPERADMIN", database_id: "1fc2979f-52e2-420e-80f5-b70a51f6ac6c" },
+  video_workflow: { binding: "DB_VIDEO_WORKFLOW", database_id: "69f070a4-b71f-4448-973f-31993715b781" },
+  rush: { binding: "DB_RUSH", database_id: "198a0604-af4d-4671-8053-5df245ea754c" },
+  rush_isolated: { binding: "DB_RUSH_ISOLATED", database_id: "99c797a2-d822-437f-a4d7-31d658f3862f" },
 };
 
 // One D1 database per invocation keeps each scheduled run small and recoverable.
@@ -53,7 +53,7 @@ function normalizeRow(row) {
   }));
 }
 
-async function exportDatabase(db, databaseName, generatedAt, bucket) {
+async function exportDatabase(db, databaseName, databaseId, generatedAt, bucket) {
   const schemaResult = await db.prepare(
     "SELECT type, name, sql FROM sqlite_master " +
     "WHERE type IN ('table','view','index','trigger') " +
@@ -111,6 +111,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     format: "csa-d1-logical-backup-v1",
     environment: "staging",
     database: databaseName,
+    database_id: databaseId,
     generated_at: generatedAt,
     tables,
     views,
@@ -133,6 +134,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
     customMetadata: {
       environment: "staging",
       database: databaseName,
+      databaseId,
       generatedAt,
       format: "csa-d1-logical-backup-v1",
       tableCount: String(tables.length),
@@ -144,6 +146,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
 
   const result = {
     database: databaseName,
+    database_id: databaseId,
     key,
     table_count: tables.length,
     row_count: tables.reduce((sum, table) => sum + table.row_count, 0),
@@ -154,6 +157,7 @@ async function exportDatabase(db, databaseName, generatedAt, bucket) {
   };
   const verification = await verifyStoredBackup(bucket, key, {
     database: databaseName,
+    database_id: result.database_id,
     generated_at: generatedAt,
     table_count: result.table_count,
     row_count: result.row_count,
@@ -192,6 +196,7 @@ async function verifyStoredBackup(bucket, key, expected) {
     payload.format !== "csa-d1-logical-backup-v1" ||
     payload.environment !== "staging" ||
     payload.database !== expected.database ||
+    payload.database_id !== expected.database_id ||
     payload.generated_at !== expected.generated_at
   ) throw new Error("backup_object_identity_verification_failed");
 
@@ -215,6 +220,7 @@ async function verifyStoredBackup(bucket, key, expected) {
   return {
     status: "verified",
     database: expected.database,
+    database_id: expected.database_id,
     object_key: key,
     verified_at: new Date().toISOString(),
     table_count: tables.length,
@@ -248,24 +254,27 @@ async function pruneOldBackups(bucket) {
 }
 
 async function runBackupForDatabase(env, databaseName, cron) {
-  const bindingName = DATABASES[databaseName];
-  if (!bindingName) throw new Error("Unknown backup database: " + databaseName);
+  const databaseConfig = DATABASES[databaseName];
+  if (!databaseConfig) throw new Error("Unknown backup database: " + databaseName);
+  const bindingName = databaseConfig.binding;
   const db = env[bindingName];
   if (!db) throw new Error("Missing D1 binding: " + bindingName);
   const generatedAt = new Date().toISOString();
-  console.log(JSON.stringify({ event: "csa_d1_backup_started", database: databaseName, cron, generated_at: generatedAt }));
-  const result = await exportDatabase(db, databaseName, generatedAt, env.BACKUPS);
+  console.log(JSON.stringify({ event: "csa_d1_backup_started", database: databaseName, database_id: databaseConfig.database_id, cron, generated_at: generatedAt }));
+  const result = await exportDatabase(db, databaseName, databaseConfig.database_id, generatedAt, env.BACKUPS);
   const deleted = databaseName === "global" ? await pruneOldBackups(env.BACKUPS) : 0;
   console.log(JSON.stringify({
     event: "csa_d1_backup_complete",
     generated_at: generatedAt,
     database: databaseName,
+    database_id: result.database_id,
     table_count: result.table_count,
     row_count: result.row_count,
     trigger_count: result.trigger_count,
     quick_check: result.quick_check,
     foreign_key_violations: result.foreign_key_violations,
     compressed_bytes: result.compressed_bytes,
+    verification_status: result.verification_status,
     deleted_expired_objects: deleted,
   }));
 }

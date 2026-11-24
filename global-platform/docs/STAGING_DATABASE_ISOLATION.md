@@ -95,3 +95,6 @@ Canonical D1 470 has all 58 tables from compatibility D1 6a32 plus the additiona
 The Super Admin country registry and canonical Global API country rows were compared field-by-field: 249 source rows, 249 target rows, 249 matches, zero mismatches. Legal review rows remain zero and all commercial flags remain disabled.
 
 The ten-database staging backup Worker writes to private R2 bucket `csa-global-db-backups-staging`. All ten latest 24-Nov backup artifacts report `quickCheck=ok` and zero foreign-key violations. No production D1 or R2 resource was modified.
+
+
+The backup Worker follows the same semantic split: `DB_GLOBAL` points to canonical D1 470 and `DB_GLOBAL_LEGACY` points to compatibility D1 6a32. Its scheduled `global` and `global_legacy` exports use those names respectively.
