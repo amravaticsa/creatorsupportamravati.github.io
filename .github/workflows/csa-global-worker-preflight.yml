@@ -70,7 +70,8 @@ jobs:
           for file in csa-superadmin-isolated-staging.json csa-global-api-staging.json; do
             jq -e '
               (.result.bindings // []) as $b
-              | ([ $b[] | select(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+              | ([ $b[] | select(.name == "CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+              and ([ $b[] | select(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
               and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
             ' "$file" >/dev/null
           done
@@ -109,6 +110,7 @@ jobs:
             and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "2d3f97a0-fa32-46ef-9913-972a59a410e4") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-global-video-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
           ' csa-global-api-staging.json >/dev/null
 
           jq -e '
