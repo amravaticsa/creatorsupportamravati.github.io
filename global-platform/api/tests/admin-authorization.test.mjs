@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+const syncSource = readFileSync(new URL("../../superadmin/global-admin-sync.js", import.meta.url), "utf8");
+const isolatedWorkerSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
+const isolatedSyncSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
 
 test("admin identity registration requires a verified identity-provider email", () => {
   assert.ok(source.includes("c.email_verified!==true"));
@@ -48,4 +51,15 @@ test("Global Admin HMAC verification supports dedicated and legacy secrets", () 
 test("Super Admin pricing bridge accepts a 10-digit timestamp and signs newline-delimited canonical data", () => {
   assert.ok(source.includes("if(!/^\\d{10}$/.test(ts)"));
   assert.ok(source.includes('const canonical="POST\\n/internal/superadmin/pricing-policy\\n"+ts+"\\n"+nonce+"\\n"+bodyHash'));
+});
+
+test("Finance Admin sync grants are normalized to read-only", () => {
+  const mapping = 'finance_access_level: account.role === "finance_admin" ? (account.finance_access_level === "none" ? "none" : ["read","write","manage"].includes(account.finance_access_level) ? "read" : "none") : "none",';
+  assert.ok(syncSource.includes(mapping));
+  assert.ok(isolatedSyncSource.includes(mapping));
+});
+
+test("isolated Super Admin backend rejects Finance Admin write/manage even with stale module access", () => {
+  assert.ok(isolatedWorkerSource.includes('if(u.role==="finance_admin"&&moduleKey==="finance"&&required!=="read")return false;'));
+  assert.ok(isolatedWorkerSource.includes('if(!["none","read"].includes(level))'));
 });
