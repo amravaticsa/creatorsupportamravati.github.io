@@ -13,10 +13,16 @@ const sandbox = { TextEncoder };
 vm.runInNewContext(source, sandbox, { filename: "editor-portal-worker.js" });
 const { resolvePortalHosts, isPortalHost } = sandbox.__hostPolicy;
 
-test("staging environment accepts only the two dedicated staging hosts", () => {
+test("staging environment accepts the editor host and all configured admin aliases", () => {
   const env = { ENVIRONMENT: "staging" };
   assert.equal(isPortalHost("editor-staging.creatorsupportamravati.in", "editor", env), true);
-  assert.equal(isPortalHost("superadmin-editor-staging.creatorsupportamravati.in", "admin", env), true);
+  for (const host of [
+    "superadmin-editor-staging.creatorsupportamravati.in",
+    "superadmin-isolated-staging.creatorsupportamravati.in",
+    "admin-isolated-staging.creatorsupportamravati.in",
+  ]) {
+    assert.equal(isPortalHost(host, "admin", env), true);
+  }
   assert.equal(isPortalHost("editor.creatorsupportamravati.in", "editor", env), false);
   assert.equal(isPortalHost("superadmin.creatorsupportamravati.in", "admin", env), false);
   assert.equal(isPortalHost("attacker.example", "editor", env), false);
@@ -28,6 +34,7 @@ test("production environment retains only the production hostnames", () => {
   assert.equal(isPortalHost("superadmin.creatorsupportamravati.in", "admin", env), true);
   assert.equal(isPortalHost("editor-staging.creatorsupportamravati.in", "editor", env), false);
   assert.equal(isPortalHost("superadmin-editor-staging.creatorsupportamravati.in", "admin", env), false);
+  assert.equal(isPortalHost("admin-isolated-staging.creatorsupportamravati.in", "admin", env), false);
 });
 
 test("missing or unknown environment fails closed", () => {
