@@ -38,6 +38,8 @@ jobs:
         run: python3 global-platform/scripts/test-country-assignment-audit-migration.py
       - name: Test append-only country legal review migration on disposable SQLite
         run: python3 global-platform/scripts/test-country-legal-review-migration.py
+      - name: Test canonical country orders-enabled migration
+        run: python3 global-platform/scripts/test-country-orders-enabled-migration.py
       - name: Verify country legal review preflight is read-only
         run: python3 global-platform/scripts/test-country-legal-review-preflight-readonly.py
       - name: Test legacy-side assignment idempotency contract on disposable SQLite
@@ -124,6 +126,8 @@ jobs:
           test -s global-platform/migrations/0031_country_assignment_audit.sql
           test -s global-platform/migrations/0032_verified_country_scope.sql
           test -s global-platform/migrations/0033_country_legal_review_registry.sql
+          test -s global-platform/migrations/0035_country_orders_enabled.sql
+          test -s global-platform/scripts/test-country-orders-enabled-migration.py
           test -s global-platform/scripts/test-country-legal-review-migration.py
           test -s global-platform/scripts/test-country-legal-review-preflight-readonly.py
           test -s global-platform/migrations/preflight_country_legal_review_0033.sql
