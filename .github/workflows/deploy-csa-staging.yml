@@ -110,7 +110,8 @@ jobs:
               process.exit(1);
             }
             if (health.razorpay_mode === "blocked_non_test_key") {
-              console.warn("Staging checkout is safely disabled because a non-test Razorpay key is configured. Replace it with an rzp_test_ key before payment E2E; the public config must hide the key ID.");
+              console.error("A non-test Razorpay key must never remain on the staging Worker. Remove it and use dedicated rzp_test_ credentials before payment E2E.");
+              process.exit(1);
             }
             if (health.razorpay_checkout === true && health.razorpay_mode !== "test") {
               console.error("Staging checkout must only be enabled in Razorpay Test Mode.");
