@@ -51,3 +51,14 @@ test("Admin invitation links use the role-compatible Admin dashboard host", () =
   assert.ok(invite.includes('dashboard.origin+"/?invite="'));
   assert.doesNotMatch(invite, /csa-superadmin-isolated-staging\\.creatorsupportamravati\\.workers\\.dev/);
 });
+
+
+test("Cloudflare Access audience allowlist supports every comma-separated isolated staging host", () => {
+  const match = source.match(/const accessAudiences = env => [^;]+;/);
+  assert.ok(match, "multi-audience helper exists");
+  const sandbox = {};
+  vm.runInNewContext(match[0] + "\nglobalThis.accessAudiences = accessAudiences;", sandbox);
+  const auds = Array.from(sandbox.accessAudiences({ ACCESS_AUD: "aud-one, aud-two, aud-three, aud-four" }));
+  assert.deepEqual(auds, ["aud-one", "aud-two", "aud-three", "aud-four"]);
+  assert.match(source, /payload\.aud\.some\(aud=>accessAudiences\(env\)\.includes\(aud\)\)/);
+});
