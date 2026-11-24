@@ -205,9 +205,9 @@ async function handle(req,env){
   const canonical="POST\n/internal/admin-authorizations/sync\n"+ts+"\n"+nonce+"\n"+bodyHash;
   const syncSecrets=[env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET,env.GLOBAL_API_SYNC_HMAC_SECRET,env.ADMIN_SYNC_HMAC_SECRET].filter(Boolean); let validCanonicalSecret=false; for(const secret of syncSecrets){if(constantTime(await hmacHex(secret,canonical),sig)){validCanonicalSecret=true;break;}}
   if(!validCanonicalSecret)return bad("Sync signature is invalid.",401,"sync_signature_invalid");
-  let isolatedSchema=null,mainStackSchema=null;
-  try{isolatedSchema=await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_reviews'").first();mainStackSchema=await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='country_legal_evidence'").first();}catch{return bad("Isolated Global D1 is unavailable.",503,"isolated_database_unavailable");}
-  if(!isolatedSchema||mainStackSchema)return bad("Isolated Global D1 binding is not configured.",503,"isolated_database_mismatch");
+  let isolatedSchema=null;
+  try{isolatedSchema=await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='view' AND name='v_tender_country_scope'").first();}catch{return bad("Isolated Global D1 is unavailable.",503,"isolated_database_unavailable");}
+  if(!isolatedSchema)return bad("Isolated Global D1 binding is not configured.",503,"isolated_database_mismatch");
   let snapshot;
   try{snapshot=JSON.parse(raw);}catch{return bad("Invalid JSON snapshot.");}
   if(!Array.isArray(snapshot)||snapshot.length>100)return bad("Snapshot must be an array of at most 100 admin records.");
