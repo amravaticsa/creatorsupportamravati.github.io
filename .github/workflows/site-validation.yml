@@ -2,9 +2,11 @@ name: Website validation
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
   push:
     branches:
       - main
+      - csa-website-complete-2026-11-24
 
 permissions:
   contents: read
