@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Intentionally pinned to the staging Worker hostname. Never accept a caller-supplied
 # URL here: this test must not be redirected to production by workflow variables.
-API="https://csa-global-api-staging.creatorsupportamravati.workers.dev"
+API="https://csa-global-api-isolated-staging.amravaticsa.workers.dev"
 case "$API" in
-  https://csa-global-api-staging.creatorsupportamravati.workers.dev) ;;
+  https://csa-global-api-isolated-staging.amravaticsa.workers.dev) ;;
   *) echo "Refusing to run against a non-staging API." >&2; exit 2 ;;
 esac
 
@@ -22,11 +22,11 @@ fi
 node --input-type=module - "$tmp" <<'NODE'
 import fs from "node:fs";
 const h = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-if (h.ok !== true || h.service !== "CSA Global API" || h.status !== "healthy" || h.d1_connected === false) {
-  throw new Error("Staging API health/D1 check did not report healthy.");
+if (h.ok !== true || h.service !== "CSA Global API" || h.status !== "healthy" || h.d1_connected !== true || h.schema_ready !== true || (h.missing_tables || []).length !== 0 || (h.missing_columns || []).length !== 0) {
+  throw new Error("Isolated Global API canonical D1 schema check failed: " + JSON.stringify({status:h.status,d1_connected:h.d1_connected,schema_ready:h.schema_ready,missing_tables:h.missing_tables,missing_columns:h.missing_columns}));
 }
 NODE
-echo "PASS staging API health and D1 connectivity"
+echo "PASS isolated Global API health and canonical D1 table/column schema"
 
 # These are read-only business queues. Without a signed-in identity they must
 # reject access, rather than disclose client, editor, tender, KYC or finance data.
