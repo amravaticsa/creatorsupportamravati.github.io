@@ -1,22 +1,31 @@
 # CSA Global staging D1 backups
 
-This Worker creates daily logical backups of the five staging D1 databases used by the Global platform and its compatibility/editor services.
+This Worker creates daily logical backups of **all ten D1 databases in the staging environment**.
 
 - Destination: private R2 bucket `csa-global-db-backups-staging`
-- Schedule: one database per run, daily from 02:00–02:20 UTC
+- Schedule: one database per run, daily from 02:00–02:45 UTC
 - Retention: 30 days
 - Format: gzip-compressed JSON containing table DDL, rows, indexes, and views
-- Scope: staging databases only; no production database bindings
+- Scope: all ten staging D1 databases, including isolated and compatibility stores
+- Exclusions: production databases `csa-global-platform` and `csa-orders`
 - Public access: none; Worker has no routes and workers.dev is disabled
 
-The five scheduled exports are:
-- 02:00 UTC — canonical Global D1
-- 02:05 UTC — isolated Super Admin D1
-- 02:10 UTC — legacy Super Admin staging D1
-- 02:15 UTC — legacy Global API staging D1
-- 02:20 UTC — legacy video/editor staging D1
+The scheduled exports are:
 
-One database is exported per invocation to keep CPU and execution time bounded. The temporary `*/5` mapping is only for first-run verification and must be replaced by the five daily schedules after the legacy Super Admin test backup succeeds.
+| UTC | Database | D1 binding |
+|---|---|---|
+| 02:00 | `csa-global-platform-staging` | `DB_GLOBAL` |
+| 02:05 | `csa-superadmin-isolated-staging` | `DB_SUPERADMIN` |
+| 02:10 | `csa-superadmin-staging` | `DB_SUPERADMIN_LEGACY` |
+| 02:15 | `csa-global-platform-isolated-staging` | `DB_GLOBAL_LEGACY` |
+| 02:20 | `csa-video-isolated-staging` | `DB_VIDEO` |
+| 02:25 | `csa-global-legacy-video-isolated-staging` | `DB_GLOBAL_VIDEO_LEGACY` |
+| 02:30 | `csa-editor-superadmin-isolated-staging` | `DB_EDITOR_SUPERADMIN` |
+| 02:35 | `csa-video-workflow-staging` | `DB_VIDEO_WORKFLOW` |
+| 02:40 | `csa-video-rush-staging` | `DB_RUSH` |
+| 02:45 | `csa-video-rush-isolated-staging` | `DB_RUSH_ISOLATED` |
+
+One database is exported per invocation to keep CPU and execution time bounded. Each export writes a gzip data object and a JSON manifest. The first database's run prunes expired objects older than 30 days.
 
 R2 media objects are not copied by this Worker. The JSON exports are logical recovery artifacts; restoration is a controlled/manual operation and should be tested against a separate recovery database before being used for a live restore.
 
