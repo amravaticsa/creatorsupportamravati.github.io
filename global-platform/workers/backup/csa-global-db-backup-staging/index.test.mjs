@@ -9,6 +9,19 @@ test("daily backup maps all ten staging D1 databases", () => {
   const schedules = source.match(/^  "\d+ 2 \* \* \*": "[a-z_]+",$/gm) || [];
   assert.equal(bindings.length, 10);
   assert.equal(schedules.length, 10);
+  const cronMap = source.match(/^  "\\d+ 2 \\* \\* \\*": "[a-z_]+",$/gm) || [];
+  assert.deepEqual(cronMap, [
+    '  "2 2 * * *": "global",',
+    '  "7 2 * * *": "superadmin",',
+    '  "12 2 * * *": "superadmin_legacy",',
+    '  "17 2 * * *": "global_legacy",',
+    '  "22 2 * * *": "video_legacy",',
+    '  "27 2 * * *": "global_video_legacy",',
+    '  "32 2 * * *": "editor_superadmin",',
+    '  "37 2 * * *": "video_workflow",',
+    '  "42 2 * * *": "rush",',
+    '  "47 2 * * *": "rush_isolated",',
+  ]);
   assert.doesNotMatch(source, /"\* \* \* \* \*"/);
   assert.doesNotMatch(source, /"\*\/5 \* \* \* \*"/);
 });
