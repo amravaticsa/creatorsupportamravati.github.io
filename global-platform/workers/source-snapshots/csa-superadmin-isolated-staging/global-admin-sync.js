@@ -1,8 +1,9 @@
 // CSA Global admin authorization sync sender.
 // Import this helper into the CSA Super Admin Worker and call it only after
 // an authenticated Super Admin changes an account or accepts an invitation.
-// Prefer GLOBAL_API_SYNC_HMAC_SECRET for canonical Staging bridges.
-// Legacy Links uses ADMIN_SYNC_HMAC_SECRET on the isolated API. Never expose either secret to browser code.
+// Admin authorization snapshots use CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET.
+// Other canonical bridges use GLOBAL_API_SYNC_HMAC_SECRET; Legacy Links uses ADMIN_SYNC_HMAC_SECRET.
+// Never expose any secret to browser code.
 const encoder = new TextEncoder();
 
 async function sha256Hex(value) {
