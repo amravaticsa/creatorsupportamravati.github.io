@@ -22,8 +22,8 @@ fi
 node --input-type=module - "$tmp" <<'NODE'
 import fs from "node:fs";
 const h = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-if (h.ok !== true || h.service !== "CSA Global API" || h.status !== "healthy" || h.d1_connected !== true || h.schema_ready !== true || (h.missing_tables || []).length !== 0 || (h.missing_columns || []).length !== 0) {
-  throw new Error("Isolated Global API canonical D1 schema check failed: " + JSON.stringify({status:h.status,d1_connected:h.d1_connected,schema_ready:h.schema_ready,missing_tables:h.missing_tables,missing_columns:h.missing_columns}));
+if (h.ok !== true || h.service !== "CSA Global API" || h.status !== "healthy" || h.d1_connected !== true || h.schema_ready !== true || (h.missing_tables || []).length !== 0 || (h.missing_columns || []).length !== 0 || (h.missing_views || []).length !== 0) {
+  throw new Error("Isolated Global API canonical D1 schema check failed: " + JSON.stringify({status:h.status,d1_connected:h.d1_connected,schema_ready:h.schema_ready,missing_tables:h.missing_tables,missing_columns:h.missing_columns,missing_views:h.missing_views}));
 }
 NODE
 echo "PASS isolated Global API health and canonical D1 table/column schema"
