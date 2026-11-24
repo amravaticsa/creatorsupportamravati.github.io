@@ -175,3 +175,31 @@ This is direct source/deployment drift. The repository's canonical helper alread
 
 
 The live Super Admin bundle uses the alternate GLOBAL_API_SYNC_HMAC_SECRET alias in multiple cross-Worker callers, not only the scheduled Admin Authorization sync: pricing-policy bridge, legacy-links bridge, and Regional Admin data proxy also select that alias before falling back to ADMIN_SYNC_HMAC_SECRET. A mismatch can therefore break several isolated staging integrations simultaneously. The alias is present only on the Super Admin Worker version 113; the isolated Global API version 49 exposes only ADMIN_SYNC_HMAC_SECRET.
+
+
+## Read-only recheck — 24 November 2026
+
+The 22-November findings remain a production launch blocker. Current Worker settings and routes were re-read; no production route, Worker, D1, R2 or DNS setting was changed.
+
+### Production hostname findings still present
+- `admin.creatorsupportamravati.in` and `superadmin.creatorsupportamravati.in` remain custom domains on `csa-superadmin-api-staging`, whose `ENVIRONMENT` binding is `staging` and whose D1 is legacy Super Admin D1 `99bc81fc-e97e-488b-a380-eb0237ff8ffc`.
+- Route `superadmin.creatorsupportamravati.in/*` still targets `csa-superadmin-api-staging`.
+- Production Editor Worker `csa-editor-portal` still binds `CSA_SUPERADMIN_DB` to legacy staging D1 99bc and `CSA_VIDEO_DB` to production orders D1 `72a5d236-1ae1-4362-9a51-e6fb9b9840c8`.
+- Production Super Admin paths `/editor-management*` and `/editor-api/*` still route to `csa-editor-portal`; production Rush paths still route to `csa-rush-admin-staging`.
+- `employee.creatorsupportamravati.in/*` still routes to `csa-employee-gateway`, whose `EMPLOYEE_BACKEND` service binding points to `csa-superadmin-api-staging`.
+- Production Global API `csa-global-api` remains on `ENVIRONMENT=production`, D1 `23462947-5ab9-41ea-a25a-0fac0e6349d7`, and production legacy video D1 72a5.
+
+### Isolated staging routing now verified
+- `superadmin-isolated-staging.creatorsupportamravati.in/*` and `admin-isolated-staging.creatorsupportamravati.in/*` route to `csa-superadmin-isolated-staging`.
+- `regional-staging.creatorsupportamravati.in/*` routes to `csa-superadmin-isolated-staging`.
+- `editor-staging.creatorsupportamravati.in/*` and `editor-api-isolated-staging.creatorsupportamravati.in/editor-api/internal/legacy-bridge/*` route to `csa-editor-portal-isolated-staging`.
+- The 24-Nov staging smoke test verified the isolated Super Admin/Admin portal HTML routes, unauthenticated API fail-closed behavior (401/403 or the configured Cloudflare Access redirect), Editor portal route, and unsigned Editor bridge rejection.
+
+### Current isolated D1 boundary
+- Isolated Super Admin identity D1: c2bb.
+- Canonical Global D1 for both regular and isolated staging APIs: 470.
+- Isolated Super Admin legacy compatibility D1: 6a32.
+- Isolated Editor/video D1: b611.
+- Production D1s listed above were not changed.
+
+**Production remains blocked.** The admin, Editor, Rush and Employee production paths need a separately approved production architecture and migration/cutover plan. Do not fix these by pointing production hosts at isolated staging Workers or by repointing production D1 bindings during staging work.
