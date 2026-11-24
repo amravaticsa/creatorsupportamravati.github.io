@@ -3,7 +3,7 @@
 // an authenticated Super Admin changes an account or accepts an invitation.
 // Canonical admin authorization snapshots and other canonical bridges use GLOBAL_API_SYNC_HMAC_SECRET.
 // ADMIN_SYNC_HMAC_SECRET is the migration fallback and signs the isolated Legacy Links bridge.
-// CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET is reserved for the isolated compatibility API path.
+// CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET is the dedicated key for isolated Super Admin admin-authorizations sync to the canonical Global API.
 // Never expose any secret to browser code.
 const encoder = new TextEncoder();
 
