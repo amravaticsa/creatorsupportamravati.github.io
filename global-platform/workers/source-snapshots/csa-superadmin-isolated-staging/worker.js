@@ -121,7 +121,7 @@ async function invite(req,env,u){
 }
 async function updateFinanceAccess(req,env,u,aid){
  if(u.role!=="super_admin")return json({ok:false,error:"forbidden"},403);
- const b=await body(req),level=String(b.access_level||"");if(!["none","read","write","manage"].includes(level))return json({ok:false,error:"invalid_finance_access_level"},400);
+ const b=await body(req),level=String(b.access_level||"");if(!["none","read"].includes(level))return json({ok:false,error:"invalid_finance_access_level"},400);
  const result=await env.DB.prepare("INSERT INTO csa_admin_module_access (id,admin_id,module_key,access_level,granted_by,created_at,updated_at) SELECT ?,id,'finance',?,?,?,? FROM admin_accounts WHERE id=? AND role='finance_admin' ON CONFLICT(admin_id,module_key) DO UPDATE SET access_level=excluded.access_level,granted_by=excluded.granted_by,updated_at=excluded.updated_at").bind(id(),level,u.id,now(),now(),aid).run();
  if(!(result.meta?.changes||0))return json({ok:false,error:"finance_admin_not_found"},404);
  await audit(env.DB,u.id,"admin.finance_access_updated",aid,{access_level:level});
