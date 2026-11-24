@@ -24,11 +24,11 @@ test("Isolated admin authorization sync tries configured HMAC keys after 401", (
   assert.ok(block.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"));
 });
 
-test("Other canonical bridges retain the separate Global API HMAC key", () => {
+test("Other isolated Global API bridges retain the separate Global API HMAC key", () => {
   for (const fn of ["callGlobalPricingPolicy","callGlobalRefundDashboard","callGlobalEditorSessions"]) {
     const block = blockFor(fn);
     assert.ok(block.includes("GLOBAL_API_SYNC_HMAC_SECRET"), fn + " uses Global API bridge secret");
-    assert.ok(block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"), fn + " targets main staging Global API");
+    assert.ok(block.includes("csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"), fn + " targets isolated Global API");
   }
 });
 
