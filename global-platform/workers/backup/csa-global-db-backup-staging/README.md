@@ -30,3 +30,11 @@ One database is exported per invocation to keep CPU and execution time bounded. 
 R2 media objects are not copied by this Worker. Each uploaded gzip object is fetched back from private R2, decompressed and parsed. The Worker verifies database identity, generated timestamp, table/row/trigger counts, per-table row counts, `quick_check`, and foreign-key metadata before it writes the manifest and `.verification.json` success marker. Treat the backup as complete only when all three objects exist: `.json.gz`, `.manifest.json`, and `.verification.json`. This is artifact verification, not a full SQL restore rehearsal; restoration remains a controlled/manual operation and must be tested against a separate recovery database before any live restore.
 
 The R2 bucket must remain private. Do not add a public R2 domain or public bucket policy.
+
+
+### Canonical versus compatibility Global D1 IDs
+
+- `DB_GLOBAL` → canonical `csa-global-platform-staging`, D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
+- `DB_GLOBAL_LEGACY` → compatibility `csa-global-platform-isolated-staging`, D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+
+The binding names and backup object names are intentionally aligned: `global.json.gz` is canonical; `global_legacy.json.gz` is compatibility.
