@@ -27,6 +27,6 @@ The scheduled exports are:
 
 One database is exported per invocation to keep CPU and execution time bounded. Each export writes a gzip data object and a JSON manifest. The payload includes SQLite triggers and a pre-backup foreign-key violation count; a non-zero count is recorded rather than hidden. The first database's run prunes expired objects older than 30 days.
 
-R2 media objects are not copied by this Worker. The JSON exports are logical recovery artifacts; restoration is a controlled/manual operation and should be tested against a separate recovery database before being used for a live restore.
+R2 media objects are not copied by this Worker. Each uploaded gzip object is fetched back from private R2, decompressed and parsed. The Worker verifies database identity, generated timestamp, table/row/trigger counts, per-table row counts, `quick_check`, and foreign-key metadata before it writes the manifest and `.verification.json` success marker. Treat the backup as complete only when all three objects exist: `.json.gz`, `.manifest.json`, and `.verification.json`. This is artifact verification, not a full SQL restore rehearsal; restoration remains a controlled/manual operation and must be tested against a separate recovery database before any live restore.
 
 The R2 bucket must remain private. Do not add a public R2 domain or public bucket policy.
