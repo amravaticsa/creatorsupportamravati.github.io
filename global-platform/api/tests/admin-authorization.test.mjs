@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
 const syncSource = readFileSync(new URL("../../superadmin/global-admin-sync.js", import.meta.url), "utf8");
 const isolatedWorkerSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
+const legacyWorkerSource = readFileSync(new URL("../../workers/staging/csa-superadmin-api-staging/worker.js", import.meta.url), "utf8");
 const isolatedSyncSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
 
 const isolatedAdminUiSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js", import.meta.url), "utf8");
@@ -68,8 +69,19 @@ test("isolated Super Admin backend rejects Finance Admin write/manage even with 
 });
 
 
-test("Finance module dropdown hides write/manage options in both Super Admin portals", () => {
-  const hiddenFinanceWrite = "x.module_key==='finance'?'hidden disabled ':'";
-  assert.ok(isolatedAdminUiSource.includes(hiddenFinanceWrite));
-  assert.ok(legacyAdminUiSource.includes(hiddenFinanceWrite));
+test("Finance Admin module access is read-only in both Super Admin APIs", () => {
+  const guard = 'if(target.role==="finance_admin"&&items.some(x=>x.module_key==="finance"&&!["none","read"].includes(x.access_level)))return json({ok:false,error:"finance_admin_access_is_read_only"},403);';
+  assert.ok(isolatedWorkerSource.includes(guard));
+  assert.ok(legacyWorkerSource.includes(guard));
+});
+
+test("Finance dropdown is role-scoped and does not remove Super Admin access options", () => {
+  const roleGuard = "const financeReadOnly=d.admin?.role==='finance_admin';";
+  const financeOnly = "financeReadOnly&&x.module_key==='finance'";
+  const hiddenOption = "financeReadOnly&&x.module_key==='finance'?'hidden disabled ':'";
+  for (const uiSource of [isolatedAdminUiSource, legacyAdminUiSource]) {
+    assert.ok(uiSource.includes(roleGuard));
+    assert.ok(uiSource.includes(financeOnly));
+    assert.ok(uiSource.includes(hiddenOption));
+  }
 });
