@@ -11,8 +11,7 @@ test("country verification and assignment route through the isolated Global API 
   assert.match(workerSource, /env\.GLOBAL_API_DB\|\|env\.CANONICAL_GLOBAL_DB/);
   assert.match(workerSource, /const target=env\.GLOBAL_API_DB\|\|env\.CANONICAL_GLOBAL_DB/);
   assert.doesNotMatch(workerSource, /env\.GLOBAL_DB/);
-  assert.match(workerSource, /country_legal_reviews/);
-  assert.match(workerSource, /country_legal_evidence/);
+  assert.match(workerSource, /v_tender_country_scope/);
   assert.match(workerSource, /isolated_global_db_binding_mismatch/);
 });
 
