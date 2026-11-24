@@ -3,7 +3,7 @@
 // an authenticated Super Admin changes an account or accepts an invitation.
 // Canonical admin authorization snapshots and other canonical bridges use GLOBAL_API_SYNC_HMAC_SECRET.
 // ADMIN_SYNC_HMAC_SECRET is the migration fallback and signs the isolated Legacy Links bridge.
-// CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET is the dedicated key for isolated Super Admin authorization sync to the canonical Global API.
+// CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET is the dedicated key for isolated Super Admin authorization sync to the isolated Global API.
 // Never expose any secret to browser code.
 const encoder = new TextEncoder();
 
@@ -56,7 +56,7 @@ export async function syncGlobalAdminAuthorizations(env) {
 
   const path = "/internal/admin-authorizations/sync";
   const body = JSON.stringify(snapshot);
-  const endpoint = (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path;
+  const endpoint = (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev") + path;
 
   let lastAuthStatus = 0;
   for (const [, secret] of hmacSecrets) {
