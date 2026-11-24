@@ -58,30 +58,48 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Check Worker and browser JavaScript syntax
+      - name: Check core Worker JavaScript syntax
         run: |
           node --check global-platform/api/src/index.js
           node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
           node --input-type=module --check < global-platform/workers/staging/csa-superadmin-api-staging/worker.js
           node --check global-platform/workers/backup/csa-global-db-backup-staging/index.js
-          node --test global-platform/workers/backup/csa-global-db-backup-staging/index.test.mjs
-          node --test global-platform/api/tests/*.test.mjs
+
+      - name: Test staging backup schedule mapping
+        run: node --test global-platform/workers/backup/csa-global-db-backup-staging/index.test.mjs
+
+      - name: Test canonical Global API routes and security
+        run: node --test global-platform/api/tests/*.test.mjs
+
+      - name: Test Editor Portal source and host policy
+        run: |
+          node --check global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js
           node --test global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/tests/*.test.mjs
+
+      - name: Test isolated Global API source and permissions
+        run: |
+          node --check global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js
           node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/*.test.mjs
-          node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/*.test.mjs
-          node --check global-platform/assets/auth.js
-          node --check global-platform/assets/portal.js
-          node --check global-platform/superadmin/global-admin-sync.js
-          # Syntax-check every exported isolated Worker module (snapshot-only; no deployment).
-          node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
+
+      - name: Test Super Admin source and authorization
+        run: |
+          node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
           node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-validate.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/admin-dashboard.js
           node --check global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js
-          node --check global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js
-          node --check global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/worker.js
-          # Guard against reintroducing known raw exception-to-log patterns.
-          ! grep -R -n -E 'String\(e&&e\.message|String\(logError&&logError\.message|console\.(log|warn|error|info|debug)\([^)]*\.stack' global-platform/workers/source-snapshots/csa-superadmin-isolated-staging global-platform/workers/source-snapshots/csa-global-api-isolated-staging global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging
+          node --test global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/tests/*.test.mjs
+
+      - name: Check browser JavaScript syntax
+        run: |
+          node --check global-platform/assets/auth.js
+          node --check global-platform/assets/portal.js
+          node --check global-platform/superadmin/global-admin-sync.js
+
+      - name: Guard against raw exception logging
+        run: |
+          ! grep -R -n -E 'String\\(e&&e\\.message|String\\(logError&&logError\\.message|console\\.(log|warn|error|info|debug)\\([^)]*\\.stack' global-platform/workers/source-snapshots/csa-superadmin-isolated-staging global-platform/workers/source-snapshots/csa-global-api-isolated-staging global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging
+
       - name: Check client and editor navigation entry points
         run: bash global-platform/testing/check-client-navigation.sh
       - name: Check required platform files
