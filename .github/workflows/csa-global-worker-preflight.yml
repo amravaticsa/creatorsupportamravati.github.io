@@ -67,7 +67,7 @@ jobs:
         if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
         run: |
           set -euo pipefail
-          for file in csa-superadmin-isolated-staging.json csa-global-api-staging.json; do
+          for file in csa-superadmin-isolated-staging.json csa-global-api-isolated-staging.json; do
             jq -e '
               (.result.bindings // []) as $b
               | ([ $b[] | select(.name == "CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
