@@ -19,52 +19,19 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
   }
 
   function emptyState() {
-    const section = make("section", "csa-coming-soon");
-    section.setAttribute("aria-label", "Upcoming CSA event and production categories");
-    const heading = make("div", "csa-coming-head");
-    const copy = make("div", "csa-coming-copy");
-    copy.append(make("span", "csa-coming-kicker", "COMING NEXT AT CSA"));
-    copy.append(make("h3", "", "Big moments. Beautifully captured."));
-    copy.append(make("p", "", "We’re preparing exciting event and production experiences. Explore what’s coming soon."));
-    heading.append(copy);
-    const controls = make("div", "csa-coming-controls");
-    const prev = make("button", "csa-slider-arrow", "‹");
-    prev.type = "button"; prev.setAttribute("aria-label", "Previous categories");
-    const next = make("button", "csa-slider-arrow", "›");
-    next.type = "button"; next.setAttribute("aria-label", "Next categories");
-    controls.append(prev, next); heading.append(controls); section.append(heading);
-
-    const track = make("div", "csa-coming-track");
-    track.setAttribute("tabindex", "0");
-    track.setAttribute("aria-label", "Coming soon categories slider");
-    const slides = [
-      ["Wedding & Pre-Wedding Events", "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=85", "Wedding ceremonies, candid moments and cinematic highlights."],
-      ["Corporate Programs", "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=900&q=85", "Conferences, launches, award nights and business events."],
-      ["Product Photography & Shoots", "https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?auto=format&fit=crop&w=900&q=85", "Premium product visuals, catalogue images and promotional videos."],
-      ["Birthday & Special Events", "https://images.unsplash.com/photo-1530103862676-de8c9de6885f?auto=format&fit=crop&w=900&q=85", "Celebrate milestones with memorable photo and video coverage."],
-      ["Brand Promotional Shoots", "https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?auto=format&fit=crop&w=900&q=85", "Creative campaigns, brand films and social media content."],
-      ["Podcast & Creator Productions", "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=900&q=85", "Multi-camera podcasts, interviews and creator-led shows."]
-    ];
-    slides.forEach(([title, image, description]) => {
-      const card = make("article", "csa-coming-card");
-      const img = make("img", "csa-coming-image");
-      img.src = image; img.alt = title; img.loading = "lazy"; img.decoding = "async";
-      img.onerror = () => { img.style.display = "none"; };
-      card.append(img);
-      const shade = make("div", "csa-coming-shade");
-      shade.append(make("span", "csa-coming-badge", "COMING SOON"));
-      const body = make("div", "csa-coming-card-copy");
-      body.append(make("h4", "", title), make("p", "", description));
-      const link = make("a", "csa-coming-link", "Discuss your project ↗");
-      link.href = "contact.html";
-      body.append(link); shade.append(body); card.append(shade); track.append(card);
-    });
-    section.append(track);
-    prev.addEventListener("click", () => track.scrollBy({left: -track.clientWidth * .82, behavior: "smooth"}));
-    next.addEventListener("click", () => track.scrollBy({left: track.clientWidth * .82, behavior: "smooth"}));
-    const note = make("p", "csa-coming-note", "These are upcoming service categories. Dates and bookings will be announced soon.");
-    section.append(note);
-    return section;
+    const box = make("div", "csa-empty");
+    box.setAttribute("role", "status");
+    box.setAttribute("aria-label", "No public events or projects currently listed");
+    box.append(make("h3", "", "No public events are listed right now."));
+    box.append(make("p", "", "Confirmed workshops, public events and projects will appear here when their dates and details are ready to share."));
+    const actions = make("div", "csa-events-empty-actions");
+    const booking = make("a", "csa-event-link", "Enquire about event coverage ↗");
+    booking.href = "booking.html";
+    const contact = make("a", "csa-event-link", "Contact CSA ↗");
+    contact.href = "contact.html";
+    actions.append(booking, contact);
+    box.append(actions);
+    return box;
   }
 
   function errorState(message) {
@@ -154,20 +121,8 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
     root.setAttribute("aria-busy", "false");
     root.replaceChildren();
     if (!items.length) {
-      if (root === homeRoot) {
-        root.classList.add("has-coming-soon");
-        root.append(emptyState());
-      } else {
-        root.classList.remove("has-coming-soon");
-        root.append(make("div", "csa-empty"));
-        const box = root.firstElementChild;
-        box.setAttribute("role", "status");
-        box.append(make("h3", "", "No public events are listed right now"));
-        box.append(make("p", "", "Confirmed public events and projects will appear here when details are available. For current service availability or an upcoming production, contact the CSA team."));
-        const link = make("a", "csa-event-link", "Contact Creator Support Amravati ↗");
-        link.href = "contact.html";
-        box.append(link);
-      }
+      root.classList.add("has-coming-soon");
+      root.append(emptyState());
       return;
     }
     root.classList.remove("has-coming-soon");
