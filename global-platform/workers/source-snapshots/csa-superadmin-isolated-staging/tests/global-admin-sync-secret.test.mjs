@@ -16,7 +16,7 @@ test("Admin authorization sync uses the dedicated CSA HMAC secret only", () => {
   assert.ok(block.includes("if (!env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET)"));
   assert.ok(block.includes("hmacHex(env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET, canonical)"));
   assert.ok(!block.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
-  assert.ok(!block.includes("ADMIN_SYNC_HMAC_SECRET"));
+  assert.ok(!block.includes("env.ADMIN_SYNC_HMAC_SECRET"));
   assert.ok(block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"));
 });
 
