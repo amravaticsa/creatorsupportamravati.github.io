@@ -52,7 +52,7 @@ The production Worker, production D1 database, production R2 bucket and live CSA
 
 ## Staging configuration
 - Google OAuth client ID, audience, issuer/JWKS settings, allowed frontend origin and admin email allowlist are configured on the staging Worker.
-- Razorpay credentials and webhook secret are configured as encrypted secrets on the staging Worker. Never copy secret values into this repository or frontend.
+- Razorpay secret bindings were removed from the staging Worker after the health gate detected a non-test key. Checkout is unconfigured and disabled until dedicated `rzp_test_` credentials and a Test Mode webhook secret are added. Never copy secret values into this repository or frontend.
 - Webhook endpoint: `https://csa-global-api-staging.creatorsupportamravati.workers.dev/v1/webhooks/razorpay`
 - Configured webhook events: `payment.captured`, `payment.failed`, `refund.created`, `refund.processed`, `refund.failed`.
 - Keep all payment work in Razorpay Test Mode. A configured credential is not proof that a complete checkout/refund has been tested.
@@ -331,3 +331,33 @@ The legacy `csa-superadmin-api-staging` Worker remains separate. It has a stagin
 - `GLOBAL_API_SYNC_HMAC_SECRET` signs the other canonical API bridges (Regional Admin read proxy, pricing policy, refund dashboard and editor-session operations) and remains a migration fallback for admin snapshots.
 - `ADMIN_SYNC_HMAC_SECRET` remains a migration fallback where explicitly supported and signs the isolated Legacy Links bridge to `csa-global-api-isolated-staging`.
 - The dedicated key must be present on both the isolated Super Admin sender and canonical Global API staging receiver. Secret values must never be read into logs, source control, or browser code.
+
+
+## Verified staging recheck — 24 November 2026
+
+This section supersedes earlier staging snapshots in this README where their D1 bindings, payment state, or route checks differ.
+
+### Runtime and data boundaries
+- Isolated Super Admin Worker: `csa-superadmin-isolated-staging`, `ENVIRONMENT=staging`, identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
+- Super Admin `CANONICAL_GLOBAL_DB` and `GLOBAL_API_DB` both point to canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
+- Super Admin compatibility `GLOBAL_DB` remains on legacy D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- Isolated Global API `csa-global-api-isolated-staging` uses canonical D1 470 and legacy video D1 `b611b8ff-8f9f-43b2-95c8-a767a14987d6`.
+- Isolated Editor Portal uses Super Admin D1 c2bb and video D1 b611.
+- The regular staging Global API also uses canonical D1 470. Production Workers and D1 databases were not modified.
+
+### Verified controls
+- 249/249 country registry rows match between the Super Admin registry and canonical Global D1. All countries remain `planned`; orders, payments and payouts are disabled. Legal review rows: 0; Regional Admin principals/invitations: 0.
+- The 15-minute Super Admin authorization sync succeeded at 2026-11-24 10:45:03 UTC and wrote one synchronized record set to canonical D1 470. The nonce/replay-protection table is active.
+- Finance Admin permissions remain `finance.read` only. Super Admin retains its separate management capability. No Finance Admin account is enrolled.
+- Ten staging D1 databases have daily logical backups in private R2 bucket `csa-global-db-backups-staging`. Latest 24-Nov artifacts for all ten report `quickCheck=ok` and zero foreign-key violations; 36 backup/manifest/verification objects were listed. Retention is 30 days and public R2 domains are disabled.
+- Main staging Razorpay secret bindings were removed after the health gate reported `blocked_non_test_key`. Checkout is now unconfigured and must remain disabled until Test Mode credentials are supplied.
+- Post-deploy smoke run 45378143866 succeeded: frontend routes/assets, main and isolated API health, unauthenticated API denial, isolated Super Admin/Admin portals, Editor portal and unsigned Editor bridge rejection all passed.
+
+### Remaining staging release gates
+- Authenticated client/editor/admin end-to-end execution is still blocked: 2 client accounts and 3 country-unassigned projects exist; there are 0 editor profiles/credentials, 0 tenders/assignments, and no Regional Admin identities.
+- Pricing policies: 0. Payments, refunds and payouts: 0. No live or test payment was executed.
+- Genuine country legal evidence and approval by an authorized human reviewer are required before any country, including India, can be commercially activated.
+- GitHub's Worker configuration preflight can read basic settings but skips deeper Worker checks because the existing Pages token lacks Workers Scripts Read permission. Add a separate least-privilege `CLOUDFLARE_WORKERS_READ_TOKEN` repository secret to enable the full automated preflight. Manual Cloudflare read-only verification was performed for this recheck.
+- Production route audit still identifies production hostnames routed to staging-named admin/Rush services and a production Editor Worker using a staging Super Admin D1. No production routes or bindings were changed; production launch remains blocked pending an explicitly approved migration plan.
+
+Do not treat the green staging smoke checks as proof of authenticated business workflow completion or production readiness.
