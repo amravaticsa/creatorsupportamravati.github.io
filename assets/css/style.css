@@ -848,3 +848,11 @@ table{max-width:100%}
 @media(max-width:1100px){.header-quicklinks{display:none}}
 @media(max-width:680px){.header-quicklinks{display:none}}
 @media(min-width:1101px){.header-inner>.brand{margin-right:0}}
+
+
+/* Accessible FAQ sections on service pages */
+.service-faq{margin-top:30px;padding-top:22px;border-top:1px solid var(--line)}
+.service-faq details{border-bottom:1px solid var(--line);padding:14px 0}
+.service-faq summary{cursor:pointer;color:var(--navy);font-weight:700;line-height:1.5}
+.service-faq details p{margin:10px 0 0;color:var(--muted)}
+.service-faq summary:focus-visible{outline:2px solid var(--teal);outline-offset:4px;border-radius:3px}
