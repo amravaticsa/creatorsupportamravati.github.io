@@ -96,6 +96,7 @@ jobs:
             and ([ $b[] | select(.name == "CANONICAL_GLOBAL_DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
             and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "GLOBAL_API_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
           ' csa-superadmin-isolated-staging.json >/dev/null
 
           jq -e '
