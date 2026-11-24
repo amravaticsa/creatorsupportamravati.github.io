@@ -7,6 +7,9 @@ const syncSource = readFileSync(new URL("../../superadmin/global-admin-sync.js",
 const isolatedWorkerSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/worker.js", import.meta.url), "utf8");
 const isolatedSyncSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/global-admin-sync.js", import.meta.url), "utf8");
 
+const isolatedAdminUiSource = readFileSync(new URL("../../workers/source-snapshots/csa-superadmin-isolated-staging/admin-app-source.js", import.meta.url), "utf8");
+const legacyAdminUiSource = readFileSync(new URL("../../workers/staging/csa-superadmin-api-staging/admin-app-source.js", import.meta.url), "utf8");
+
 test("admin identity registration requires a verified identity-provider email", () => {
   assert.ok(source.includes("c.email_verified!==true"));
   assert.ok(source.includes('c.sub!=="string"'));
@@ -62,4 +65,11 @@ test("Finance Admin sync grants are normalized to read-only", () => {
 test("isolated Super Admin backend rejects Finance Admin write/manage even with stale module access", () => {
   assert.ok(isolatedWorkerSource.includes('if(u.role==="finance_admin"&&moduleKey==="finance"&&required!=="read")return false;'));
   assert.ok(isolatedWorkerSource.includes('if(!["none","read"].includes(level))'));
+});
+
+
+test("Finance module dropdown hides write/manage options in both Super Admin portals", () => {
+  const hiddenFinanceWrite = "x.module_key==='finance'?'hidden disabled ':'";
+  assert.ok(isolatedAdminUiSource.includes(hiddenFinanceWrite));
+  assert.ok(legacyAdminUiSource.includes(hiddenFinanceWrite));
 });
