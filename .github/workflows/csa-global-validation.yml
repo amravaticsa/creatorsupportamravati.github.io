@@ -184,6 +184,9 @@ jobs:
 
       - name: Check client and editor navigation entry points
         run: bash global-platform/testing/check-client-navigation.sh
+      - name: Test plain authentication page shells
+        run: node --test global-platform/testing/auth-pages-shell.test.mjs
+
       - name: Check required platform files
         run: |
           set -x
