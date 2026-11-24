@@ -312,15 +312,17 @@ The staging preflight requires `CANONICAL_GLOBAL_DB` to point to D1 470. A regre
 
 ## Staging binding contract — 2026-11-24
 
-The canonical Global Platform staging data path is:
+The isolated Global Platform staging data path is:
 
-- `csa-global-api-staging` → D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`
-- `csa-superadmin-isolated-staging` → local identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`, **`CANONICAL_GLOBAL_DB` → canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`**, and legacy `GLOBAL_DB` → compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
-- `csa-global-api-isolated-staging` → legacy/compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`; this database is not the canonical Regional Admin data source.
+- `csa-global-api-isolated-staging` → isolated operational D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- `csa-superadmin-isolated-staging` → identity/session D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2`; both `CANONICAL_GLOBAL_DB` and the legacy `GLOBAL_DB` compatibility binding point to the isolated D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- `csa-global-api-staging` → separate legacy/cross-service D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`. The canonical admin-authorization snapshot and the explicitly documented cross-service bridges target this API over its authenticated internal routes.
 
-Country registry, country verification, and assignment review must use `CANONICAL_GLOBAL_DB` only. The legacy `GLOBAL_DB` binding is retained for compatibility and must not be used by country-verification code.
+Country registry, country verification, and assignment review in the isolated Super Admin portal use `CANONICAL_GLOBAL_DB` (the isolated D1 6a32). Do not point that binding at the legacy/cross-service D1 470. The `GLOBAL_DB` alias remains on 6a32 for compatibility with existing isolated bridge code.
 
-The read-only preflight workflow checks these exact bindings on every staging infrastructure change and hourly. If the binding differs, treat the check as a blocking configuration drift; do not resolve it by changing the documented canonical database.
+This section supersedes older historical notes in this README that described D1 6a32 as legacy-only. The backup inventory names 6a32 as the isolated `global` database and 470 as `global_legacy`.
+
+The read-only preflight workflow checks these exact bindings on every staging infrastructure change and daily. If the binding differs, treat it as configuration drift; do not silently redirect the isolated portal to the legacy database.
 
 The legacy `csa-superadmin-api-staging` Worker remains separate. It has a staging environment/database despite also being attached to non-suffixed `admin` and `superadmin` hostnames. Do not treat those hostnames as proof of a production deployment; hostname routing must be resolved before launch.
 
