@@ -119,7 +119,7 @@ jobs:
             and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "470a81b8-3d36-4e2d-942c-5cbb2746a473") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_DB" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
             and ([ $b[] | select(.name == "LEGACY_VIDEO_BUCKET" and .type == "r2_bucket" and .bucket_name == "csa-video-editing-isolated-staging") ] | length == 1)
-            and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-staging") ] | length == 1)
+            and ([ $b[] | select(.name == "MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-global-media-isolated-staging") ] | length == 1)
             and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "ADMIN_SYNC_HMAC_SECRET" and .type == "secret_text") ] | length == 1)
             and ([ $b[] | select(.name == "CF_ACCESS_CLIENT_ID" and .type == "secret_text") ] | length == 1)
@@ -139,7 +139,8 @@ jobs:
 
           jq -e '
             (.result.bindings // []) as $b
-            | ([ $b[] | select(.name == "CSA_SUPERADMIN_DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
+            | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_SUPERADMIN_DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
             and ([ $b[] | select(.name == "CSA_VIDEO_DB" and .type == "d1" and .id == "b611b8ff-8f9f-43b2-95c8-a767a14987d6") ] | length == 1)
             and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
           ' csa-editor-portal-isolated-staging.json >/dev/null
