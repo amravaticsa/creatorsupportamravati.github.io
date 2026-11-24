@@ -21,11 +21,16 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
   function emptyState() {
     const box = make("div", "csa-empty");
     box.setAttribute("role", "status");
-    box.append(make("h3", "", "No public events are listed right now"));
-    box.append(make("p", "", "Confirmed public events and projects will appear here when details are available. For current service availability or an upcoming production, contact the CSA team."));
-    const link = make("a", "csa-event-link", "Contact Creator Support Amravati ↗");
-    link.href = "contact.html";
-    box.append(link);
+    box.setAttribute("aria-label", "No public events or projects currently listed");
+    box.append(make("h3", "", "No public events are listed right now."));
+    box.append(make("p", "", "Confirmed workshops, public events and projects will appear here when their dates and details are ready to share."));
+    const actions = make("div", "csa-events-empty-actions");
+    const booking = make("a", "csa-event-link", "Enquire about event coverage ↗");
+    booking.href = "booking.html";
+    const contact = make("a", "csa-event-link", "Contact CSA ↗");
+    contact.href = "contact.html";
+    actions.append(booking, contact);
+    box.append(actions);
     return box;
   }
 
