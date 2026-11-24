@@ -34,7 +34,7 @@ jobs:
 
       - name: Read isolated and regular staging Worker settings
         id: settings
-        if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
+        if: ${{ steps.token.outputs.available == 'true' }}
         env:
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
@@ -64,7 +64,7 @@ jobs:
           echo "available=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify dedicated and legacy HMAC secret bindings on canonical staging Workers
-        if: ${{ steps.token.outputs.available == 'true' }}
+        if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
         run: |
           set -euo pipefail
           for file in csa-superadmin-isolated-staging.json csa-global-api-staging.json; do
@@ -77,7 +77,7 @@ jobs:
           echo "PASS: both canonical Staging Workers have dedicated and legacy HMAC secret bindings; values remain hidden."
 
       - name: Verify daily backup schedule and private Worker exposure
-        if: ${{ steps.token.outputs.available == 'true' }}
+        if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
         env:
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: "9a6f6dbd52dcdcf349fb011ad8783773"
@@ -99,7 +99,7 @@ jobs:
           echo "PASS: all ten daily backup Cron schedules are present; workers.dev and preview subdomains are disabled."
 
       - name: Verify current D1, R2 and secret-name bindings
-        if: ${{ steps.token.outputs.available == 'true' }}
+        if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
         run: |
           set -euo pipefail
           jq -e '
