@@ -61,6 +61,7 @@ test("isolated and main staging Global backups use their semantic D1 bindings", 
   assert.deepEqual(map.global_legacy, { binding: "DB_GLOBAL_LEGACY", id: "470a81b8-3d36-4e2d-942c-5cbb2746a473" });
   assert.match(source, /database_id: databaseId/);
   assert.match(source, /payload.database_id !== expected.database_id/);
+  assert.match(source, /v_tender_country_scope/);
   assert.match(source, /isolated_global_d1_binding_mismatch/);
   assert.match(source, /main_global_d1_binding_mismatch/);
 });
