@@ -39,7 +39,7 @@ The source snapshot and deployed Worker module are synchronized. Its bindings we
 
 ## Current schema and runtime checks
 
-The isolated Global API health endpoint checks 27 required tables and nine required columns, including `country_legal_evidence`. The Global Admin sync receiver also verifies the isolated-only `v_tender_country_scope` view. The isolated D1 contains both markers and all required columns; the legacy Global D1 does not.
+The isolated Global API health endpoint checks 27 required tables, the isolated-only `v_tender_country_scope` view, and nine required columns, including `country_legal_evidence`. The Global Admin sync receiver also independently verifies the view. The isolated D1 contains all required objects and columns; the legacy Global D1 does not.
 
 The 2026-11-24 staging smoke workflow targets the correct isolated API host:
 `https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev/health`
