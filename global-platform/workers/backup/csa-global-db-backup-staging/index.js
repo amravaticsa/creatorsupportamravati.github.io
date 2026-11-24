@@ -1,8 +1,8 @@
 const DATABASES = {
-  global: { binding: "DB_GLOBAL", database_id: "470a81b8-3d36-4e2d-942c-5cbb2746a473" },
+  global: { binding: "DB_GLOBAL", database_id: "6a32dda3-b8c5-413c-9f51-58f0a9fa0712" },
   superadmin: { binding: "DB_SUPERADMIN", database_id: "c2bb3fb5-db22-4ed5-9283-161df57ebac2" },
   superadmin_legacy: { binding: "DB_SUPERADMIN_LEGACY", database_id: "99bc81fc-e97e-488b-a380-eb0237ff8ffc" },
-  global_legacy: { binding: "DB_GLOBAL_LEGACY", database_id: "6a32dda3-b8c5-413c-9f51-58f0a9fa0712" },
+  global_legacy: { binding: "DB_GLOBAL_LEGACY", database_id: "470a81b8-3d36-4e2d-942c-5cbb2746a473" },
   video_legacy: { binding: "DB_VIDEO", database_id: "b611b8ff-8f9f-43b2-95c8-a767a14987d6" },
   global_video_legacy: { binding: "DB_GLOBAL_VIDEO_LEGACY", database_id: "2d3f97a0-fa32-46ef-9913-972a59a410e4" },
   editor_superadmin: { binding: "DB_EDITOR_SUPERADMIN", database_id: "1fc2979f-52e2-420e-80f5-b70a51f6ac6c" },
