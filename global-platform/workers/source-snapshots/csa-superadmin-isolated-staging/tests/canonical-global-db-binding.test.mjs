@@ -8,6 +8,6 @@ const workerSource = readFileSync(
 );
 
 test("country verification and assignment use the explicit canonical Global D1 binding", () => {
-  assert.equal((workerSource.match(/env\\.CANONICAL_GLOBAL_DB/g) || []).length, 9);
-  assert.equal((workerSource.match(/env\\.GLOBAL_DB/g) || []).length, 0);
+  assert.equal((workerSource.match(/env\.CANONICAL_GLOBAL_DB/g) || []).length, 9);
+  assert.equal((workerSource.match(/env\.GLOBAL_DB/g) || []).length, 0);
 });
