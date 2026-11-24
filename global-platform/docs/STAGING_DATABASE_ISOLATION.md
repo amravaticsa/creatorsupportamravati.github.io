@@ -73,3 +73,25 @@ The two older staging databases `csa-video-workflow-staging` and `csa-video-rush
 ## Additional binding hygiene note (2026-11-22)
 
 The isolated Super Admin Worker `csa-superadmin-isolated-staging` currently has a `GLOBAL_DB` binding to the regular staging Global Platform D1 (`470a81b8-3d36-4e2d-942c-5cbb2746a473`), while the isolated Global API Worker uses `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`. The tracked Super Admin Worker source snapshot currently contains no `env.GLOBAL_DB` reads, but deployed source/version parity must be checked before removing or repointing this unused-looking binding. No binding was changed by this audit.
+
+
+## Recheck — 24 November 2026
+
+The 22-November binding snapshot above is historical. The live staging Worker settings were re-read and corrected on 24 November. Current canonical/compatibility split:
+
+| Worker | Binding | Current D1 |
+|---|---|---|
+| `csa-superadmin-isolated-staging` | `DB` | Super Admin identity D1 `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
+| `csa-superadmin-isolated-staging` | `CANONICAL_GLOBAL_DB` | Canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` |
+| `csa-superadmin-isolated-staging` | `GLOBAL_API_DB` | Canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` |
+| `csa-superadmin-isolated-staging` | `GLOBAL_DB` | Legacy compatibility D1 `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` |
+| `csa-global-api-isolated-staging` | `DB` | Canonical Global D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473` |
+| `csa-global-api-isolated-staging` | `LEGACY_VIDEO_DB` | Isolated video D1 `b611b8ff-8f9f-43b2-95c8-a767a14987d6` |
+| `csa-editor-portal-isolated-staging` | `CSA_SUPERADMIN_DB` | Super Admin identity D1 c2bb |
+| `csa-editor-portal-isolated-staging` | `CSA_VIDEO_DB` | Isolated video D1 b611 |
+
+Canonical D1 470 has all 58 tables from compatibility D1 6a32 plus the additional `country_legal_evidence` table. The country/legal-review migrations, `orders_enabled` column and legal-review guard triggers are present on canonical D1. `PRAGMA foreign_key_check` returned zero violations.
+
+The Super Admin country registry and canonical Global API country rows were compared field-by-field: 249 source rows, 249 target rows, 249 matches, zero mismatches. Legal review rows remain zero and all commercial flags remain disabled.
+
+The ten-database staging backup Worker writes to private R2 bucket `csa-global-db-backups-staging`. All ten latest 24-Nov backup artifacts report `quickCheck=ok` and zero foreign-key violations. No production D1 or R2 resource was modified.

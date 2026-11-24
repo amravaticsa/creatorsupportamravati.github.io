@@ -91,3 +91,17 @@ The schema-parity blocker is cleared. Country activation and legal approval rema
 - Both D1s rejected the write with `country_legal_review_requires_valid_reviewer_and_evidence`.
 - The legal-review row count remained zero in both databases after the rejected writes.
 - No placeholder review record was created.
+
+
+## Canonical D1 and registry recheck — 24 November 2026
+
+The 22-November target identity section is historical. The current architecture has two Global D1 bindings with distinct purposes:
+
+- Canonical Global D1 470 is used by both `csa-global-api-staging` and `csa-global-api-isolated-staging`, and by Super Admin bindings `CANONICAL_GLOBAL_DB` and `GLOBAL_API_DB`.
+- Legacy compatibility D1 6a32 remains only on the isolated Super Admin `GLOBAL_DB` compatibility binding.
+
+Migration 0035 added `countries.orders_enabled` to canonical D1 470 with default 0. The country/legal-review table, indexes and insert/update/delete guards are present. The invalid approved-review negative guard remains in place.
+
+On 24 November, the 249-row Super Admin country registry was compared with the canonical Global D1 country table: 249 rows matched, zero mismatches. Country legal-review records remain zero. All countries remain non-commercial/planned, and orders, payments and payouts remain disabled. No legal approval, invitation, Regional Admin identity, permission, or country activation was created.
+
+The scheduled Super Admin authorization sync to the isolated Global API host succeeded at 2026-11-24 10:45:03 UTC. This does not constitute a legal review or approval.

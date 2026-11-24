@@ -368,3 +368,16 @@ The current immutable staging frontend is `https://437b6fbc.csa-global-staging.p
 - Human legal/CA review and evidence before activating India or any other country.
 
 Do not use dummy users, synthetic legal approvals, invented pricing, or live payments to make these checks appear complete.
+
+
+## Automated staging recheck — 24 November 2026
+
+The staging deployment smoke run 45378143866 completed successfully on commit `0c4eae713097198e729d94c2b1f289c52fda91e2`. It verified:
+- Six frontend HTML routes and two portal JavaScript assets.
+- Main staging API health and D1 connectivity.
+- Isolated Regional API health and rejection of unsigned internal requests.
+- Client, editor and admin API authorization boundaries return 401 when unauthenticated.
+- Isolated Super Admin and delegated Admin hostnames return HTML and fail closed on unauthenticated API access (401/403 or the configured Cloudflare Access login redirect).
+- Editor Staging portal route returns HTML; unsigned Editor bridge requests are rejected.
+
+These checks are infrastructure/security smoke tests only. The seven business workflows in the execution matrix remain BLOCKED until dedicated client/editor test identities, an authorized QA admin, synthetic media, approved country evidence, a pricing policy and Razorpay Test Mode configuration are available. Current data baseline: 2 client accounts, 3 country-unassigned projects, 0 editor profiles, 0 tenders, 0 assignments, 0 pricing policies, 0 payments/refunds/payouts, 0 Regional Admin principals and 0 legal reviews.

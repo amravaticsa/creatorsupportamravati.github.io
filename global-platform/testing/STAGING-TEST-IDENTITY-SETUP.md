@@ -146,3 +146,18 @@ The authoritative immutable staging URL for the current cycle is `https://2add6c
 ### Current deployment supersedes historical URLs — 2026-11-22
 
 Cloudflare Pages confirms deployment `437b6fbc-58e3-4d2f-9c12-3ea63ff6d82e` succeeded for staging commit `85765d058a50416a403393a6491567ba60cf2914`. Current immutable QA frontend: `https://437b6fbc.csa-global-staging.pages.dev`. This deployment contains documentation refreshes only; the strict route/API smoke evidence remains tied to commit `5ac3a7dc979424b6689a64418b49f820bdbb0e15` and deployment run `45001308790` until smoke checks are re-run against the new immutable URL.
+
+
+## Current isolated portal entry points — 24 November 2026
+
+Use these staging-only hosts for operations QA:
+- Super Admin: `https://superadmin-isolated-staging.creatorsupportamravati.in/`
+- Delegated Admin: `https://admin-isolated-staging.creatorsupportamravati.in/`
+- Regional Admin: `https://regional-staging.creatorsupportamravati.in/`
+- Editor Portal: `https://editor-staging.creatorsupportamravati.in/`
+- Editor internal bridge: `https://editor-api-isolated-staging.creatorsupportamravati.in/` (service-to-service only; unsigned requests must be rejected)
+- Client portal: use the immutable `csa-global-staging.pages.dev` deployment URL recorded by the latest successful deployment workflow.
+
+The isolated admin hosts are protected by Cloudflare Access; an unauthenticated API request may return 401/403 or redirect only to the configured CSA Cloudflare Access login domain. Do not use `admin.creatorsupportamravati.in` or `superadmin.creatorsupportamravati.in` for staging QA.
+
+No test identities were created by this recheck. Continue to use separate, user-controlled QA identities and the normal application onboarding/review flows. Do not create or elevate an admin by direct database writes.
