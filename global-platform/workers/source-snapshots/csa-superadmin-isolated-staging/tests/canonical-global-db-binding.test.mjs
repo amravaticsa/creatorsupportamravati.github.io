@@ -7,7 +7,7 @@ const workerSource = readFileSync(
   "utf8",
 );
 
-test("country verification and assignment route through the canonical Global API D1 alias", () => {
+test("country verification and assignment route through the isolated Global API D1 alias", () => {
   assert.match(workerSource, /env\.GLOBAL_API_DB\|\|env\.CANONICAL_GLOBAL_DB/);
   assert.match(workerSource, /const target=env\.GLOBAL_API_DB\|\|env\.CANONICAL_GLOBAL_DB/);
   assert.doesNotMatch(workerSource, /env\.GLOBAL_DB/);
