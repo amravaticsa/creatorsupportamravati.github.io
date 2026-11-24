@@ -12,7 +12,7 @@ const DATABASES = {
 };
 
 // One D1 database per invocation keeps each scheduled run small and recoverable.
-// The */5 entry is temporary first-run verification; production schedule is daily below.
+// All ten entries below are daily UTC schedules.
 const CRON_TO_DATABASE = {
   "2 2 * * *": "global",
   "7 2 * * *": "superadmin",
