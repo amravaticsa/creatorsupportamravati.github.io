@@ -193,7 +193,7 @@ The 22-November findings remain a production launch blocker. Current Worker sett
 - `superadmin-isolated-staging.creatorsupportamravati.in/*` and `admin-isolated-staging.creatorsupportamravati.in/*` route to `csa-superadmin-isolated-staging`.
 - `regional-staging.creatorsupportamravati.in/*` routes to `csa-superadmin-isolated-staging`.
 - `editor-staging.creatorsupportamravati.in/*` and `editor-api-isolated-staging.creatorsupportamravati.in/editor-api/internal/legacy-bridge/*` route to `csa-editor-portal-isolated-staging`.
-- The duplicate `admin-staging.creatorsupportamravati.in` custom-domain association on the legacy `csa-superadmin-api-staging` Worker was removed. Its existing Worker route remains mapped exclusively to `csa-superadmin-isolated-staging`, eliminating the custom-domain/route overlap.
+- The duplicate `admin-staging.creatorsupportamravati.in` custom-domain association was removed from the legacy `csa-superadmin-api-staging` Worker and recreated on `csa-superadmin-isolated-staging`. Its Worker route also targets the isolated Worker, so DNS/custom-domain and route paths now resolve to the same isolated service.
 - The 24-Nov staging smoke test verified the isolated Super Admin/Admin portal HTML routes, unauthenticated API fail-closed behavior (401/403 or the configured Cloudflare Access redirect), Editor portal route, and unsigned Editor bridge rejection.
 
 ### Current isolated D1 boundary
