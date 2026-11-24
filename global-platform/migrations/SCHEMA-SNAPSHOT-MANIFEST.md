@@ -41,7 +41,7 @@ Schema only; no application rows or credentials are included. These counts are c
 ## Canonical country commerce flag — migration 0035
 
 - Migration: `0035_country_orders_enabled.sql`.
-- Canonical Global Staging D1 `csa-global-platform-staging` (470a81b8-3d36-4e2d-942c-5cbb2746a473) was missing `countries.orders_enabled`, which the Super Admin country-registry sync requires.
+- Main staging Global D1 `csa-global-platform-staging` (470a81b8-3d36-4e2d-942c-5cbb2746a473) was missing `countries.orders_enabled`; migration 0035 aligns its country schema with the isolated Global API.
 - Applied additively to canonical staging with a default of `0`; all 249 existing countries remain disabled for orders until legal approval and explicit activation.
-- The isolated compatibility D1 6a32 already contained this column. Super Admin `GLOBAL_API_DB` and `CANONICAL_GLOBAL_DB` now point to canonical D1 470; legacy `GLOBAL_DB` remains on 6a32.
-- Read-only verification: the new column exists, all 249 values default to 0, and `PRAGMA foreign_key_check` returns zero violations.
+- The isolated Global API D1 `csa-global-platform-isolated-staging` (6a32dda3-b8c5-413c-9f51-58f0a9fa0712) already contained this column. Isolated Super Admin `GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, and compatibility `GLOBAL_DB` all remain on 6a32; main staging D1 470 remains separate.
+- Read-only verification on main staging D1 470: the new column exists, all 249 values default to 0, and `PRAGMA foreign_key_check` returns zero violations. No country orders were enabled and no legal approvals were created.
