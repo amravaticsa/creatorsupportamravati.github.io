@@ -160,7 +160,15 @@ jobs:
             and ([ $b[] | select(.name == "CSA_LEGACY_BRIDGE_SECRET" and .type == "secret_text") ] | length == 1)
           ' csa-editor-portal-isolated-staging.json >/dev/null
 
-          echo "PASS: all four staging Worker binding maps match the current read-only audit."
+          echo "PASS: all isolated staging Worker binding maps match the current read-only audit."
+          jq -e '
+            (.result.bindings // []) as $b
+            | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_RUSH_DB" and .type == "d1" and .id == "99c797a2-d822-437f-a4d7-31d658f3862f") ] | length == 1)
+            and ([ $b[] | select(.name == "CSA_SUPERADMIN_DB" and .type == "d1" and .id == "c2bb3fb5-db22-4ed5-9283-161df57ebac2") ] | length == 1)
+          ' csa-rush-admin-isolated-staging.json >/dev/null
+
+          echo "PASS: isolated Rush Admin uses its dedicated Rush D1 and isolated Super Admin D1."
           echo "NOTE: main staging Global API uses D1 470; isolated Global API and isolated Super Admin country registry/legal-review sync use isolated D1 6a32. Their legacy-video D1 bindings are 2d3 and b611 respectively. Backup DB_GLOBAL is isolated D1 6a32; DB_GLOBAL_LEGACY is main staging D1 470."
           jq -e '
             (.result.bindings // []) as $b
