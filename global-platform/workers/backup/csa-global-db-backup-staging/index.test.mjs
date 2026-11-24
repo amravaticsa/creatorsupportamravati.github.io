@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("./index.js", import.meta.url), "utf8");
 
 test("daily backup maps all ten staging D1 databases", () => {
-  const bindings = source.match(/^  [a-z_]+: "DB_[A-Z_]+",$/gm) || [];
+  const bindings = source.match(/^  [a-z_]+: \{ binding: "DB_[A-Z_]+", database_id: "[0-9a-f-]{36}" \},$/gm) || [];
   const schedules = source.match(/^  "\d+ 2 \* \* \*": "[a-z_]+",$/gm) || [];
   assert.equal(bindings.length, 10);
   assert.equal(schedules.length, 10);
@@ -54,6 +54,11 @@ test("backup manifest is written only after successful R2 readback verification"
 
 test("canonical and compatibility Global backups use their semantic D1 bindings", () => {
   const databaseMap = source.slice(source.indexOf("const DATABASES"), source.indexOf("const CRON_TO_DATABASE"));
-  assert.match(databaseMap, /global: "DB_GLOBAL"/);
-  assert.match(databaseMap, /global_legacy: "DB_GLOBAL_LEGACY"/);
+  const entries = [...databaseMap.matchAll(/^  ([a-z_]+): \{ binding: "(DB_[A-Z_]+)", database_id: "([0-9a-f-]{36})" \},$/gm)];
+  assert.equal(entries.length, 10);
+  const map = Object.fromEntries(entries.map(([, name, binding, id]) => [name, { binding, id }]));
+  assert.deepEqual(map.global, { binding: "DB_GLOBAL", id: "470a81b8-3d36-4e2d-942c-5cbb2746a473" });
+  assert.deepEqual(map.global_legacy, { binding: "DB_GLOBAL_LEGACY", id: "6a32dda3-b8c5-413c-9f51-58f0a9fa0712" });
+  assert.match(source, /database_id: databaseId/);
+  assert.match(source, /payload.database_id !== expected.database_id/);
 });
