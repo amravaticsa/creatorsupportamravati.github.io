@@ -11,12 +11,11 @@ function blockFor(name) {
   return helper.slice(start, next < 0 ? helper.length : next);
 }
 
-test("Admin authorization sync uses the dedicated CSA HMAC secret only", () => {
+test("Admin authorization sync signs with the canonical Global API HMAC key and fallback", () => {
   const block = blockFor("syncGlobalAdminAuthorizations");
-  assert.ok(block.includes("if (!env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET)"));
-  assert.ok(block.includes("hmacHex(env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET, canonical)"));
-  assert.ok(!block.includes("GLOBAL_API_SYNC_HMAC_SECRET"));
-  assert.ok(!block.includes("env.ADMIN_SYNC_HMAC_SECRET"));
+  assert.ok(block.includes('if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET))'));
+  assert.ok(block.includes("hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET, canonical)"));
+  assert.ok(!block.includes("env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET"));
   assert.ok(block.includes("csa-global-api-staging.creatorsupportamravati.workers.dev"));
 });
 
