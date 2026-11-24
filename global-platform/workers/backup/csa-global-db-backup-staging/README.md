@@ -5,7 +5,7 @@ This Worker creates daily logical backups of **all ten D1 databases in the stagi
 - Destination: private R2 bucket `csa-global-db-backups-staging`
 - Schedule: one database per run, daily from 02:00–02:45 UTC
 - Retention: 30 days
-- Format: gzip-compressed JSON containing table DDL, rows, indexes, and views
+- Format: gzip-compressed JSON containing table DDL, rows, indexes, views, triggers, and foreign-key check results
 - Scope: all ten staging D1 databases, including isolated and compatibility stores
 - Exclusions: production databases `csa-global-platform` and `csa-orders`
 - Public access: none; Worker has no routes and workers.dev is disabled
@@ -25,7 +25,7 @@ The scheduled exports are:
 | 02:40 | `csa-video-rush-staging` | `DB_RUSH` |
 | 02:45 | `csa-video-rush-isolated-staging` | `DB_RUSH_ISOLATED` |
 
-One database is exported per invocation to keep CPU and execution time bounded. Each export writes a gzip data object and a JSON manifest. The first database's run prunes expired objects older than 30 days.
+One database is exported per invocation to keep CPU and execution time bounded. Each export writes a gzip data object and a JSON manifest. The payload includes SQLite triggers and a pre-backup foreign-key violation count; a non-zero count is recorded rather than hidden. The first database's run prunes expired objects older than 30 days.
 
 R2 media objects are not copied by this Worker. The JSON exports are logical recovery artifacts; restoration is a controlled/manual operation and should be tested against a separate recovery database before being used for a live restore.
 
