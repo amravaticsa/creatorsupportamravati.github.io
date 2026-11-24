@@ -31,6 +31,28 @@
 @media(max-width:850px){.live-hero{padding:78px 0 68px}.live-feature{gap:28px}.live-feature img{height:340px}.live-faq{grid-template-columns:1fr}}
 @media(max-width:560px){.live-hero{padding:62px 0 54px}.live-hero h1{font-size:43px}.live-hero p{font-size:15px}.live-section{padding:56px 0}.live-grid{grid-template-columns:1fr}.live-card{padding:20px}.live-feature img{height:245px}.live-process{grid-template-columns:1fr 1fr}.live-cta{padding:26px}.live-cta .button{display:inline-flex;margin-top:18px}.live-trust{display:grid;grid-template-columns:1fr 1fr;gap:8px}.live-trust span{font-size:10px}.live-faq details{padding:16px}}
 
+
+/* Live event pricing */
+.live-pricing{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+.live-price{display:flex;flex-direction:column;background:#fff;border:1px solid #e4e8f0;border-radius:17px;padding:25px;box-shadow:0 9px 28px #101b3508}
+.live-price.popular{border:2px solid #6258e8;box-shadow:0 16px 38px #6258e81a;transform:translateY(-5px)}
+.live-price-tag{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#6258e8;font-weight:900}
+.live-price h3{font-size:19px;margin:10px 0 5px;color:#17233b}
+.live-price-amount{font-size:32px;letter-spacing:-.05em;font-weight:900;color:#111b32;margin:8px 0 3px}
+.live-price-amount small{font-size:11px;letter-spacing:0;color:#667085;font-weight:650}
+.live-price-desc{font-size:12px;line-height:1.7;color:#687386;min-height:42px}
+.live-price ul{padding-left:18px;margin:16px 0 22px;flex:1;color:#475467;font-size:12px;line-height:1.9}
+.live-price .button{display:flex;justify-content:center;text-align:center;text-decoration:none;background:#151d35;color:#fff;border-radius:9px;padding:13px 16px;font-size:12px;font-weight:850}
+.live-price.popular .button{background:#6258e8}
+.live-price-badge{display:inline-block;margin-left:7px;padding:5px 8px;border-radius:99px;background:#efeeff;color:#554be1;font-size:9px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.live-addon-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+.live-addon{background:#fff;border:1px solid #e5e9f0;border-radius:12px;padding:17px}
+.live-addon b{display:block;font-size:13px;color:#17233b;margin-bottom:6px}
+.live-addon span{font-size:12px;line-height:1.65;color:#687386}
+.live-pricing-note{margin-top:18px;padding:18px 20px;border-radius:12px;background:#f0f1ff;color:#566074;font-size:11px;line-height:1.85}
+@media(max-width:850px){.live-pricing{grid-template-columns:1fr}.live-price.popular{transform:none}.live-addon-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.live-addon-grid{grid-template-columns:1fr}.live-price{padding:22px}}
+
 </style>
 </head>
 <body>
@@ -80,6 +102,70 @@
 <article class="live-card"><div class="ico">🌍</div><h3>Live & Hybrid Streaming</h3><p>For events that need an online audience, remote participation or a combination of venue screens and streaming.</p><ul><li>Streaming workflow planning</li><li>Platform and connectivity checks</li><li>Remote speaker coordination</li></ul></article>
 </div>
 </div></section>
+
+<section class="live-section" id="live-pricing">
+<div class="container">
+<h2>Live event coverage packages & pricing</h2>
+<p class="live-intro">Choose a starting production setup for your event. Packages are designed around coverage duration, camera count, crew and streaming needs; the final quotation is confirmed after a venue and technical review.</p>
+<div class="live-pricing">
+<article class="live-price">
+<span class="live-price-tag">01 · Essential</span><h3>Event Recording</h3>
+<div class="live-price-amount">₹6,999 <small>/ event</small></div>
+<p class="live-price-desc">For small functions and programs that need dependable camera coverage and a recorded output.</p>
+<ul>
+<li>Up to 3 hours of event coverage</li>
+<li>Single-camera setup</li>
+<li>Basic audio feed coordination</li>
+<li>One event recording file</li>
+<li>Basic setup and operator support</li>
+<li>Digital delivery of agreed recording</li>
+</ul>
+<a class="button" href="#live-enquiry" data-csa-enquiry>Enquire Essential ↗</a>
+</article>
+<article class="live-price popular">
+<span class="live-price-tag">02 · Multi-camera <span class="live-price-badge">Popular</span></span><h3>Live Production</h3>
+<div class="live-price-amount">₹14,999 <small>/ event</small></div>
+<p class="live-price-desc">For weddings, stage programs, seminars and events that need multiple viewing angles.</p>
+<ul>
+<li>Up to 4 hours of event coverage</li>
+<li>2-camera production setup</li>
+<li>Live video switching</li>
+<li>Audio feed coordination</li>
+<li>One agreed live output or event recording</li>
+<li>Basic titles / speaker identification where supplied</li>
+</ul>
+<a class="button" href="#live-enquiry" data-csa-enquiry>Choose Multi-camera ↗</a>
+</article>
+<article class="live-price">
+<span class="live-price-tag">03 · Premium</span><h3>Live & Hybrid Pro</h3>
+<div class="live-price-amount">₹24,999 <small>/ event</small></div>
+<p class="live-price-desc">For larger programs that need a more complete multi-camera and online streaming workflow.</p>
+<ul>
+<li>Up to 6 hours of event coverage</li>
+<li>Up to 3-camera production plan</li>
+<li>Live switching and streaming setup</li>
+<li>Audio coordination and basic graphics</li>
+<li>One agreed streaming platform</li>
+<li>Program recording for post-event delivery</li>
+</ul>
+<a class="button" href="#live-enquiry" data-csa-enquiry>Discuss Premium ↗</a>
+</article>
+</div>
+<h3 style="font-size:18px;margin:34px 0 12px;color:#17233b">Optional add-ons & extra services</h3>
+<div class="live-addon-grid">
+<div class="live-addon"><b>Additional coverage time</b><span>Starting ₹2,000 / hour</span></div>
+<div class="live-addon"><b>Additional camera setup</b><span>Starting ₹3,500 / camera, subject to crew and equipment</span></div>
+<div class="live-addon"><b>Event highlight Reel</b><span>Starting ₹2,499 / edited vertical video</span></div>
+<div class="live-addon"><b>Event photography</b><span>Starting ₹4,999 / assignment, based on duration and deliverables</span></div>
+<div class="live-addon"><b>Interview / guest bytes</b><span>Starting ₹2,500 / session, editing scope separate</span></div>
+<div class="live-addon"><b>Custom live graphics</b><span>Starting ₹1,500 / set, based on design requirements</span></div>
+<div class="live-addon"><b>LED wall / projector feed</b><span>Quoted separately based on venue equipment and technical routing</span></div>
+<div class="live-addon"><b>Drone coverage</b><span>Custom quote; subject to location, permissions and availability</span></div>
+</div>
+<div class="live-pricing-note"><strong>Important pricing terms:</strong> Prices are starting rates in INR for events within the agreed Amravati city service area. GST is extra if applicable. Travel outside the service area, accommodation, venue internet / dedicated connectivity, backup internet, LED wall and projector rental, sound system or PA rental, additional crew, power backup, special graphics, platform fees and third-party equipment are not included unless specified in the written quotation. Event duration includes setup and wrap-up time. Streaming depends on venue connectivity, platform eligibility and permissions; uninterrupted streaming cannot be guaranteed. Booking is confirmed after 50% advance, with the balance payable as stated in the quotation. Extra hours, scope changes and additional deliverables are charged separately.</div>
+</div>
+</section>
+
 <section class="live-section" style="background:#fff"><div class="container">
 <h2>What we confirm before event day</h2><p class="live-intro">A short technical discussion helps us recommend the right crew, equipment and production plan.</p>
 <ul class="live-list">
