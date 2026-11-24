@@ -83,6 +83,9 @@ jobs:
       - name: Test API global-admin-hmac-compat
         run: node --test global-platform/api/tests/global-admin-hmac-compat.test.mjs
 
+      - name: Test API canonical Global D1 binding guard
+        run: node --test global-platform/api/tests/canonical-d1-binding-guard.test.mjs
+
       - name: Test API google-auth-security
         run: node --test global-platform/api/tests/google-auth-security.test.mjs
 
