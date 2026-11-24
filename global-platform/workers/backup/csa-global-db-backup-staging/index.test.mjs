@@ -50,3 +50,10 @@ test("backup manifest is written only after successful R2 readback verification"
   assert.ok(verificationCall >= 0 && manifestWrite > verificationCall);
   assert.match(source, /verification_status: verification\.status/);
 });
+
+
+test("canonical and compatibility Global backups use their semantic D1 bindings", () => {
+  const databaseMap = source.slice(source.indexOf("const DATABASES"), source.indexOf("const CRON_TO_DATABASE"));
+  assert.match(databaseMap, /global: "DB_GLOBAL"/);
+  assert.match(databaseMap, /global_legacy: "DB_GLOBAL_LEGACY"/);
+});
