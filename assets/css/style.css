@@ -856,7 +856,3 @@ table{max-width:100%}
   outline-offset:3px;
 }
 :target{scroll-margin-top:104px}
-@media(prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  *,*::before,*::after{scroll-behavior:auto!important}
-}
