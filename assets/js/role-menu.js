@@ -1,4 +1,6 @@
 (async()=>{"use strict";
+// CSA Global is a separate portal: preserve its own lightweight sign-in shell.
+if(location.pathname.startsWith("/global-platform/"))return;
 async function loadSharedShell(){
  try{
   const [hr,fr]=await Promise.all([fetch("/components/header.html",{cache:"no-cache"}),fetch("/components/footer.html",{cache:"no-cache"})]);
