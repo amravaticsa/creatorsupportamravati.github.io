@@ -15,7 +15,7 @@ test("daily backup maps all ten staging D1 databases", () => {
     '  "7 2 * * *": "superadmin",',
     '  "12 2 * * *": "superadmin_legacy",',
     '  "17 2 * * *": "global_legacy",',
-    '  "22 2 * * *": "video_legacy",',
+    '  "22 2 * * *": "video_isolated",',
     '  "27 2 * * *": "global_video_legacy",',
     '  "32 2 * * *": "editor_superadmin",',
     '  "37 2 * * *": "video_workflow",',
