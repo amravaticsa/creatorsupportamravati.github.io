@@ -226,6 +226,8 @@ jobs:
           test -s global-platform/migrations/0032_verified_country_scope.sql
           test -s global-platform/migrations/0033_country_legal_review_registry.sql
           test -s global-platform/migrations/0035_country_orders_enabled.sql
+          test -s global-platform/migrations/0036_country_legal_evidence.sql
+          grep -q "CREATE TABLE IF NOT EXISTS country_legal_evidence" global-platform/migrations/0036_country_legal_evidence.sql
           test -s global-platform/scripts/test-country-orders-enabled-migration.py
           test -s global-platform/scripts/test-country-legal-review-migration.py
           test -s global-platform/scripts/test-country-legal-review-preflight-readonly.py
