@@ -583,13 +583,14 @@ async function handle(req,env){
  }
  if(m==="GET"&&p==="/health"){
   const requiredTables=["users","client_profiles","projects","project_files","payments","editor_profiles","editor_portfolio_videos","editor_kyc_documents","project_tenders","csa_pricing_policies","notifications","notification_preferences","client_refund_requests","countries","country_legal_reviews","country_legal_evidence","regional_admins","regional_admin_permissions","regional_admin_permission_catalog","regional_admin_audit_logs","editor_payouts","assignments","work_submissions","project_status_history","client_quotes","messages","finance_bridge_audit_logs"];
+  const requiredViews=["v_tender_country_scope"];
   const requiredColumns={
    legacy_editor_identity_links:["created_by_source_admin_id","reviewed_by_source_admin_id"],
    projects:["client_approved_at","client_approved_by"],
    client_refund_requests:["reviewed_by_source_admin_id"],
    editor_deposit_refunds:["requested_by_source_admin_id","processed_by_source_admin_id","settlement_reference","processed_at"]
   };
-  let d1Connected=false,schemaReady=false,missingTables=requiredTables,missingColumns=[];
+  let d1Connected=false,schemaReady=false,missingTables=requiredTables,missingViews=requiredViews,missingColumns=[];
   try{
    const row=await env.DB.prepare("SELECT 1 AS ok").first();
    d1Connected=row?.ok===1;
@@ -597,16 +598,19 @@ async function handle(req,env){
     const rows=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ("+requiredTables.map(()=>" ? ").join(",")+")").bind(...requiredTables).all();
     const found=new Set((rows?.results||[]).map(x=>x.name));
     missingTables=requiredTables.filter(name=>!found.has(name));
+    const viewRows=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='view' AND name IN ("+requiredViews.map(()=>" ? ").join(",")+")").bind(...requiredViews).all();
+    const foundViews=new Set((viewRows?.results||[]).map(x=>x.name));
+    missingViews=requiredViews.filter(name=>!foundViews.has(name));
     for(const [table,columns] of Object.entries(requiredColumns)){
      const result=await env.DB.prepare("SELECT name FROM pragma_table_info(?)").bind(table).all();
      const present=new Set((result?.results||[]).map(x=>x.name));
      for(const column of columns)if(!present.has(column))missingColumns.push(table+"."+column);
     }
-    schemaReady=missingTables.length===0&&missingColumns.length===0;
+    schemaReady=missingTables.length===0&&missingViews.length===0&&missingColumns.length===0;
    }
   }catch{}
   const healthy=d1Connected&&schemaReady;
-  return out({ok:true,service:"CSA Global API",status:healthy?"healthy":"degraded",d1_connected:d1Connected,schema_ready:schemaReady,missing_tables:missingTables,missing_columns:missingColumns,google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
+  return out({ok:true,service:"CSA Global API",status:healthy?"healthy":"degraded",d1_connected:d1Connected,schema_ready:schemaReady,missing_tables:missingTables,missing_views:missingViews,missing_columns:missingColumns,google_login:!!env.GOOGLE_CLIENT_ID,razorpay_checkout:!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET),mode:env.ENVIRONMENT||"staging"});
 }
  if(m==="GET"&&p==="/v1/config")return out({ok:true,google_client_id:env.GOOGLE_CLIENT_ID||null,razorpay_key_id:env.RAZORPAY_KEY_ID||null,environment:env.ENVIRONMENT||"staging"});
  if(m==="POST"&&p==="/v1/auth/editor-password"){
