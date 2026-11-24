@@ -1,6 +1,6 @@
 # CSA Global staging release-readiness audit
 
-**Audit timestamp:** 2026-11-24 16:45 UTC  
+**Audit timestamp:** 2026-11-24 16:47 UTC  
 **Environment:** Cloudflare staging only  
 **Result:** Main and isolated staging stacks are separated. Technical staging is ready for controlled onboarding tests; commercial activation and production release remain blocked.
 
@@ -51,7 +51,7 @@ All ten D1 databases attached to the backup Worker were checked with `PRAGMA for
 
 Both Global D1 databases currently contain 249 country rows, 2 users and 3 projects. All three projects remain country-unassigned. The isolated Super Admin country registry contains 249 rows; legal-review records remain zero. No country was legally approved or commercially activated by this setup.
 
-Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync succeeded twice after the final schema-role guard: 16:30:03.637–16:30:04.317 UTC and 16:45:03.737–16:45:04.377 UTC (1 record each) against D1 6a32. The isolated country registry last updated at 16:45:05 UTC with all 249 countries. The isolated 16:15 attempt returned 503 while the schema-role guard was being corrected; both later runs passed. The main HMAC admin sync last succeeded at 16:30:22.288–16:30:23.603 UTC (1 record) against D1 470. The two syncs target their matching Global API Worker/D1 pair.
+Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync succeeded twice after the final schema-role guard: 16:30:03.637–16:30:04.317 UTC and 16:45:03.737–16:45:04.377 UTC (1 record each) against D1 6a32. The isolated country registry last updated at 16:45:05 UTC with all 249 countries. The isolated 16:15 attempt returned 503 while the schema-role guard was being corrected; both later runs passed. The main HMAC admin sync also succeeded at 16:45:22.084–16:45:23.188 UTC (1 record) against D1 470. The two syncs target their matching Global API Worker/D1 pair.
 
 ## 4. Backup, storage and large uploads
 
