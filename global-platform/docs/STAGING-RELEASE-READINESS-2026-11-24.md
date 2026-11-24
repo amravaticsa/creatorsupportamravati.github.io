@@ -18,7 +18,7 @@ The project has two separate staging stacks. They must not be merged or silently
 
 The isolated Super Admin Worker has `DB` → D1 c2bb and `GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, and `GLOBAL_DB` → isolated Global D1 6a32. The main staging Super Admin service uses its separate D1 99bc and syncs to the main Global API on D1 470.
 
-The `country_legal_evidence` table is a main-stack schema marker: it exists in D1 470 and is absent in isolated D1 6a32. The main API admin-sync receiver requires the marker. The isolated API receiver and isolated Super Admin country-registry sync reject the marker. These fail-closed guards prevent a cross-stack binding change from silently writing to the wrong database.
+The `v_tender_country_scope` view exists only in isolated D1 6a32 and is the unique isolated-stack schema marker. Both Global D1s contain `country_legal_evidence`; the main API guard requires that table and rejects the isolated view, while isolated API and isolated Super Admin guards require the view. These fail-closed guards prevent a cross-stack binding change from silently writing to the wrong database.
 
 ## 2. Current Worker and storage bindings
 
@@ -51,7 +51,7 @@ All ten D1 databases attached to the backup Worker were checked with `PRAGMA for
 
 Both Global D1 databases currently contain 249 country rows, 2 users and 3 projects. All three projects remain country-unassigned. The isolated Super Admin country registry contains 249 rows; legal-review records remain zero. No country was legally approved or commercially activated by this setup.
 
-Main D1 470 has the `country_legal_evidence` table and zero evidence rows. Isolated D1 6a32 has the isolated API's country/legal-review schema and zero legal-review rows. The isolated HMAC admin sync and main HMAC admin sync are separate and target their matching Global API Worker/D1 pair.
+Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync and main HMAC admin sync are separate and target their matching Global API Worker/D1 pair.
 
 ## 4. Backup, storage and large uploads
 
