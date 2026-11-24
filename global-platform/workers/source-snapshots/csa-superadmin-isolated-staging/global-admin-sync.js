@@ -23,7 +23,7 @@ async function hmacHex(secret, value) {
 }
 
 export async function syncGlobalAdminAuthorizations(env) {
-  if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET)) throw new Error("admin_sync_secret_missing");
+  if (!env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET) throw new Error("admin_sync_secret_missing");
   if (!env.DB) throw new Error("superadmin_database_binding_missing");
 
   const result = await env.DB.prepare(
@@ -58,7 +58,7 @@ export async function syncGlobalAdminAuthorizations(env) {
     nonce,
     await sha256Hex(body),
   ].join("\n");
-  const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET, canonical);
+  const signature = await hmacHex(env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET, canonical);
 
   const response = await fetch(
     (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path,
