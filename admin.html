@@ -1,33 +1,109 @@
-<!doctype html>
-<html lang="en-IN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow,noarchive">
-<meta name="theme-color" content="#101b35">
-<title>Legacy Admin Page Disabled | Creator Support Amravati</title>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="robots" content="noindex,follow">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel</title>
+
 <style>
-:root{color-scheme:light;font-family:Inter,Arial,sans-serif;background:#f4f7fb;color:#17243a}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
-main{width:min(100%,680px);background:#fff;border:1px solid #dfe6ef;border-radius:18px;padding:clamp(24px,5vw,42px);box-shadow:0 18px 55px rgba(16,27,53,.08)}
-.kicker{color:#0b8f83;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
-h1{font-size:clamp(26px,5vw,38px);line-height:1.15;margin:12px 0}
-p{color:#536176;line-height:1.7}
-.notice{background:#fff8e8;border:1px solid #f2dfb2;border-radius:12px;padding:14px;color:#6c4d0c;margin:22px 0}
-a{display:inline-flex;align-items:center;justify-content:center;background:#10213d;color:#fff;text-decoration:none;padding:12px 18px;border-radius:9px;font-weight:700}
-a:focus-visible{outline:3px solid #0f9d8c;outline-offset:3px}
-small{display:block;margin-top:20px;color:#7b8798}
+body{
+font-family:Arial;
+background:#f5f5f5;
+padding:20px;
+}
+
+.container{
+max-width:600px;
+margin:auto;
+background:#fff;
+padding:20px;
+border-radius:10px;
+}
+
+input, textarea{
+width:100%;
+padding:10px;
+margin:10px 0;
+}
+
+button{
+padding:10px;
+background:black;
+color:white;
+border:none;
+cursor:pointer;
+}
+
+.post{
+background:#eee;
+padding:10px;
+margin-top:10px;
+border-radius:5px;
+}
 </style>
 </head>
+
 <body>
-<main>
-<span class="kicker">Creator Support Amravati</span>
-<h1>Legacy admin page disabled</h1>
-<p>This old static admin screen is not connected to the current website publishing workflow. It cannot authenticate an administrator or publish blog posts.</p>
-<div class="notice"><strong>Security notice:</strong> Do not enter passwords, OTPs or account credentials on this legacy page.</div>
-<p>Authorized administrators should use the current CSA Global access route.</p>
-<a href="global-platform/super-admin-login.html">Open secure admin access information ↗</a>
-<small>For website content or account-access assistance, contact the authorized CSA administrator.</small>
-</main>
+
+<!-- 🔐 LOGIN -->
+<div id="loginBox">
+<h2>Admin Login</h2>
+<input type="password" id="password" placeholder="Enter Password">
+<button onclick="login()">Login</button>
+</div>
+
+<!-- 🔥 ADMIN PANEL -->
+<div id="adminPanel" style="display:none;">
+
+<div class="container">
+
+<h2>🛠 Admin Panel</h2>
+
+<input type="text" id="title" placeholder="Post Title">
+<input type="text" id="image" placeholder="Image URL">
+<textarea id="content" placeholder="Post Content"></textarea>
+
+<button onclick="addPost()">Add Post</button>
+
+<h3>All Posts</h3>
+<div id="posts"></div>
+
+</div>
+
+</div>
+
+<script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyDHmtgU34qEhXPME4SpF54BWVHl8V5t34o",
+    authDomain: "csa-blog.firebaseapp.com",
+    projectId: "csa-blog",
+    storageBucket: "csa-blog.firebasestorage.app",
+    messagingSenderId: "125350824053",
+    appId: "1:125350824053:web:542312904b868bb6b7d03c",
+    measurementId: "G-GH1CK19JZQ"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+
+
+
+
+
+
+</script>
+
+<script src="assets/js/firebase-config.js"></script><script src="assets/js/csa-engagement.js"></script><script src="/assets/js/role-menu.js?v=20261122-regional"></script>
 </body>
 </html>
