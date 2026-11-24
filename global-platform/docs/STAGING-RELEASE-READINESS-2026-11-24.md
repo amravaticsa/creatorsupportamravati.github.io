@@ -56,6 +56,9 @@ The compatibility Global D1 also currently contains 249 country rows, 2 users an
 - The last-hour Cloudflare Worker telemetry query found no error-level events for the isolated Super Admin, isolated Global API or backup Worker.
 - Finance Admin is enforced as read-only (`finance.read`); Write/Manage options are hidden/disabled in the Super Admin UI.
 - R2 custom domains and public managed domains remain disabled for the inspected staging buckets.
+- Large media uploads use direct upload up to 90 MB and resumable R2 multipart uploads above 90 MB up to 5 GB per file. Multipart parts are 50 MB, sessions expire after 24 hours, each part is SHA-256 checked, and session/part/finish operations are scoped to the authenticated uploader. The portal supports resume/retry and exposes upload history.
+- The canonical Global D1 currently has zero multipart sessions and zero multipart parts. Its multipart cleanup log contains 179 successful cleanup runs; no orphaned open upload session was present at this audit.
+- Source-level upload security regression tests passed in the latest API validation run. The upload workflow is not considered fully browser-E2E tested until a real client/editor account performs a test upload and download.
 
 The read-only Worker configuration preflight cannot inspect Worker settings using the existing GitHub Pages deployment token; Cloudflare returned HTTP 403. The workflow records this and skips the detailed checks rather than falsely reporting them as passed. Manual Cloudflare settings verification was performed for this audit. To enable automatic checks, add a separate least-privilege GitHub Actions secret named `CLOUDFLARE_WORKERS_READ_TOKEN` with Cloudflare Workers Scripts Read permission. Secret values must not be placed in source control or logs.
 
