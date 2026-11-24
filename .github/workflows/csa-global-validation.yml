@@ -59,6 +59,8 @@ jobs:
       - name: Check Worker and browser JavaScript syntax
         run: |
           node --check global-platform/api/src/index.js
+          node --input-type=module --check < global-platform/workers/source-snapshots/csa-superadmin-isolated-staging/worker.js
+          node --input-type=module --check < global-platform/workers/staging/csa-superadmin-api-staging/worker.js
           node --check global-platform/workers/backup/csa-global-db-backup-staging/index.js
           node --test global-platform/workers/backup/csa-global-db-backup-staging/index.test.mjs
           node --test global-platform/api/tests/*.test.mjs
