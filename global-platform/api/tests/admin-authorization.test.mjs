@@ -75,6 +75,22 @@ test("Finance Admin module access is read-only in both Super Admin APIs", () => 
   assert.ok(legacyWorkerSource.includes(guard));
 });
 
+test("legacy Finance routes require module permissions and hide analytics money fields", () => {
+  assert.ok(legacyWorkerSource.includes('if(u.role==="finance_admin"&&moduleKey==="finance"&&required!=="read")return false;'));
+  assert.ok(legacyWorkerSource.includes('if(!await hasModuleAccess(env,u,"finance","read"))return json({ok:false,error:"module_access_denied"},403);'));
+  assert.ok(legacyWorkerSource.includes('if(!await hasModuleAccess(env,u,"finance","write"))return json({ok:false,error:"module_access_denied"},403);'));
+  assert.ok(legacyWorkerSource.includes("finance:financeAccess?finance:null"));
+  assert.ok(legacyWorkerSource.includes("monthly_revenue:financeAccess?monthly.results||[]:[]"));
+});
+
+test("legacy Finance Admin invitations and role changes default to Read and clear access on role removal", () => {
+  assert.ok(legacyWorkerSource.includes('if(role==="finance_admin")await env.DB.prepare("INSERT INTO csa_admin_module_access'));
+  assert.ok(legacyWorkerSource.includes('if(role==="finance_admin"||(!role&&a.role==="finance_admin"))'));
+  assert.ok(legacyWorkerSource.includes("access_level='read'"));
+  assert.ok(legacyWorkerSource.includes("access_level='none'"));
+  assert.ok(isolatedWorkerSource.includes("access_level='read'"));
+});
+
 test("Finance dropdown is role-scoped and does not remove Super Admin access options", () => {
   const roleGuard = "const financeReadOnly=d.admin?.role==='finance_admin';";
   const financeOnly = "financeReadOnly&&x.module_key==='finance'";
