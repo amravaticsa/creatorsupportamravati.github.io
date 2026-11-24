@@ -60,6 +60,7 @@ jobs:
         run: |
           node --check global-platform/api/src/index.js
           node --check global-platform/workers/backup/csa-global-db-backup-staging/index.js
+          node --test global-platform/workers/backup/csa-global-db-backup-staging/index.test.mjs
           node --test global-platform/api/tests/*.test.mjs
           node --test global-platform/workers/source-snapshots/csa-editor-portal-isolated-staging/tests/*.test.mjs
           node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/*.test.mjs
