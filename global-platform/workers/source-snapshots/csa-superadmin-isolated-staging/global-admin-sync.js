@@ -26,6 +26,7 @@ async function hmacHex(secret, value) {
 
 export async function syncGlobalAdminAuthorizations(env) {
   const hmacSecrets = [
+    ["CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET", env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET],
     ["GLOBAL_API_SYNC_HMAC_SECRET", env.GLOBAL_API_SYNC_HMAC_SECRET],
     ["ADMIN_SYNC_HMAC_SECRET", env.ADMIN_SYNC_HMAC_SECRET],
   ].filter(([, secret]) => Boolean(secret));
