@@ -36,3 +36,12 @@ Schema only; no application rows or credentials are included. These counts are c
 - Rebuilds `v_project_country_scope` so a Client's country is included only when `users.country_verified_at`, `country_verified_by`, and `country_evidence_ref` are all present and the country code is valid.
 - The isolated D1 6a32 already had this stricter view. Canonical and isolated views now use the same verified-country rule.
 - Read-only verification: all three existing canonical projects remain `country_unassigned`; no project is included in India's Regional Admin scope until evidence-backed assignment.
+
+
+## Canonical country commerce flag — migration 0035
+
+- Migration: `0035_country_orders_enabled.sql`.
+- Canonical Global Staging D1 `csa-global-platform-staging` (470a81b8-3d36-4e2d-942c-5cbb2746a473) was missing `countries.orders_enabled`, which the Super Admin country-registry sync requires.
+- Applied additively to canonical staging with a default of `0`; all 249 existing countries remain disabled for orders until legal approval and explicit activation.
+- The isolated compatibility D1 6a32 already contained this column. Super Admin `GLOBAL_API_DB` and `CANONICAL_GLOBAL_DB` now point to canonical D1 470; legacy `GLOBAL_DB` remains on 6a32.
+- Read-only verification: the new column exists, all 249 values default to 0, and `PRAGMA foreign_key_check` returns zero violations.
