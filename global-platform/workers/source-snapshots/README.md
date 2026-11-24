@@ -1,34 +1,63 @@
-# Isolated staging Worker source snapshots
+# CSA Global staging Worker source snapshots
 
-Initially captured from Cloudflare deployed Worker module bundles on 2026-11-21 and refreshed from deployed bundles on 2026-11-22.
+These files are recoverable source snapshots exported from the deployed Cloudflare Workers. They are deployment baselines, not proof that the files are the original development source or that every Worker is deployed automatically from GitHub.
 
-These files are deployment snapshots exported from the isolated staging Workers, not proof that they are the original development source or that they are already wired into a build/deploy pipeline.
+## Captured Workers
 
-Workers captured:
-- `csa-superadmin-isolated-staging` — all five JavaScript modules
 - `csa-global-api-isolated-staging` — `index.js`
+- `csa-superadmin-isolated-staging` — `worker.js` plus four supporting JavaScript modules
 - `csa-editor-portal-isolated-staging` — `worker.js`
+- `csa-rush-admin-isolated-staging` — `worker.js`
+- `csa-global-db-backup-staging` — scheduled backup Worker; its snapshot is under `global-platform/workers/backup/csa-global-db-backup-staging/`
 
-Use these snapshots as a recoverable baseline for review and patch preparation. Before deployment:
-1. Compare the snapshot module names and content with the deployed bundle.
-2. Preserve all Worker settings, bindings, compatibility date/flags, and routes.
-3. Apply security changes in a reviewed commit.
-4. Run JavaScript syntax validation and synthetic tests.
-5. Deploy only the isolated staging Worker and verify its route isolation.
-6. Record the prior deployment version for rollback.
+## Isolated D1 binding contract
 
-The initial export itself was read-only. The 2026-11-22 refresh records subsequent deployed changes; it does not itself modify Cloudflare Workers, bindings, routes or deployments.
+The isolated application Workers must use the isolated databases:
 
-## Automated snapshot validation
+| Worker | Binding | Required D1 |
+|---|---|---|
+| Global API | `DB` | `csa-global-platform-isolated-staging` — `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` |
+| Super Admin | `DB` | `csa-superadmin-isolated-staging` — `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
+| Super Admin | `CANONICAL_GLOBAL_DB`, `GLOBAL_API_DB`, `GLOBAL_DB` | `csa-global-platform-isolated-staging` — `6a32dda3-b8c5-413c-9f51-58f0a9fa0712` |
+| Editor Portal | `CSA_SUPERADMIN_DB` | `csa-superadmin-isolated-staging` — `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
+| Editor Portal | `CSA_VIDEO_DB` | `csa-video-isolated-staging` — `b611b8ff-8f9f-43b2-95c8-a767a14987d6` |
+| Rush Admin | `CSA_RUSH_DB` | `csa-video-rush-isolated-staging` — `99c797a2-d822-437f-a4d7-31d658f3862f` |
+| Rush Admin | `CSA_SUPERADMIN_DB` | `csa-superadmin-isolated-staging` — `c2bb3fb5-db22-4ed5-9283-161df57ebac2` |
 
-The repository workflow `.github/workflows/csa-global-validation.yml` now syntax-checks every JavaScript module in the three isolated Worker snapshots with Node.js 22 and scans for the previously identified raw exception-to-log patterns. These checks are source validation only; they do not deploy Workers or verify runtime bindings, D1/R2 behavior, route isolation, or live observability.
+The older `csa-global-platform-staging` D1 (`470a81b8-3d36-4e2d-942c-5cbb2746a473`) and `csa-superadmin-staging` D1 (`99bc81fc-e97e-488b-a380-eb0237ff8ffc`) are legacy/compatibility databases. Do not bind them to isolated application Workers. The older Global D1 lacks nine columns required by the current API and does not contain the isolated-only `v_tender_country_scope` view.
 
-Validation is triggered by changes under `global-platform/**` on the `staging` branch. A passing workflow is required before any isolated Worker deployment is considered.
+## Backup Worker mapping
 
-## Snapshot refresh — 2026-11-22
+The scheduled `csa-global-db-backup-staging` Worker deliberately backs up both isolated and legacy databases:
 
-- The five `csa-superadmin-isolated-staging` modules and the `csa-global-api-isolated-staging/index.js` module were re-exported from their deployed Cloudflare bundles and synchronized to these snapshots.
-- Super Admin Worker snapshot now reflects the deployed invitation, Finance access, country-assignment, Regional Admin, legacy-link and canonical Global API bridge routes.
-- Core Super Admin bridges and the Regional Admin proxy target `csa-global-api-staging` (canonical D1 `470a81b8-3d36-4e2d-942c-5cbb2746a473`). The Legacy Links bridge remains on `csa-global-api-isolated-staging` because it owns the isolated legacy Editor Portal integration. The isolated API also remains a CI health target.
-- The Super Admin Worker logs no longer emit raw exception messages or stack traces. Sync diagnostics preserve only an allowlisted HTTP status code.
-- The isolated Global API health endpoint checks live D1 connectivity and 26 required schema tables. The latest GitHub Actions validation and Staging deploy/smoke test passed for commit `8e029c2d7c81bc9bb2be91eb2d5c6202af255f96` at 10:16:51 UTC.
+- `DB_GLOBAL` → isolated Global Platform D1 (`6a32...`)
+- `DB_GLOBAL_LEGACY` → legacy Global Platform D1 (`470a...`)
+- `DB_SUPERADMIN` → isolated Super Admin D1 (`c2bb...`)
+- `DB_SUPERADMIN_LEGACY` → legacy Super Admin D1 (`99bc...`)
+
+The source snapshot and deployed Worker module are synchronized. Its bindings were checked against the deployed mapping. The R2 backup bucket is private; the backup Worker has no public zone route and workers.dev is disabled. Daily schedules cover ten D1 databases at 02:02–02:47 UTC. The latest older legacy artifacts have manifests and integrity checks, but most predate the current readback/decompression verifier. Six isolated databases passed a separate restore rehearsal; a fresh ten-database backup and restore rehearsal is still required before production release.
+
+## Current schema and runtime checks
+
+The isolated Global API health endpoint checks 27 required tables and nine required columns, including `country_legal_evidence`. The Global Admin sync receiver also verifies the isolated-only `v_tender_country_scope` view. The isolated D1 contains both markers and all required columns; the legacy Global D1 does not.
+
+The 2026-11-24 staging smoke workflow targets the correct isolated API host:
+`https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev/health`
+
+It verifies canonical D1 schema readiness and that unauthenticated client, Editor and Admin API routes fail closed. The latest run passed.
+
+## Validation and deployment discipline
+
+- `.github/workflows/csa-global-validation.yml` validates migrations, JavaScript syntax and source-level tests.
+- `.github/workflows/deploy-csa-staging.yml` deploys the Pages staging site and runs isolated API/auth smoke tests.
+- `.github/workflows/csa-global-worker-preflight.yml` checks Worker bindings, schedules, subdomains and secrets when a Cloudflare token with Account-level `Workers Scripts Read` permission is available. Add it to GitHub Actions as `CLOUDFLARE_WORKERS_READ_TOKEN`; the current token returns HTTP 403 for settings reads, so those read-only checks are skipped.
+
+Before any Worker deployment:
+1. Compare every source module with the current deployed bundle.
+2. Preserve bindings, secrets, compatibility date/flags, routes and subdomain settings.
+3. Run the repository validation and staging smoke workflows.
+4. Deploy only the intended isolated staging Worker.
+5. Verify D1/R2 bindings and route isolation after deployment.
+6. Record the previous deployment version for rollback.
+
+Use only `*-isolated-staging` hosts for new end-to-end tests. Legacy `admin-staging` and `superadmin-staging` aliases remain separate and must be formally retired or migrated before launch.
