@@ -56,7 +56,7 @@ export async function syncGlobalAdminAuthorizations(env) {
 
   const path = "/internal/admin-authorizations/sync";
   const body = JSON.stringify(snapshot);
-  const endpoint = (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev") + path;
+  const endpoint = (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path;
 
   let lastAuthStatus = 0;
   for (const [, secret] of hmacSecrets) {
