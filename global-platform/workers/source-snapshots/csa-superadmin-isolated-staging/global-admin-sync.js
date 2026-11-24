@@ -1,8 +1,9 @@
 // CSA Global admin authorization sync sender.
 // Import this helper into the CSA Super Admin Worker and call it only after
 // an authenticated Super Admin changes an account or accepts an invitation.
-// Prefer GLOBAL_API_SYNC_HMAC_SECRET for canonical Staging bridges.
-// Legacy Links uses ADMIN_SYNC_HMAC_SECRET on the isolated API. Never expose either secret to browser code.
+// Admin authorization snapshots use CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET.
+// Other canonical bridges use GLOBAL_API_SYNC_HMAC_SECRET; Legacy Links uses ADMIN_SYNC_HMAC_SECRET.
+// Never expose any secret to browser code.
 const encoder = new TextEncoder();
 
 async function sha256Hex(value) {
@@ -23,7 +24,7 @@ async function hmacHex(secret, value) {
 }
 
 export async function syncGlobalAdminAuthorizations(env) {
-  if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET)) throw new Error("admin_sync_secret_missing");
+  if (!env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET) throw new Error("admin_sync_secret_missing");
   if (!env.DB) throw new Error("superadmin_database_binding_missing");
 
   const result = await env.DB.prepare(
@@ -58,7 +59,7 @@ export async function syncGlobalAdminAuthorizations(env) {
     nonce,
     await sha256Hex(body),
   ].join("\n");
-  const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET, canonical);
+  const signature = await hmacHex(env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET, canonical);
 
   const response = await fetch(
     (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path,
