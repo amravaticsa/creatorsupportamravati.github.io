@@ -25,7 +25,11 @@ async function hmacHex(secret, value) {
 }
 
 export async function syncGlobalAdminAuthorizations(env) {
-  if (!(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET)) throw new Error("admin_sync_secret_missing");
+  const hmacSecrets = [
+    ["GLOBAL_API_SYNC_HMAC_SECRET", env.GLOBAL_API_SYNC_HMAC_SECRET],
+    ["ADMIN_SYNC_HMAC_SECRET", env.ADMIN_SYNC_HMAC_SECRET],
+  ].filter(([, secret]) => Boolean(secret));
+  if (!hmacSecrets.length) throw new Error("admin_sync_secret_missing");
   if (!env.DB) throw new Error("superadmin_database_binding_missing");
 
   const result = await env.DB.prepare(
@@ -51,20 +55,24 @@ export async function syncGlobalAdminAuthorizations(env) {
 
   const path = "/internal/admin-authorizations/sync";
   const body = JSON.stringify(snapshot);
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const nonce = crypto.randomUUID();
-  const canonical = [
-    "POST",
-    path,
-    timestamp,
-    nonce,
-    await sha256Hex(body),
-  ].join("\n");
-  const signature = await hmacHex(env.GLOBAL_API_SYNC_HMAC_SECRET || env.ADMIN_SYNC_HMAC_SECRET, canonical);
+  const endpoint = (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path;
 
-  const response = await fetch(
-    (env.ENVIRONMENT === "production" ? "https://csa-global-api.creatorsupportamravati.workers.dev" : "https://csa-global-api-staging.creatorsupportamravati.workers.dev") + path,
-    {
+  let lastAuthStatus = 0;
+  for (const [, secret] of hmacSecrets) {
+    // A fresh timestamp and nonce are used for every attempt. A 401 is returned
+    // before the receiver records the nonce, so trying the alternate configured
+    // key cannot replay an accepted snapshot.
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const nonce = crypto.randomUUID();
+    const canonical = [
+      "POST",
+      path,
+      timestamp,
+      nonce,
+      await sha256Hex(body),
+    ].join("\n");
+    const signature = await hmacHex(secret, canonical);
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -73,14 +81,19 @@ export async function syncGlobalAdminAuthorizations(env) {
         "x-csa-sync-signature": signature,
       },
       body,
-    },
-  );
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload.ok !== true) {
-    throw new Error("global_authorization_sync_failed_" + response.status);
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      lastAuthStatus = 401;
+      continue;
+    }
+    if (!response.ok || payload.ok !== true) {
+      throw new Error("global_authorization_sync_failed_" + response.status);
+    }
+    return { synced: Number(payload.synced || 0) };
   }
-  return { synced: Number(payload.synced || 0) };
+
+  throw new Error("global_authorization_sync_failed_" + (lastAuthStatus || 401));
 }
 
 export async function callGlobalPricingPolicy(env,payload){
