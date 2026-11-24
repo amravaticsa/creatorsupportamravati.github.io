@@ -189,7 +189,7 @@ async function handle(req,env){
 
 if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   // Private server-to-server snapshot from the CSA Super Admin Worker only.
-  if(env.ENVIRONMENT!=="staging"||(!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Admin authorization sync is not configured.",503,"sync_unavailable");
+  if(env.ENVIRONMENT!=="staging"||(!env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET&&!env.ADMIN_SYNC_HMAC_SECRET&&!env.GLOBAL_API_SYNC_HMAC_SECRET))return bad("Admin authorization sync is not configured.",503,"sync_unavailable");
   const raw=await req.text();
   if(raw.length>65536)return bad("Authorization snapshot is too large.",413,"sync_payload_too_large");
   const ts=req.headers.get("x-csa-sync-timestamp")||"",nonce=req.headers.get("x-csa-sync-nonce")||"",sig=req.headers.get("x-csa-sync-signature")||"";
@@ -198,7 +198,7 @@ if(m==="POST"&&p==="/internal/admin-authorizations/sync"){
   const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw)));
   const bodyHash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
   const canonical="POST\n/internal/admin-authorizations/sync\n"+ts+"\n"+nonce+"\n"+bodyHash;
-  const validSignature=await verifyGlobalApiHmac(env,canonical,sig);
+  const validSignature=await verifyGlobalAdminSyncHmac(env,canonical,sig);
   if(!validSignature)return bad("Sync signature is invalid.",401,"sync_signature_invalid");
   let snapshot;
   try{snapshot=JSON.parse(raw);}catch{return bad("Invalid JSON snapshot.");}
@@ -2128,6 +2128,7 @@ async function cleanupExpiredMultipartUploads(env){
  return {checked:(rows.results||[]).length,aborted,failed};
 }
 async function verifyGlobalApiHmac(env,canonical,sig){const secrets=[env.GLOBAL_API_SYNC_HMAC_SECRET,env.ADMIN_SYNC_HMAC_SECRET].filter(Boolean);for(const secret of secrets){const expected=await hmacHex(secret,canonical);if(constantTime(expected,sig))return true;}return false;}
+async function verifyGlobalAdminSyncHmac(env,canonical,sig){const secrets=[env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET,env.GLOBAL_API_SYNC_HMAC_SECRET,env.ADMIN_SYNC_HMAC_SECRET].filter(Boolean);for(const secret of secrets){const expected=await hmacHex(secret,canonical);if(constantTime(expected,sig))return true;}return false;}
 function razorpayRuntime(env){
  const configured=!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET);
  const testMode=!!(env.RAZORPAY_KEY_ID&&String(env.RAZORPAY_KEY_ID).startsWith("rzp_test_"));
