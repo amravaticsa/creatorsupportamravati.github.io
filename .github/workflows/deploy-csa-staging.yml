@@ -159,6 +159,30 @@ jobs:
             exit 1
           fi
           echo "PASS isolated Regional API health and unsigned-request rejection."
+      - name: Verify isolated Global API client and editor route guards
+        run: |
+          set -euo pipefail
+          base="https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"
+          check_route() {
+            method="$1"
+            path="$2"
+            body="${3:-}"
+            if [ "$method" = "POST" ]; then
+              status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-isolated-route.json -w '%{http_code}' -X POST "$base$path" -H 'content-type: application/json' --data "$body")"
+            else
+              status="$(curl --silent --show-error --max-time 30 -o /tmp/csa-isolated-route.json -w '%{http_code}' "$base$path")"
+            fi
+            if [ "$status" != "401" ]; then
+              echo "::error::Protected isolated route must be registered and reject unauthenticated requests with HTTP 401: $method $path (received $status)"
+              cat /tmp/csa-isolated-route.json
+              exit 1
+            fi
+            echo "PASS protected isolated route: $method $path (401)"
+          }
+          check_route GET /v1/client/projects/probe/deliverables
+          check_route POST /v1/client/projects/probe/approve '{}'
+          check_route POST /v1/client/projects/probe/revisions '{"submission_id":"probe","notes":"route guard probe"}'
+          check_route GET /v1/editor/assignments/probe/submissions
       - name: Verify Regional Admin bridge rejects unsigned requests
         run: |
           set -euo pipefail
