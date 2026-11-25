@@ -183,6 +183,32 @@ jobs:
           check_route POST /v1/client/projects/probe/approve '{}'
           check_route POST /v1/client/projects/probe/revisions '{"submission_id":"probe","notes":"route guard probe"}'
           check_route GET /v1/editor/assignments/probe/submissions
+          check_route GET /v1/files/probe
+          check_route GET /v1/client/refunds/probe
+          check_route GET /v1/admin/client-refunds/probe
+          check_route POST /v1/admin/client-refunds/probe/process '{}'
+          check_route POST /v1/admin/finance/editor-payouts '{}'
+          check_route POST /v1/admin/finance/editor-payouts/probe/approve '{}'
+      - name: Verify isolated API upload CORS preflight
+        run: |
+          set -euo pipefail
+          base="https://csa-global-api-isolated-staging.creatorsupportamravati.workers.dev"
+          origin="$CSA_STAGING_DEPLOY_URL"
+          status="$(curl --silent --show-error --max-time 30 -D /tmp/csa-upload-cors.headers -o /tmp/csa-upload-cors.body -w '%{http_code}' -X OPTIONS "$base/v1/uploads/multipart" -H "Origin: $origin" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type')"
+          if [ "$status" != "204" ]; then
+            echo "::error::Isolated multipart API preflight must return 204; received $status"
+            cat /tmp/csa-upload-cors.body
+            exit 1
+          fi
+          allow_origin="$(awk 'tolower($1)=="access-control-allow-origin:" {print $2}' /tmp/csa-upload-cors.headers | tail -n 1 | tr -d '\r')"
+          allow_methods="$(awk 'tolower($1)=="access-control-allow-methods:" {$1=""; print}' /tmp/csa-upload-cors.headers | tr '[:upper:]' '[:lower:]' | tr -d '\r')"
+          allow_headers="$(awk 'tolower($1)=="access-control-allow-headers:" {$1=""; print}' /tmp/csa-upload-cors.headers | tr '[:upper:]' '[:lower:]' | tr -d '\r')"
+          if [ "$allow_origin" != "$origin" ] || [[ "$allow_methods" != *"post"* || "$allow_methods" != *"put"* ]] || [[ "$allow_headers" != *"authorization"* || "$allow_headers" != *"content-type"* ]]; then
+            echo "::error::Isolated multipart API CORS policy does not allow the staging Pages origin and required upload methods/headers."
+            cat /tmp/csa-upload-cors.headers
+            exit 1
+          fi
+          echo "PASS isolated API CORS preflight for staging Pages origin (POST/PUT, Authorization/Content-Type)."
       - name: Verify Regional Admin bridge rejects unsigned requests
         run: |
           set -euo pipefail
