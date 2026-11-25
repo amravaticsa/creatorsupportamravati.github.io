@@ -26,7 +26,7 @@
 <p>Video editors, motion designers and post-production professionals from any country can apply. CSA reviews every profile before granting access to eligible project opportunities.</p>
 <div class="actions"><a class="btn" href="#editor-access">Go to Login &amp; Registration ↓</a><a class="btn outline" href="#how-it-works">How verification works</a></div>
 </div></section>
-<main class="wrap section">
+<div class="wrap section">
 <div class="notice"><strong>Important:</strong> Registration is free. Submitting an application does not guarantee selection or work. Do not pay anyone for registration and never share passwords, OTPs or bank credentials.</div>
 <section id="how-it-works" class="section">
 <h2>Who can apply?</h2>
@@ -111,7 +111,7 @@
 </main>
 </section>
 <p class="muted">CSA Global · Creator Support Amravati · Registration is free and subject to verification.</p>
-</main>
+</div>
 <script src="assets/auth.js?v=20261125-pin-fix"></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{const target=document.getElementById('editor-access');if(!target)return;const copy=document.createElement('button');copy.type='button';copy.className='btn outline';copy.textContent='Copy Editor Access Link';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);copy.textContent='Link copied';}catch(e){copy.textContent=location.href;}});const first=target.querySelector('main');if(first)first.prepend(copy);});
