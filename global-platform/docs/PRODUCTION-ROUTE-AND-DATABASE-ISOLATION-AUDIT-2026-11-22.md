@@ -196,11 +196,27 @@ The 22-November findings remain a production launch blocker. Current Worker sett
 - The duplicate `admin-staging.creatorsupportamravati.in` custom-domain association was removed from the legacy `csa-superadmin-api-staging` Worker and recreated on `csa-superadmin-isolated-staging`. Its Worker route also targets the isolated Worker, so DNS/custom-domain and route paths now resolve to the same isolated service.
 - The 24-Nov staging smoke test verified the isolated Super Admin/Admin portal HTML routes, unauthenticated API fail-closed behavior (401/403 or the configured Cloudflare Access redirect), Editor portal route, and unsigned Editor bridge rejection.
 
-### Current isolated D1 boundary
-- Isolated Super Admin identity D1: c2bb.
-- Canonical Global D1 for both regular and isolated staging APIs: 470.
-- Isolated Super Admin legacy compatibility D1: 6a32.
-- Isolated Editor/video D1: b611.
-- Production D1s listed above were not changed.
+### Current isolated D1 boundary — superseded by the 25-November staging recheck
+- Main staging Global API D1: `470a81b8-3d36-4e2d-942c-5cbb2746a473`.
+- Isolated staging Global API D1: `6a32dda3-b8c5-413c-9f51-58f0a9fa0712`.
+- Isolated Super Admin identity/session D1: `c2bb3fb5-db22-4ed5-9283-161df57ebac2`.
+- Isolated Super Admin `GLOBAL_API_DB`, `CANONICAL_GLOBAL_DB`, and retained `GLOBAL_DB` aliases all point to isolated D1 `6a32...`; its country registry and admin-authorization sync target the isolated Global API on that same D1.
+- Main and isolated stacks remain separate. The isolated-only `v_tender_country_scope` view is the schema guard that distinguishes D1 6a32 from main D1 470.
+- Isolated Editor/video D1: `b611b8ff-8f9f-43b2-95c8-a767a14987d6`.
+- The earlier sentence stating that both staging APIs use D1 470 and that D1 6a32 is only a legacy compatibility database is stale and is explicitly superseded by the current staging binding contract in `global-platform/README.md` and `STAGING-RELEASE-READINESS-2026-11-24.md`.
+- Production D1s and production routes listed above were not changed.
 
 **Production remains blocked.** The admin, Editor, Rush and Employee production paths need a separately approved production architecture and migration/cutover plan. Do not fix these by pointing production hosts at isolated staging Workers or by repointing production D1 bindings during staging work.
+
+
+## Superseding staging recheck — 25 November 2026
+
+This update resolves the conflicting staging database note in the 24-November production route audit. Live Cloudflare Worker settings and the current tracked source were rechecked on 25-November:
+
+- Main staging stack: Global API D1 470 and Super Admin identity D1 99bc.
+- Isolated staging stack: Global API D1 6a32 and Super Admin identity D1 c2bb.
+- Isolated Super Admin's three Global D1 aliases all point to 6a32; source uses `env.GLOBAL_API_DB || env.CANONICAL_GLOBAL_DB` and checks the isolated-only `v_tender_country_scope` view.
+- The isolated admin-authorization HMAC sync completed successfully at 02:45:04 UTC on 25-November, with one authorization record synchronized and no error code.
+- The staging backup Worker has ten separate daily schedules and ten staging D1 bindings. Its first full daily backup cycle is being verified independently; a restore drill remains pending.
+
+The production route findings in this document remain unchanged and remain blockers. No production Worker, route, D1, R2, DNS, Access policy, secret, or payment configuration was modified during this staging recheck.
