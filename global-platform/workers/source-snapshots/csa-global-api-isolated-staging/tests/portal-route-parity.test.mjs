@@ -33,3 +33,35 @@ test("editor submission history is restricted to the assigned editor", () => {
     assert.ok(route.includes(required), "missing editor ownership guard: " + required);
   }
 });
+
+
+test("client and admin refund detail routes enforce ownership and finance-read permission", () => {
+  const clientStart = api.indexOf("const clientRefundDetail=p.match(");
+  const clientEnd = api.indexOf('if(m==="GET"&&p==="/v1/client/refunds")', clientStart);
+  assert.ok(clientStart >= 0 && clientEnd > clientStart, "client refund detail route must exist");
+  const clientRoute = api.slice(clientStart, clientEnd);
+  assert.ok(clientRoute.includes('user(req,env,["client"])'));
+  assert.ok(clientRoute.includes("client_id=?"));
+  assert.ok(api.includes('if(m==="GET"&&/^\\/v1\\/client\\/refunds\\/[\\w-]+$/.test(p))return null;'));
+
+  const adminStart = api.indexOf("const adminClientRefundDetail=p.match(");
+  const adminEnd = api.indexOf('if(m==="GET"&&p==="/v1/admin/client-refunds")', adminStart);
+  assert.ok(adminStart >= 0 && adminEnd > adminStart, "admin refund detail route must exist");
+  const adminRoute = api.slice(adminStart, adminEnd);
+  assert.ok(adminRoute.includes('user(req,env,["admin"])'));
+  assert.ok(adminRoute.includes("JOIN users u ON u.id=r.client_id"));
+  assert.ok(api.includes('if(m==="GET"&&/^\\/v1\\/admin\\/client-refunds\\/[\\w-]+$/.test(p))return "finance.read";'));
+});
+
+test("editor payout approve and mark-paid actions require finance payout permission and compare-and-set transitions", () => {
+  const start = api.indexOf("const payoutAction=p.match(");
+  const end = api.indexOf('if(m==="GET"&&p==="/v1/admin/finance/refund-dashboard")', start);
+  assert.ok(start >= 0 && end > start, "editor payout action route must exist");
+  const route = api.slice(start, end);
+  assert.ok(route.includes('user(req,env,["admin"])'));
+  assert.ok(route.includes("status='pending_approval'"));
+  assert.ok(route.includes("status='approved'"));
+  assert.ok(route.includes("payment_reference"));
+  assert.ok(route.includes("transfer_initiated:false"));
+  assert.ok(api.includes('if(m==="POST"&&/^\\/v1\\/admin\\/finance\\/editor-payouts\\/[\\w-]+\\/(approve|mark-paid)$/.test(p))return "finance.payouts";'));
+});
