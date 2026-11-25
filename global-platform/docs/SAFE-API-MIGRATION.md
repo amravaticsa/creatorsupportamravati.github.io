@@ -22,6 +22,8 @@ The frontend uses the shared `assets/api-config.js`. It is frozen at runtime and
 - Additional isolated routes were added on 25 November: owner-scoped client refund detail, finance-read admin refund detail, staging-only Razorpay client refund processing (requires `rzp_test_` credentials), editor payout queue creation, and editor payout approve/mark-paid actions. Payout handlers record Finance state only and explicitly do not initiate a bank transfer.
 - The refund detail and payout action route tests were added. The first test attempt exposed a missing client-detail permission-map entry; that entry was corrected and the subsequent API validation passed.
 - Latest validation run after refund detail/payout action tests `45544372541`: success. Latest validation run including staging-only refund processing and payout queue creation `45544628723`: success. Latest staging Pages deployment run `45544628987`: success, including frontend/API health and read-only authorization smoke tests.
+- The isolated Global API Worker was updated from the current staging source snapshot using the content-only deployment endpoint; deployment `dc2c2ee1-318f-4644-b9be-acd0e31930f1` / version `78aa1b4d-0e17-4afa-bafc-4c32655985c9` became 100% active on 25 November. Its existing D1/R2 bindings, compatibility date and secret bindings were verified unchanged after upload.
+- Latest full API validation run `45547322619`: success. Latest staging Pages deployment and smoke run `45547322679`: success, including the new refund/payout/multipart route guards and upload CORS preflight from the immutable staging Pages origin.
 
 These checks establish build/preflight success, not full authenticated end-to-end parity.
 
@@ -38,7 +40,7 @@ These checks establish build/preflight success, not full authenticated end-to-en
 
 - Isolated Global API bindings point to the isolated Global D1 and isolated media/video resources.
 - The frontend uploads through the API proxy: multipart create, part `PUT`, complete/abort, and authenticated file download. It does not upload directly from the browser to an R2 presigned URL. The Worker CORS layer allows `GET,POST,PUT,OPTIONS` and the required `Authorization`/`Content-Type` headers for the staging Pages origin. The missing bucket-level R2 CORS configuration is therefore not itself a blocker for this proxy-based upload path.
-- All inspected staging media/video R2 buckets were empty at the time of inspection. No object migration was required or performed. A real authenticated upload, resume, complete, private download and cleanup cycle using a disposable staging file remains to be tested.
+- All inspected staging media/video R2 buckets were empty at the time of inspection. No object migration was required or performed. A CORS preflight smoke test for the actual immutable staging Pages origin passed. A real authenticated upload, resume, complete, private download and cleanup cycle using a disposable staging file remains to be tested.
 - D1 schema alignment migrations were committed and applied:
   - `0037_isolated_rollback_compatibility.sql` applied additively to Legacy Global staging D1. It adds isolated-required nullable columns while preserving older compatibility columns; no existing rows were rewritten or dropped.
   - `0038_isolated_staging_index_parity.sql` applied to isolated Global staging D1 to align the remaining indexes.
@@ -66,4 +68,4 @@ The central config retains the Legacy Staging URL as both active and rollback ta
 
 ## Decision
 
-**MIGRATION GATE: BLOCKED.** Keep frontend traffic on Legacy Staging. Public route/method source parity is complete and automated; D1 schema/object parity and business-row comparison are substantially complete. Remaining blockers are the HR department-access discrepancy, authenticated client/editor/admin E2E, disposable R2-backed upload/download/stream tests, and a rollback design that protects writes across separate D1 databases. Do not enable isolated traffic or touch production until these gates are evidenced and signed off.
+**MIGRATION GATE: BLOCKED.** Keep frontend traffic on Legacy Staging. Public route/method source parity is complete and automated; isolated Worker deployment, API route guards, CORS preflight, D1 schema/object parity and business-row comparison are verified. Remaining blockers are the HR department-access discrepancy, authenticated client/editor/admin E2E, disposable R2-backed upload/download/stream tests, and a rollback design that protects writes across separate D1 databases. Do not enable isolated traffic or touch production until these gates are evidenced and signed off.
