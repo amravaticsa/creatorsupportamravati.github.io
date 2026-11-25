@@ -125,3 +125,18 @@ The private Worker `csa-global-db-backup-staging` executed all ten scheduled slo
 Each backup includes schema, rows, indexes, views, triggers and integrity results. The Worker decompresses each R2 object and validates its database identity, table/row counts, quick-check and foreign-key count before writing a manifest and verification record. The R2 bucket remains private and the Worker has no public subdomain.
 
 **Restore rehearsal status (25 November):** schema restoration has been exercised for all ten databases in disposable D1 databases. Full row-level restore has passed for the six isolated databases in the earlier six-database rehearsal and the 595-row legacy Super Admin database in the current rehearsal. The zero-row video workflow and main Rush databases passed schema/empty-dataset restore checks. The 490-row legacy Global database passed schema-only restoration (59 tables, 65 indexes, 3 views, 13 triggers), but its data rows were not copied into the temporary D1; full row-level restore remains a release blocker. All temporary restore databases were deleted after checks. Read-back verification alone is not a substitute for a full restore.
+
+
+## 10. Latest operational recheck — 25 November 2026, 02:45 UTC
+
+- The latest isolated Super Admin → isolated Global API admin-authorization sync completed at **02:45:04 UTC** with `outcome=success`, `synced_count=1`, and no error code. The previous 15-minute runs at 02:30, 02:15 and 02:00 UTC also succeeded.
+- The isolated Super Admin identity database contains 2 admin accounts: one active `super_admin` and one active `editor_admin`. The Global API authorization sync remains least-privilege; the local Super Admin identity is not granted a Global API master role.
+- The isolated Global D1 contains 2 client users and 3 projects. All 3 projects remain `country_unassigned`; there are 0 verified country-evidence rows and 0 country-assignment audit rows.
+- The isolated Super Admin country registry has 249 countries. All 249 remain `setup` / `not_started`; orders, payments and payouts are disabled. The isolated Global D1 has 249 country rows and 0 legal-review rows. No legal approvals were fabricated.
+- Finance Admin remains read-only in both API authorization and Super Admin UI. No Finance Admin account or payment/refund/payout records exist.
+- The latest successful staging Pages deployment and full staging smoke-test run completed on commit `05e3168b42eaefa6410e0da1072bfe10b9299560`. The validation workflow also passed all API, migration, finance, HMAC, country-scope, editor, portal and backup-schedule tests.
+- The Worker configuration preflight's detailed Cloudflare settings checks remain **INCOMPLETE** because the existing GitHub Actions token cannot read Worker settings (HTTP 403). The workflow now adds a job summary to distinguish skipped checks from completed checks. Manual Cloudflare configuration checks were performed separately; secret values were never read.
+- The first complete ten-database backup cycle is verified above. A controlled restore drill into disposable D1, followed by application-level recovery smoke tests, remains pending.
+- Production route findings in the separate production audit remain unchanged: several production hostnames/service bindings still point to staging-configured Workers or staging D1. No production route, Worker, D1, R2, DNS, secret, Access or payment setting was changed.
+
+**Current release decision:** isolated/main staging infrastructure is stable for controlled onboarding tests. Legal/commercial activation and production release remain blocked by the genuine business prerequisites and production route remediation described above.
