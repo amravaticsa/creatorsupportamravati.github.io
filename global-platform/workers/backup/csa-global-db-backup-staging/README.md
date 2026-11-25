@@ -43,3 +43,5 @@ The isolated Global API Worker uses the isolated D1 as its source of truth. The 
 ### Artifact naming and restore discipline
 
 The `video_isolated` and `global_video_isolated` artifact labels identify the two isolated video-system D1 databases; the second is a legacy video subsystem database but is still isolated from production and the older main-stack compatibility stores. Each manifest and `.verification.json` marker records the exact D1 UUID. Before restore, match that UUID to the intended recovery database and keep the target separate from all live staging and production databases.
+
+The first 2026-11-25 scheduled exports at 02:22 and 02:27 UTC ran immediately before the 02:30 Worker source deployment and therefore retained the older artifact labels `video_legacy` and `global_video_legacy`. Their manifests explicitly record the isolated D1 UUIDs `b611b8ff-8f9f-43b2-95c8-a767a14987d6` and `2d3f97a0-fa32-46ef-9913-972a59a410e4`; the data was backed up from the correct isolated databases. Future runs use the clearer `video_isolated` and `global_video_isolated` labels.
