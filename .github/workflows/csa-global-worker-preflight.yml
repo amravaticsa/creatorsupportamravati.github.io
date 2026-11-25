@@ -45,6 +45,7 @@ jobs:
             csa-global-api-isolated-staging \
             csa-superadmin-isolated-staging \
             csa-editor-portal-isolated-staging \
+            csa-rush-admin-isolated-staging \
             csa-global-db-backup-staging; do
             status="$(curl --silent --show-error --max-time 30 -o "${worker}.json" -w '%{http_code}' \
               -H "Authorization: Bearer ${CF_API_TOKEN}" \
