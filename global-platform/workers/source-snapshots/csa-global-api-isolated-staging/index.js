@@ -1051,7 +1051,7 @@ async function handle(req,env){
  if(m==="GET"&&deliver){
   const a=await user(req,env,["client"]),project=await env.DB.prepare("SELECT id FROM projects WHERE id=? AND client_id=?").bind(deliver[1],a.id).first();
   if(!project)return bad("Project not found.",404);
-  const r=await env.DB.prepare("SELECT s.id,s.version_number,s.original_filename,s.mime_type,s.size_bytes,s.submitted_at FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=? AND s.qc_status='approved' ORDER BY s.version_number DESC").bind(project.id).all();
+  const r=await env.DB.prepare("SELECT s.id,s.version_number,s.original_filename,s.mime_type,s.size_bytes,s.submitted_at FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=? AND s.qc_status='approved' ORDER BY s.submitted_at DESC").bind(project.id).all();
   const history=await env.DB.prepare("SELECT id,request_number,submission_id,notes,status,created_at,resolved_at FROM client_revision_requests WHERE project_id=? AND client_id=? ORDER BY request_number DESC LIMIT 50").bind(project.id,a.id).all();
    const used=(history.results||[]).length,included=Number(project.revisions_included||0),remaining=Math.max(0,included-used),open=(history.results||[]).some(x=>x.status==="open"||x.status==="in_progress");
    return out({ok:true,deliverables:r.results||[],revision_requests:history.results||[],revision_policy:{included,used,remaining,can_request:project.status==="client_review"&&remaining>0&&!open&&(r.results||[]).length>0}});
