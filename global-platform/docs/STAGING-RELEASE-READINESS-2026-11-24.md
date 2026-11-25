@@ -59,7 +59,7 @@ Both D1s have the `country_legal_evidence` table and zero evidence rows. Only is
 - The private backup bucket is `csa-global-db-backups-staging`, in APAC Infrequent Access.
 - Its R2 lifecycle expires `daily/` backups after 30 days and aborts incomplete multipart uploads after 7 days.
 - The backup source verifies each database's role before export: `global` must be isolated D1 6a32, while `global_legacy` must be main D1 470. It captures schema, rows, indexes, views, triggers, quick-check and foreign-key results, gzip-compresses, reads back and verifies the R2 object, then writes a manifest.
-- The backup Worker has been rebound to `DB_GLOBAL` 6a32 and `DB_GLOBAL_LEGACY` 470. R2 contains earlier test artifacts for all ten D1s; the 03:50 UTC set predates the corrected Global database labels and is diagnostic only. The later 05:32–06:47 UTC test artifacts have `quickCheck=ok` and zero FK violations, but only the `global` and `superadmin` objects have explicit read-back verification records. Do not use these partial test artifacts as a complete restore set. The current Worker now writes a manifest and read-back verification record for every database. The first full daily cycle with the final bindings and schema-role guards is scheduled for 25 November, 02:02–02:47 UTC (07:32–08:17 IST); a restore drill remains pending.
+- The backup Worker has been rebound to `DB_GLOBAL` 6a32 and `DB_GLOBAL_LEGACY` 470. R2 contains earlier test artifacts for all ten D1s; the 03:50 UTC set predates the corrected Global database labels and is diagnostic only. The later 05:32–06:47 UTC test artifacts have `quickCheck=ok` and zero FK violations, but only the `global` and `superadmin` objects have explicit read-back verification records. Do not use these partial test artifacts as a complete restore set. The current Worker now writes a manifest and read-back verification record for every database. The first full daily cycle with the final bindings and schema-role guards completed on 25 November, 02:02–02:47 UTC (07:32–08:17 IST): all ten D1 exports have `verification_status=verified`, `quick_check=ok`, and zero foreign-key violations. A restore drill remains pending.
 - Six inspected staging R2 buckets have no custom public domains and disabled managed public domains. The backup Worker has no public workers.dev or preview subdomain.
 - Large uploads use direct upload up to 90 MB and resumable R2 multipart uploads above 90 MB up to 5 GB per file. Parts are 50 MB, sessions expire after 24 hours, each part is SHA-256 checked, and upload operations are scoped to the authenticated uploader. The canonical upload tables currently show zero open sessions and zero orphaned parts; cleanup logs contain 179 successful runs.
 
@@ -99,3 +99,27 @@ The separate production route audit still finds production hostnames routed to s
 **Production launch:** blocked.
 
 This report distinguishes verified infrastructure state from legal, user-enrollment and payment prerequisites. Refresh it after the next 15-minute isolated HMAC sync, the first corrected daily backup cycle, and any binding, route or secret change.
+
+
+## 9. First complete daily backup cycle — 25 November 2026
+
+**Result: 10/10 staging D1 backups completed and passed read-back verification.**
+
+The private Worker `csa-global-db-backup-staging` executed all ten scheduled slots from 02:02 through 02:47 UTC. Each completion event reported `verification_status=verified`, `quick_check=ok`, and `foreign_key_violations=0`.
+
+| UTC slot | Logical database | D1 UUID suffix | Tables | Rows | Read-back |
+|---|---|---|---:|---:|---|
+| 02:02 | Isolated Global | `6a32…` | 59 | 552 | Verified |
+| 02:07 | Isolated Super Admin | `c2bb…` | 50 | 654 | Verified |
+| 02:12 | Main Super Admin legacy | `99bc…` | 34 | 595 | Verified |
+| 02:17 | Main Global legacy | `470a…` | 59 | 490 | Verified |
+| 02:22 | Isolated video legacy | `b611…` | 14 | 0 | Verified |
+| 02:27 | Main Global video legacy | `2d3f…` | 11 | 0 | Verified |
+| 02:32 | Editor Super Admin legacy | `1fc2…` | 33 | 0 | Verified |
+| 02:37 | Video workflow | `69f0…` | 10 | 0 | Verified |
+| 02:42 | Rush | `198a…` | 3 | 0 | Verified |
+| 02:47 | Isolated Rush | `99c7…` | 3 | 0 | Verified |
+
+Each backup includes schema, rows, indexes, views, triggers and integrity results. The Worker decompresses each R2 object and validates its database identity, table/row counts, quick-check and foreign-key count before writing a manifest and verification record. The R2 bucket remains private and the Worker has no public subdomain.
+
+**Important limitation:** read-back verification proves the stored compressed backup can be read and matches its manifest; it does not prove a full database restore. A controlled restore drill into disposable D1 databases, including representative application smoke tests, is still required before production release.
