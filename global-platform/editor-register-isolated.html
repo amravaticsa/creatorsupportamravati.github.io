@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Register as a Video Editor | CSA Global</title>
+<meta name="description" content="Apply to join the worldwide CSA Global editor network. Free registration for video editors, creators and post-production professionals.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="assets/global.css">
+<style>
+.register-hero{background:radial-gradient(circle at 88% 8%,#39517a,transparent 34%),linear-gradient(120deg,#101b35,#1b3155);color:#fff;padding:58px 0}
+.register-hero h1{font-size:clamp(34px,5vw,52px);line-height:1.1;max-width:760px;margin:12px 0}
+.register-hero p{max-width:720px;color:#d8e1ef;font-size:17px}
+.register-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
+.register-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
+.register-card b{display:block;margin-bottom:7px}
+.share-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.steps-list{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.steps-list article{background:#fff;border:1px solid var(--line);padding:16px;border-radius:12px}
+@media(max-width:760px){.register-grid,.steps-list{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<section class="register-hero"><div class="wrap">
+<span class="eyebrow">Open worldwide registration · Free to apply</span>
+<h1>Build your editing career with the CSA Global network.</h1>
+<p>Video editors, motion designers and post-production professionals from any country can apply. CSA reviews every profile before granting access to project opportunities.</p>
+<div class="actions"><a class="btn" href="editor-login-isolated.html">Apply as an Editor →</a><a class="btn outline" href="#how-it-works">How verification works</a></div>
+</div></section>
+<main class="wrap section"><div class="notice"><strong>ISOLATED STAGING ONLY:</strong> Applications submitted here go to the isolated CSA Global test database. Do not submit real identity documents or confidential client material.</div>
+<a class="muted" href="index.html">← Platform Home</a>
+<div class="notice"><strong>Important:</strong> Submitting an application does not guarantee selection or work. Registration is free. Do not pay anyone for registration and do not send passwords, OTPs, bank details or identity documents through public links.</div>
+<h2>Who can apply?</h2>
+<div class="register-grid">
+<article class="register-card"><b>Video Editors</b><span class="muted">YouTube videos, Reels, Shorts, weddings, podcasts, ads and documentaries.</span></article>
+<article class="register-card"><b>Creative Specialists</b><span class="muted">Motion graphics, colour grading, sound design, VFX and post-production.</span></article>
+<article class="register-card"><b>Global Professionals</b><span class="muted">Remote and location-based professionals. Share your country, city, working languages and availability.</span></article>
+</div>
+<section id="how-it-works" class="section">
+<h2>Registration and verification process</h2>
+<div class="steps-list">
+<article><b>1. Submit profile</b><p class="muted">Add your location, languages, editing skills and up to three video work samples.</p></article>
+<article><b>2. Identity / KYC check</b><p class="muted">Upload one government-issued ID through the secure form. KYC documents stay private and are never shown to clients.</p></article>
+<article><b>3. Profile and sample review</b><p class="muted">CSA separately checks your skills, experience, rights confirmation and each portfolio video.</p></article>
+<article><b>4. Account approval</b><p class="muted">Only KYC-verified and profile-approved editors receive account activation instructions and eligible project access.</p></article>
+</div>
+</section>
+<section class="panel">
+<h2>Ready to apply?</h2>
+<p class="muted">Use the secure registration page. You can share this page publicly with editors anywhere in the world.</p>
+<div class="share-row"><a class="btn dark" href="editor-login-isolated.html">Open Editor Registration</a><button class="btn outline" type="button" id="copy-link">Copy Registration Link</button><span id="copy-status" class="muted" role="status"></span></div>
+</section>
+<p class="muted">CSA Global · Creator Support Amravati · Registration is free and subject to verification.</p>
+</main>
+
+<script>
+document.getElementById('copy-link').addEventListener('click',async()=>{const value=location.href;const status=document.getElementById('copy-status');try{await navigator.clipboard.writeText(value);status.textContent='Link copied. Share it with editors.';}catch(e){status.textContent=value;}});
+</script>
+</body></html>
