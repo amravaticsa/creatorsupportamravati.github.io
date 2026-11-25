@@ -1,10 +1,9 @@
 <!doctype html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Register as a Video Editor | CSA Global</title>
-<meta name="description" content="Apply to join the worldwide CSA Global editor network. Free registration for video editors, creators and post-production professionals.">
-<meta name="robots" content="index,follow">
+<title>Editor Login &amp; Registration | CSA Global</title>
+<meta name="description" content="One secure page for CSA Global editor login and free editor registration. Apply, complete verification or sign in with your CSA-issued credentials.">
+<meta name="robots" content="noindex,nofollow,noarchive">
 <link rel="stylesheet" href="assets/global.css">
 <style>
 .register-hero{background:radial-gradient(circle at 88% 8%,#39517a,transparent 34%),linear-gradient(120deg,#101b35,#1b3155);color:#fff;padding:58px 0}
@@ -13,45 +12,108 @@
 .register-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
 .register-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
 .register-card b{display:block;margin-bottom:7px}
-.share-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .steps-list{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .steps-list article{background:#fff;border:1px solid var(--line);padding:16px;border-radius:12px}
 @media(max-width:760px){.register-grid,.steps-list{grid-template-columns:1fr}}
+#editor-access{scroll-margin-top:24px}
+#editor-access>main{max-width:760px;margin:0 auto}
 </style>
-</head>
-<body>
+</head><body>
 <a class="brand" href="index.html" style="display:flex;align-items:center;gap:12px;padding:18px 24px;text-decoration:none"><img src="../assets/images/logo.png" alt="Creator Support Amravati logo" width="48" height="48" style="object-fit:contain"><span>Creator Support Amravati · CSA Global</span></a>
 <section class="register-hero"><div class="wrap">
-<span class="eyebrow">Open worldwide registration · Free to apply</span>
-<h1>Build your editing career with the CSA Global network.</h1>
-<p>Video editors, motion designers and post-production professionals from any country can apply. CSA reviews every profile before granting access to project opportunities.</p>
-<div class="actions"><a class="btn" href="editor-login.html">Apply as an Editor →</a><a class="btn outline" href="#how-it-works">How verification works</a></div>
+<span class="eyebrow">Editor Login &amp; Registration · Free to apply</span>
+<h1>Join the CSA Global Editor Network</h1>
+<p>Video editors, motion designers and post-production professionals from any country can apply. CSA reviews every profile before granting access to eligible project opportunities.</p>
+<div class="actions"><a class="btn" href="#editor-access">Go to Login &amp; Registration ↓</a><a class="btn outline" href="#how-it-works">How verification works</a></div>
 </div></section>
 <main class="wrap section">
-<div class="notice"><strong>Important:</strong> Submitting an application does not guarantee selection or work. Registration is free. Do not pay anyone for registration and do not send passwords, OTPs, bank details or identity documents through public links.</div>
+<div class="notice"><strong>Important:</strong> Registration is free. Submitting an application does not guarantee selection or work. Do not pay anyone for registration and never share passwords, OTPs or bank credentials.</div>
+<section id="how-it-works" class="section">
 <h2>Who can apply?</h2>
 <div class="register-grid">
-<article class="register-card"><b>Video Editors</b><span class="muted">YouTube videos, Reels, Shorts, weddings, podcasts, ads and documentaries.</span></article>
+<article class="register-card"><b>Video Editors</b><span class="muted">YouTube videos, Reels, Shorts, weddings, podcasts, advertisements and documentaries.</span></article>
 <article class="register-card"><b>Creative Specialists</b><span class="muted">Motion graphics, colour grading, sound design, VFX and post-production.</span></article>
 <article class="register-card"><b>Global Professionals</b><span class="muted">Remote and location-based professionals. Share your country, city, working languages and availability.</span></article>
 </div>
-<section id="how-it-works" class="section">
 <h2>Registration and verification process</h2>
 <div class="steps-list">
 <article><b>1. Submit profile</b><p class="muted">Add your location, languages, editing skills and up to three video work samples.</p></article>
 <article><b>2. Identity / KYC check</b><p class="muted">Upload one government-issued ID through the secure form. KYC documents stay private and are never shown to clients.</p></article>
-<article><b>3. Profile and sample review</b><p class="muted">CSA separately checks your skills, experience, rights confirmation and each portfolio video.</p></article>
-<article><b>4. Account approval</b><p class="muted">Only KYC-verified and profile-approved editors receive account activation instructions and eligible project access.</p></article>
+<article><b>3. Profile and sample review</b><p class="muted">CSA checks your skills, experience, rights confirmation and portfolio videos.</p></article>
+<article><b>4. Account approval</b><p class="muted">Only verified and approved editors receive account activation instructions and eligible project access.</p></article>
 </div>
 </section>
-<section class="panel">
-<h2>Ready to apply?</h2>
-<p class="muted">Use the secure registration page. You can share this page publicly with editors anywhere in the world.</p>
-<div class="share-row"><a class="btn dark" href="editor-login.html">Open Editor Registration</a><button class="btn outline" type="button" id="copy-link">Copy Registration Link</button><span id="copy-status" class="muted" role="status"></span></div>
+<section id="editor-access">
+<main class="wrap section" style="max-width:760px"><span class="eyebrow">Editor account access</span><h1>Join the CSA Global Editor Network</h1><p class="muted">Registration is free. CSA reviews profiles and skills before sending suitable project offers. A project-specific refundable deposit is requested only after you choose to accept an offer and its agreement.</p>
+<div class="panel form"><section class="field full"><h2>Existing Editor Login</h2><form id="editor-login-form"><label for="editor-user-id">CSA Editor User ID</label><input id="editor-user-id" autocomplete="username" required placeholder="CSA-issued User ID"><label for="editor-password">Password</label><input id="editor-password" type="password" autocomplete="current-password" required><button class="btn dark" type="submit">Login to Editor Panel</button></form><p class="muted">Login credentials sirf CSA verification ke baad issue honge.</p></section><hr><select id="role" hidden><option value="editor" selected>Editor</option></select><div id="client-fields" hidden></div><div id="editor-fields" class="field full">
+<label for="legal-name">Full legal name (as printed on your ID) *</label><input id="legal-name" maxlength="160" autocomplete="name" required placeholder="Enter your government-ID name">
+<h3>Location & Address Details</h3>
+<p class="muted">Select your country and enter your current residential or business address. Address details are visible only to authorized CSA administrators for verification and project coordination.</p>
+<label for="editor-country">Country *</label><select id="editor-country" required><option value="">Select your country</option></select>
+<label for="editor-state">State / Province / Region *</label><input id="editor-state" maxlength="120" required placeholder="State, province or region" list="editor-state-options"><datalist id="editor-state-options">
+<option>Maharashtra</option><option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option><option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option><option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option><option>Madhya Pradesh</option><option>Manipur</option><option>Meghalaya</option><option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option><option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option><option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option><option>Delhi</option><option>Jammu and Kashmir</option><option>Ladakh</option><option>Puducherry</option><option>Chandigarh</option><option>Andaman and Nicobar Islands</option><option>Dadra and Nagar Haveli and Daman and Diu</option><option>Lakshadweep</option></datalist>
+<label for="editor-district">District / County</label><input id="editor-district" maxlength="120" placeholder="District or county">
+<label for="editor-city">City *</label><input id="editor-city" maxlength="120" required placeholder="City">
+<label for="editor-village">Village / Town / Locality</label><input id="editor-village" maxlength="120" placeholder="Village, town or locality">
+<label for="editor-postal-code">Postal Code / ZIP / PIN Code</label><input id="editor-postal-code" maxlength="20" autocomplete="postal-code" placeholder="Postal or ZIP code">
+<label for="editor-address-line">Street Address / House No. (optional)</label><input id="editor-address-line" maxlength="240" autocomplete="street-address" placeholder="Street, building, house number">
+<label for="langs">Languages you can understand and edit *</label><input id="langs" required placeholder="Marathi, Hindi, English"><small class="muted">Add every spoken language you can accurately understand in raw footage, especially Talking Head, Podcast and Interview videos. CSA uses this for project matching.</small>
+<label for="exp">Experience</label><select id="exp"><option>Beginner (under 1 year)</option><option>1–3 years</option><option>3–5 years</option><option>5+ years</option></select>
+<label for="software">Editing software</label><input id="software" placeholder="Premiere Pro, DaVinci Resolve, Final Cut, Filmora">
+<label for="specializations">Specializations *</label><textarea id="specializations" placeholder="YouTube, Reels, podcasts, wedding films, ads..."></textarea>
+<section id="kyc-review-status" class="notice" aria-live="polite" style="margin:16px 0"><strong>KYC review status</strong><p id="kyc-review-status-text" style="margin:6px 0 0">Your KYC status will appear here after Google identity verification.</p><p id="kyc-review-note" style="margin:6px 0 0" hidden></p></section>
+<section id="profile-correction-panel" class="notice" hidden><strong>Profile Correction Required</strong><p id="profile-correction-status">CSA has requested changes to your editor profile.</p><button class="btn dark" type="button" id="profile-correction-submit">Submit Corrected Profile for Review</button></section><section id="kyc-upload-fields"><h3>Identity & KYC Verification</h3>
+<p class="muted">CSA must verify your identity before your editor profile or portfolio can be approved. Choose an official government-issued identity document available in your selected country. Only authorized CSA verification staff can review it; it is never shown to clients.</p>
+<label for="kyc-document-type">Government ID type *</label>
+<select id="kyc-document-type" required>
+<option value="">Select your country first</option>
+</select>
+<p class="muted" id="kyc-id-help">The accepted document list changes according to your selected country. Aadhaar is optional in India; it is never required.</p>
+<label for="kyc-document-file">Upload ID document * (PDF, JPG or PNG · max 10 MB)</label>
+<input id="kyc-document-file" type="file" accept="application/pdf,image/jpeg,image/png" required>
+<label style="display:flex;gap:10px;align-items:flex-start"><input id="kyc-privacy-consent" type="checkbox" required><span>I authorize CSA to securely review this identity document only for editor KYC verification. I understand it will not be shown to clients or in my public profile.</span></label></section>
+<hr>
+<section id="rejected-portfolio-panel" class="card" hidden>
+<h3>Portfolio Videos — Corrections Required</h3>
+<p class="muted">CSA Admin ne jin videos ko reject kiya hai, unka reason yahan dikhega. Corrected video upload karne par wahi record dobara review ke liye submit hoga.</p>
+<div id="rejected-portfolio-list"></div>
+<p id="rejected-portfolio-status" class="muted" role="status"></p>
+</section>
+<h3>Editing Portfolio Videos</h3>
+<p class="muted">Upload 1–3 original editing samples. MP4 or MOV only; maximum 80 MB per video.</p>
+<div id="portfolio-video-list"><div class="portfolio-video-entry">
+<label>Video File 1 *</label><input class="portfolio-video-file" type="file" accept="video/mp4,video/quicktime" required>
+<label>Video Title *</label><input class="portfolio-video-title" maxlength="120" required placeholder="e.g. Cinematic Wedding Highlight">
+<label>Video Description *</label><textarea class="portfolio-video-description" maxlength="1200" required placeholder="Describe your editing approach, techniques and contribution."></textarea>
+<label>Video Category *</label><select class="portfolio-video-category" required><option value="">Select category</option><option>Reels / Shorts</option><option>YouTube Video</option><option>Wedding Film</option><option>Podcast</option><option>Advertisement / Commercial</option><option>Corporate Video</option><option>Motion Graphics / VFX</option><option>Other</option></select>
+<label><input class="portfolio-video-rights" type="checkbox" required> I confirm that I own this work or have all permissions required to upload and showcase it.</label></div></div>
+<button class="btn outline" type="button" id="add-portfolio-video">Add another video (maximum 3)</button>
+<hr><h3>Portfolio Video Upload Terms &amp; Conditions</h3>
+<div style="max-height:260px;overflow:auto;border:1px solid #d8dee8;border-radius:10px;padding:14px;background:#f8fafc">
+<p>By uploading videos to CSA Global, you agree that:</p><ol>
+<li>You upload only original work or content for which you have all necessary rights and permissions.</li>
+<li>Videos must not display your name, logo, watermark, contact details, social media handles or other personal branding.</li>
+<li>You are responsible for copyright permissions covering music, footage, images, graphics, fonts and other materials.</li>
+<li>You must not upload confidential client projects, private recordings or third-party content without required permission.</li>
+<li>You grant Creator Support Amravati (CSA) a non-exclusive, worldwide, royalty-free permission to host, reproduce, stream and display the videos solely for CSA portfolio showcase, promotional and client-evaluation purposes.</li>
+<li>You retain ownership of your original work. This permission does not transfer copyright or ownership to CSA.</li>
+<li>All videos are subject to CSA review and will only be shown to clients after approval by an authorized CSA administrator.</li>
+<li>CSA may reject, hide or remove content that violates these terms, applicable law, copyright requirements or CSA policies.</li>
+<li>Misleading, stolen or unauthorized content may result in rejection of the video, registration or account suspension.</li>
+<li>CSA will not publicly display your name, login ID or personal contact details alongside portfolio videos in the Client Showcase.</li>
+<li>CSA will take reasonable protection measures, but cannot guarantee complete prevention of screen recording, copying or redistribution.</li>
+<li>You may request removal of a portfolio video by contacting CSA, subject to legal and record-retention obligations.</li>
+</ol><p><strong>Organization:</strong> Creator Support Amravati (CSA) · <strong>Platform:</strong> CSA Global · <strong>Terms version:</strong> 1.0</p></div>
+<label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px"><input id="portfolio-terms-accepted" type="checkbox" required><span>I have read and agree to the CSA Global Portfolio Video Upload Terms &amp; Conditions. I confirm that I own or have the necessary rights and permissions for every video I upload.</span></label>
+<label for="bio">Professional introduction</label><textarea id="bio" placeholder="Your skills, workflow and typical turnaround time"></textarea>
+</div><div class="field full"><div id="google-button"></div><p class="muted">Continue with Google ka use sirf registration aur verified email identity ke liye hai. Editor Dashboard mein login ke liye CSA team dwara issue ki gayi User ID aur Password hi valid honge. Google se direct Dashboard access nahi milega.</p><p id="status" class="muted" role="status">Checking secure sign-in configuration…</p></div></div>
+<div class="notice"><strong>Editor policy:</strong> No registration fee or deposit. Never share passwords, OTPs or bank credentials in project messages.</div>
+</main>
 </section>
 <p class="muted">CSA Global · Creator Support Amravati · Registration is free and subject to verification.</p>
 </main>
+<script src="assets/auth.js?v=20261125-pin-fix"></script>
 <script>
-document.getElementById('copy-link').addEventListener('click',async()=>{const value=location.href;const status=document.getElementById('copy-status');try{await navigator.clipboard.writeText(value);status.textContent='Link copied. Share it with editors.';}catch(e){status.textContent=value;}});
+document.addEventListener('DOMContentLoaded',()=>{const target=document.getElementById('editor-access');if(!target)return;const copy=document.createElement('button');copy.type='button';copy.className='btn outline';copy.textContent='Copy Editor Access Link';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);copy.textContent='Link copied';}catch(e){copy.textContent=location.href;}});const first=target.querySelector('main');if(first)first.prepend(copy);});
 </script>
 </body></html>
