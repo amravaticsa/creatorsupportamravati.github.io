@@ -65,3 +65,30 @@ test("editor payout approve and mark-paid actions require finance payout permiss
   assert.ok(route.includes("transfer_initiated:false"));
   assert.ok(api.includes('if(m==="POST"&&/^\\/v1\\/admin\\/finance\\/editor-payouts\\/[\\w-]+\\/(approve|mark-paid)$/.test(p))return "finance.payouts";'));
 });
+
+
+const legacyApi = await readFile(new URL("../../../../api/src/index.js", import.meta.url), "utf8");
+
+function publicRouteInventory(source) {
+  const routes = new Set();
+  for (const match of source.matchAll(/if\\(m==="(GET|POST|PUT|PATCH|DELETE)"&&p==="([^"]+)"/g)) {
+    const route = match[2];
+    if (route === "/health" || route.startsWith("/v1/")) routes.add(match[1] + " " + route);
+  }
+  for (const match of source.matchAll(/const\\s+(\\w+)\\s*=\\s*p\\.match\\((\\/[^;]+?)\\);/g)) {
+    const variable = match[1], pattern = match[2];
+    const branch = source.indexOf("&&" + variable + ")", match.index);
+    if (branch < 0) continue;
+    const prefix = source.slice(Math.max(0, branch - 80), branch);
+    const method = prefix.match(/if\\(m==="(GET|POST|PUT|PATCH|DELETE)"/);
+    if (method && pattern.includes("/v1/")) routes.add(method[1] + " " + pattern);
+  }
+  return routes;
+}
+
+test("isolated Global API contains every legacy public route/method", () => {
+  const legacyRoutes = publicRouteInventory(legacyApi);
+  const isolatedRoutes = publicRouteInventory(api);
+  const missing = [...legacyRoutes].filter(route => !isolatedRoutes.has(route)).sort();
+  assert.deepEqual(missing, [], "isolated API is missing legacy public routes");
+});
