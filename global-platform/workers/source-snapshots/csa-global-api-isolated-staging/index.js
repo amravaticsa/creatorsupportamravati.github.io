@@ -814,6 +814,51 @@ async function handle(req,env){
  // Resumable R2 multipart uploads: 50 MiB parts, up to 5 GiB per file.
  const multipartPart=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/parts\/(\d+)$/);
  const multipartAction=p.match(/^\/v1\/uploads\/multipart\/([\w-]+)\/(complete|abort)$/);
+ if(m==="GET"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/deliverables")){
+  const projectId=p.split("/")[4],a=await user(req,env,["client"]),project=await env.DB.prepare("SELECT id,status,revisions_included FROM projects WHERE id=? AND client_id=?").bind(projectId,a.id).first();
+  if(!project)return bad("Project not found.",404);
+  const r=await env.DB.prepare("SELECT s.id,s.assignment_id,s.version_number,s.original_filename,s.mime_type,s.size_bytes,s.submitted_at FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=? AND s.qc_status='approved' ORDER BY s.submitted_at DESC").bind(project.id).all();
+  const history=await env.DB.prepare("SELECT id,request_number,submission_id,notes,status,created_at,resolved_at FROM client_revision_requests WHERE project_id=? ORDER BY request_number DESC").bind(project.id).all();
+  const used=(history.results||[]).length,remaining=Math.max(0,Number(project.revisions_included||0)-used),open=(history.results||[]).some(x=>x.status==="open"||x.status==="in_progress");
+  return out({ok:true,deliverables:r.results||[],revision_requests:history.results||[],revision_policy:{included:Number(project.revisions_included||0),used,remaining,can_request:project.status==="client_review"&&remaining>0&&!open}});
+ }
+ if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/approve")){
+  const projectId=p.split("/")[4],a=await user(req,env,["client"]);
+  const current=await env.DB.prepare("SELECT p.id,p.public_project_code,p.title,p.status,p.client_id,x.id AS assignment_id,x.editor_id,s.id AS submission_id FROM projects p JOIN assignments x ON x.project_id=p.id JOIN work_submissions s ON s.assignment_id=x.id WHERE p.id=? AND p.client_id=? AND p.status='client_review' AND x.status='approved' AND s.qc_status='approved' AND s.id=(SELECT s2.id FROM work_submissions s2 JOIN assignments x2 ON x2.id=s2.assignment_id WHERE x2.project_id=p.id AND s2.qc_status='approved' ORDER BY s2.submitted_at DESC LIMIT 1) AND NOT EXISTS(SELECT 1 FROM client_revision_requests rr WHERE rr.project_id=p.id AND rr.status IN ('open','in_progress')) LIMIT 1").bind(projectId,a.id).first();
+  if(!current)return bad("Only the latest QC-approved delivery with no open revision request can be approved.",409,"delivery_not_approvable");
+  const results=await env.DB.batch([
+   env.DB.prepare("UPDATE projects SET status='completed',client_visible_status='completed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND client_id=? AND status='client_review' AND EXISTS(SELECT 1 FROM work_submissions s JOIN assignments x ON x.id=s.assignment_id WHERE x.project_id=projects.id AND x.status='approved' AND s.qc_status='approved' AND s.id=(SELECT s2.id FROM work_submissions s2 JOIN assignments x2 ON x2.id=s2.assignment_id WHERE x2.project_id=projects.id AND s2.qc_status='approved' ORDER BY s2.submitted_at DESC LIMIT 1)) AND NOT EXISTS(SELECT 1 FROM client_revision_requests rr WHERE rr.project_id=projects.id AND rr.status IN ('open','in_progress'))").bind(projectId,a.id),
+   env.DB.prepare("UPDATE assignments SET status='completed' WHERE id=? AND status='approved' AND EXISTS(SELECT 1 FROM projects WHERE id=? AND status='completed')").bind(current.assignment_id,projectId)
+  ]);
+  if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("The delivery state changed before approval. Refresh your dashboard.",409,"delivery_approval_conflict");
+  if(Number(results?.[1]?.meta?.changes||0)!==1)return bad("Project approval was recorded but assignment completion needs CSA reconciliation.",500,"assignment_completion_mismatch");
+  await log(env,a.id,"client_final_delivery_approved","project",projectId,{submission_id:current.submission_id,assignment_id:current.assignment_id});
+  await notifyInApp(env,current.editor_id,"client_final_delivery_approved","Client approved final video · "+current.public_project_code,"The client has approved the final delivery. The project is marked complete; any outstanding client balance and editor payout remain subject to CSA finance reconciliation.",{project_id:projectId,submission_id:current.submission_id});
+  return out({ok:true,status:"completed",project_code:current.public_project_code,finance_reconciliation_required:true});
+ }
+ if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions")){
+  const projectId=p.split("/")[4],a=await user(req,env,["client"]),b=await req.json(),notes=txt(b.notes,2000),submissionId=txt(b.submission_id,100);
+  if(notes.length<5)return bad("Please describe the requested changes in at least 5 characters.");
+  if(!submissionId)return bad("Select the approved delivery you want revised.");
+  const project=await env.DB.prepare("SELECT id,status,revisions_included FROM projects WHERE id=? AND client_id=?").bind(projectId,a.id).first();
+  if(!project)return bad("Project not found.",404);
+  if(project.status!=="client_review")return bad("Revision requests are available only while a QC-approved delivery is awaiting your review.",409,"delivery_not_in_review");
+  const usedRow=await env.DB.prepare("SELECT COUNT(*) AS used FROM client_revision_requests WHERE project_id=?").bind(project.id).first(),used=Number(usedRow?.used||0),included=Number(project.revisions_included||0);
+  if(used>=included)return bad("Your included revision limit has been reached. Contact CSA for additional changes.",409,"revision_limit_reached");
+  const requestId=uid("rev");
+  const results=await env.DB.batch([
+   env.DB.prepare("INSERT INTO client_revision_requests(id,project_id,assignment_id,submission_id,client_id,request_number,notes) SELECT ?,p.id,x.id,s.id,?,(SELECT COUNT(*)+1 FROM client_revision_requests WHERE project_id=p.id),? FROM projects p JOIN assignments x ON x.project_id=p.id JOIN work_submissions s ON s.assignment_id=x.id WHERE p.id=? AND p.client_id=? AND p.status='client_review' AND s.id=? AND s.qc_status='approved' AND x.status='approved' AND s.id=(SELECT s2.id FROM work_submissions s2 JOIN assignments x2 ON x2.id=s2.assignment_id WHERE x2.project_id=p.id AND s2.qc_status='approved' ORDER BY s2.submitted_at DESC LIMIT 1) AND (SELECT COUNT(*) FROM client_revision_requests WHERE project_id=p.id)<p.revisions_included AND NOT EXISTS(SELECT 1 FROM client_revision_requests WHERE project_id=p.id AND status IN ('open','in_progress')) LIMIT 1").bind(requestId,a.id,notes,project.id,a.id,submissionId),
+   env.DB.prepare("UPDATE projects SET status='revision',client_visible_status='revision',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='client_review' AND EXISTS(SELECT 1 FROM client_revision_requests WHERE id=?)").bind(project.id,requestId),
+   env.DB.prepare("UPDATE assignments SET status='revision' WHERE project_id=? AND status='approved' AND EXISTS(SELECT 1 FROM client_revision_requests WHERE id=? AND assignment_id=assignments.id)").bind(project.id,requestId)
+  ]);
+  if(Number(results?.[0]?.meta?.changes||0)!==1)return bad("A revision request is already open, the delivery changed, or your included revision limit was reached. Refresh your dashboard.",409,"revision_request_conflict");
+  if(Number(results?.[1]?.meta?.changes||0)!==1||Number(results?.[2]?.meta?.changes||0)!==1)return bad("Revision request needs CSA reconciliation before work continues.",500,"revision_request_state_mismatch");
+  await log(env,a.id,"client_revision_requested","project",project.id,{revision_request_id:requestId,request_number:used+1,submission_id:submissionId});
+  const assigned=await env.DB.prepare("SELECT x.editor_id,p.public_project_code,p.title FROM assignments x JOIN projects p ON p.id=x.project_id WHERE x.project_id=? AND x.status='revision' LIMIT 1").bind(project.id).first();
+  if(assigned)await notifyInApp(env,assigned.editor_id,"client_revision_requested","New client revision request · "+assigned.public_project_code,"The client requested changes: "+notes,{project_id:project.id,revision_request_id:requestId});
+  return out({ok:true,revision_request_id:requestId,request_number:used+1,remaining_revisions:Math.max(0,included-used-1),status:"revision"},201);
+ }
+ 
  if(m==="POST"&&p==="/v1/uploads/multipart"){
   if(!env.MEDIA)return bad("Private media storage is not configured.",503);
   const a=await user(req,env,["client","editor"]),b=await req.json();
@@ -1116,6 +1161,14 @@ async function handle(req,env){
   const a=await user(req,env,["editor"]),r=await env.DB.prepare("SELECT ep.id,ep.offer_id,ep.project_id,ep.amount_minor,ep.currency,ep.status,ep.payment_reference,ep.created_at,ep.approved_at,ep.paid_at,p.public_project_code,p.title,(SELECT id FROM payments pay WHERE pay.offer_id=ep.offer_id AND pay.payment_type='editor_payout' ORDER BY pay.created_at DESC LIMIT 1) AS payment_id FROM editor_payouts ep JOIN projects p ON p.id=ep.project_id WHERE ep.editor_id=? ORDER BY ep.created_at DESC LIMIT 100").bind(a.id).all();
   return out({ok:true,payouts:r.results||[]});
  }
+ if(m==="GET"&&p.startsWith("/v1/editor/assignments/")&&p.endsWith("/submissions")){
+  const a=await user(req,env,["editor"]),assignmentId=p.split("/")[4];
+  const owned=await env.DB.prepare("SELECT id,status,due_at FROM assignments WHERE id=? AND editor_id=?").bind(assignmentId,a.id).first();
+  if(!owned)return bad("Assignment not found for this editor.",404);
+  const r=await env.DB.prepare("SELECT id,version_number,original_filename,mime_type,size_bytes,notes,qc_status,submitted_at FROM work_submissions WHERE assignment_id=? ORDER BY version_number DESC").bind(assignmentId).all();
+  return out({ok:true,assignment:{id:owned.id,status:owned.status,due_at:owned.due_at},submissions:r.results||[]});
+ }
+ 
  if(m==="GET"&&p==="/v1/editor/assignments"){
   const a=await user(req,env,["editor"]);
   const r=await env.DB.prepare("SELECT a.id,a.project_id,a.due_at,a.status,p.public_project_code,p.title,p.category,p.brief,o.delivery_days,(SELECT r.notes FROM client_revision_requests r WHERE r.assignment_id=a.id AND r.status IN ('open','in_progress') ORDER BY r.request_number DESC LIMIT 1) AS client_revision_notes,(SELECT r.request_number FROM client_revision_requests r WHERE r.assignment_id=a.id AND r.status IN ('open','in_progress') ORDER BY r.request_number DESC LIMIT 1) AS client_revision_number FROM assignments a JOIN projects p ON p.id=a.project_id JOIN project_offers o ON o.id=a.offer_id WHERE a.editor_id=? AND a.status IN ('active','submitted','quality_check','revision') ORDER BY a.due_at ASC").bind(a.id).all();
