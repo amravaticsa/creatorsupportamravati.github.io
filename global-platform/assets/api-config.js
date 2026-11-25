@@ -13,7 +13,7 @@
     isolatedBaseUrl: ISOLATED_API_BASE,
     isolatedTrafficEnabled: false,
     rollbackBaseUrl: LEGACY_API_BASE,
-    migrationGate: "BLOCKED_UNTIL_ROUTE_PARITY_AND_DATA_RECONCILIATION"
+    migrationGate: "BLOCKED_UNTIL_HR_ACCESS_AUTHENTICATED_E2E_STORAGE_ROLLBACK_AND_ACCEPTANCE"
   });
   root.CSA_GLOBAL_API_CONFIG = config;
 })(window);
