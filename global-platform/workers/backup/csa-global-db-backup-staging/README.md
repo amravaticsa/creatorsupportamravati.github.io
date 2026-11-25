@@ -14,12 +14,12 @@ The scheduled exports are:
 
 | UTC | Database | D1 binding |
 |---|---|---|
-| 02:02 | `csa-global-platform-staging` | `DB_GLOBAL` |
+| 02:02 | `csa-global-platform-isolated-staging` | `DB_GLOBAL` |
 | 02:07 | `csa-superadmin-isolated-staging` | `DB_SUPERADMIN` |
 | 02:12 | `csa-superadmin-staging` | `DB_SUPERADMIN_LEGACY` |
-| 02:17 | `csa-global-platform-isolated-staging` | `DB_GLOBAL_LEGACY` |
-| 02:22 | `csa-video-isolated-staging` | `DB_VIDEO` |
-| 02:27 | `csa-global-legacy-video-isolated-staging` | `DB_GLOBAL_VIDEO_LEGACY` |
+| 02:17 | `csa-global-platform-staging` (legacy compatibility) | `DB_GLOBAL_LEGACY` |
+| 02:22 | `csa-video-isolated-staging` | `DB_VIDEO` (`video_isolated` artifact) |
+| 02:27 | `csa-global-legacy-video-isolated-staging` | `DB_GLOBAL_VIDEO_LEGACY` (`global_video_isolated` artifact) |
 | 02:32 | `csa-editor-superadmin-isolated-staging` | `DB_EDITOR_SUPERADMIN` |
 | 02:37 | `csa-video-workflow-staging` | `DB_VIDEO_WORKFLOW` |
 | 02:42 | `csa-video-rush-staging` | `DB_RUSH` |
@@ -40,6 +40,6 @@ The R2 bucket must remain private. Do not add a public R2 domain or public bucke
 The isolated Global API Worker uses the isolated D1 as its source of truth. The legacy database is retained as a compatibility/archival store and must not be rebound to isolated Workers unless its schema and migration are explicitly validated. The backup Worker source and D1 bindings must agree: `global.json.gz` is the isolated database; `global_legacy.json.gz` is the older compatibility database.
 
 
-### 24-November pre-correction artifacts
+### Artifact naming and restore discipline
 
-Backups created before the final source-to-binding alignment at 2026-11-24 16:10 UTC must be treated as diagnostic only when their database UUID or binding mapping cannot be independently verified. The first complete daily backup after the alignment will include explicit D1 UUIDs, a readback/decompression verification, and a `.verification.json` success marker. Do not restore an artifact without matching its database UUID to the intended recovery database.
+The `video_isolated` and `global_video_isolated` artifact labels identify the two isolated video-system D1 databases; the second is a legacy video subsystem database but is still isolated from production and the older main-stack compatibility stores. Each manifest and `.verification.json` marker records the exact D1 UUID. Before restore, match that UUID to the intended recovery database and keep the target separate from all live staging and production databases.
