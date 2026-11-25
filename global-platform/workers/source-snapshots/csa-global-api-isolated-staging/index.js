@@ -1781,50 +1781,6 @@ async function handle(req,env){
   return out({ok:true,quotes,summary:{quotes:quotes.length,total_minor:quotes.reduce((n,x)=>n+x.total_amount_minor,0),paid_minor:quotes.reduce((n,x)=>n+x.paid_minor,0),balance_minor:quotes.reduce((n,x)=>n+x.balance_minor,0)}});
  }
 
- if(m==="GET"&&p==="/v1/admin/finance/overview"){
-  const a=await user(req,env,["admin"]);
-  const q=await env.DB.batch([
-   env.DB.prepare("SELECT currency,COUNT(*) AS transactions,COALESCE(SUM(amount_minor),0) AS collected_minor FROM payments WHERE status='succeeded' GROUP BY currency"),
-   env.DB.prepare("SELECT currency,COUNT(*) AS quotes,COALESCE(SUM(total_amount_minor),0) AS quoted_minor FROM client_quotes WHERE status IN ('sent','accepted') GROUP BY currency"),
-   env.DB.prepare("SELECT currency,COUNT(*) AS requests,COALESCE(SUM(amount_minor),0) AS refund_requested_minor FROM client_refund_requests WHERE status IN ('requested','under_review','approved') GROUP BY currency"),
-   env.DB.prepare("SELECT currency,COUNT(*) AS refunds,COALESCE(SUM(amount_minor),0) AS deposit_refund_minor FROM editor_deposit_refunds WHERE status IN ('requesting','processing','processed','succeeded') GROUP BY currency"),
-   env.DB.prepare("SELECT COUNT(*) AS pending_client_refunds FROM client_refund_requests WHERE status IN ('requested','under_review')"),
-   env.DB.prepare("SELECT COUNT(*) AS deposit_refund_records FROM editor_deposit_refunds WHERE status IN ('requesting','processing')")
-  ]);
-  await log(env,a.id,"finance_overview_viewed","finance","staging",{});
-  return out({ok:true,read_only:true,collections:q[0].results||[],quotes:q[1].results||[],client_refunds:q[2].results||[],deposit_refunds:q[3].results||[],pending:{client_refunds:Number(q[4].results?.[0]?.pending_client_refunds||0),deposit_refunds:Number(q[5].results?.[0]?.deposit_refund_records||0)},limitations:["No editor payout transfers or paid-status ledger yet.","No client final-balance order creation route added in this phase.","Refund approvals do not imply a provider refund has executed."]});
- }
- return bad("Route not found.",404,"not_found");
-}
-async function cleanupExpiredMultipartUploads(env){
- const now=new Date().toISOString();
- const rows=await env.DB.prepare("SELECT id,r2_object_key,r2_upload_id FROM multipart_upload_sessions WHERE status='open' AND expires_at<=? ORDER BY expires_at LIMIT 100").bind(now).all();
- let aborted=0,failed=0;
- for(const session of rows.results||[]){
-  try{
-   await env.MEDIA.resumeMultipartUpload(session.r2_object_key,session.r2_upload_id).abort();
-   const result=await env.DB.prepare("UPDATE multipart_upload_sessions SET status='aborted' WHERE id=? AND status='open'").bind(session.id).run();
-   if(result.meta?.changes)aborted++;
-  }catch(error){
-   failed++;
-   console.warn(JSON.stringify({event:"multipart_cleanup_abort_failed",session_id:session.id,error:String(error?.message||error)}));
-  }
- }
- console.log(JSON.stringify({event:"multipart_cleanup_completed",checked:(rows.results||[]).length,aborted,failed,at:now}));
- return {checked:(rows.results||[]).length,aborted,failed};
-}
-async function verifyGlobalApiHmac(env,canonical,sig){const secrets=[env.GLOBAL_API_SYNC_HMAC_SECRET,env.ADMIN_SYNC_HMAC_SECRET].filter(Boolean);for(const secret of secrets){const expected=await hmacHex(secret,canonical);if(constantTime(expected,sig))return true;}return false;}
-async function verifyGlobalAdminSyncHmac(env,canonical,sig){const secrets=[env.CSA_GLOBAL_ADMIN_SYNC_HMAC_SECRET,env.GLOBAL_API_SYNC_HMAC_SECRET,env.ADMIN_SYNC_HMAC_SECRET].filter(Boolean);for(const secret of secrets){const expected=await hmacHex(secret,canonical);if(constantTime(expected,sig))return true;}return false;}
-function razorpayRuntime(env){
- const configured=!!(env.RAZORPAY_KEY_ID&&env.RAZORPAY_KEY_SECRET&&env.RAZORPAY_WEBHOOK_SECRET);
- const testMode=!!(env.RAZORPAY_KEY_ID&&String(env.RAZORPAY_KEY_ID).startsWith("rzp_test_"));
- const environment=String(env.ENVIRONMENT||"").trim().toLowerCase();
- const ready=configured&&(environment==="staging"?testMode:environment==="production"?!testMode:false);
- const mode=!configured?"unconfigured":environment==="staging"?(testMode?"test":"blocked_non_test_key"):environment==="production"?(testMode?"blocked_test_key":"live"):"blocked_unknown_environment";
- return {ready,mode,testMode};
-}
-export default {async scheduled(controller,env){
-
  if(m==="GET"&&p==="/v1/admin/finance/client-balances"){
  const a=await user(req,env,["admin"]);
  const q=await env.DB.prepare("SELECT q.id AS quote_id,q.project_id,q.client_id,u.email AS client_email,q.total_amount_minor,q.currency,q.status AS quote_status,q.payment_status,q.created_at,COALESCE(paid.paid_minor,0) AS paid_minor,MAX(0,q.total_amount_minor-COALESCE(paid.paid_minor,0)) AS balance_minor FROM client_quotes q JOIN users u ON u.id=q.client_id LEFT JOIN (SELECT quote_id,SUM(amount_minor) AS paid_minor FROM payments WHERE status='succeeded' AND payment_type IN ('client_advance','client_balance') AND quote_id IS NOT NULL GROUP BY quote_id) paid ON paid.quote_id=q.id WHERE q.total_amount_minor>COALESCE(paid.paid_minor,0) AND q.status='accepted' ORDER BY q.created_at ASC LIMIT 300").all();
@@ -1882,6 +1838,20 @@ export default {async scheduled(controller,env){
   const q=await env.DB.prepare("SELECT ep.id,ep.offer_id,ep.project_id,ep.editor_id,ep.amount_minor,ep.currency,ep.status,ep.created_at,ep.approved_at,ep.paid_at,ep.payment_reference,ep.note,ep.approved_by,ep.paid_by,COALESCE(e.display_name,u.email) AS editor_name,u.email AS editor_email FROM editor_payouts ep JOIN users u ON u.id=ep.editor_id LEFT JOIN editor_profiles e ON e.user_id=ep.editor_id ORDER BY CASE ep.status WHEN 'pending_approval' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,ep.created_at DESC LIMIT 200").all();
   const rows=q.results||[];
   return out({ok:true,payouts:rows,summary:{count:rows.length,pending_approval:rows.filter(x=>x.status==="pending_approval").length,approved:rows.filter(x=>x.status==="approved").length,paid:rows.filter(x=>x.status==="paid").length,total_minor:rows.reduce((n,x)=>n+Number(x.amount_minor||0),0)},note:"Read-only finance queue. No bank transfer is initiated by this API."});
+ }
+
+ if(m==="GET"&&p==="/v1/admin/finance/overview"){
+  const a=await user(req,env,["admin"]);
+  const q=await env.DB.batch([
+   env.DB.prepare("SELECT currency,COUNT(*) AS transactions,COALESCE(SUM(amount_minor),0) AS collected_minor FROM payments WHERE status='succeeded' GROUP BY currency"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS quotes,COALESCE(SUM(total_amount_minor),0) AS quoted_minor FROM client_quotes WHERE status IN ('sent','accepted') GROUP BY currency"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS requests,COALESCE(SUM(amount_minor),0) AS refund_requested_minor FROM client_refund_requests WHERE status IN ('requested','under_review','approved') GROUP BY currency"),
+   env.DB.prepare("SELECT currency,COUNT(*) AS refunds,COALESCE(SUM(amount_minor),0) AS deposit_refund_minor FROM editor_deposit_refunds WHERE status IN ('requesting','processing','processed','succeeded') GROUP BY currency"),
+   env.DB.prepare("SELECT COUNT(*) AS pending_client_refunds FROM client_refund_requests WHERE status IN ('requested','under_review')"),
+   env.DB.prepare("SELECT COUNT(*) AS deposit_refund_records FROM editor_deposit_refunds WHERE status IN ('requesting','processing')")
+  ]);
+  await log(env,a.id,"finance_overview_viewed","finance","staging",{});
+  return out({ok:true,read_only:true,collections:q[0].results||[],quotes:q[1].results||[],client_refunds:q[2].results||[],deposit_refunds:q[3].results||[],pending:{client_refunds:Number(q[4].results?.[0]?.pending_client_refunds||0),deposit_refunds:Number(q[5].results?.[0]?.deposit_refund_records||0)},limitations:["No editor payout transfers or paid-status ledger yet.","No client final-balance order creation route added in this phase.","Refund approvals do not imply a provider refund has executed."]});
  }
  return bad("Route not found.",404,"not_found");
 }
