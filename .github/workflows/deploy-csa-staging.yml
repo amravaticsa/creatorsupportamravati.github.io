@@ -29,6 +29,8 @@ jobs:
       - name: Validate platform JavaScript
         run: |
           node --check global-platform/api/src/index.js
+          node --check global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js
+          node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/*.test.mjs
           node --check global-platform/assets/auth.js
           node --check global-platform/assets/portal.js
 
