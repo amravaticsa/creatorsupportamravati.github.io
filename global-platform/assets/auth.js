@@ -202,7 +202,7 @@ async function onGoogleCredential(response){
      panel.hidden=false;message.textContent="CSA ne aapka profile reject kiya hai. "+(data.profile_review_note?"Review reason: "+data.profile_review_note+" ":"")+"Neeche details sudharein aur corrected profile dobara submit karein.";
      submit.onclick=async()=>{const updated={legal_name:$("legal-name").value.trim(),country:$("editor-country").selectedOptions[0]?.textContent.trim()||"",country_code:$("editor-country").value,state:$("editor-state").value.trim(),district:$("editor-district").value.trim(),city:$("editor-city").value.trim(),village:$("editor-village").value.trim(),postal_code:$("editor-postal-code").value.trim(),address_line:$("editor-address-line").value.trim(),languages:$("langs").value.split(",").map(x=>x.trim()).filter(Boolean),experience_level:$("exp").value,software:$("software").value.split(",").map(x=>x.trim()).filter(Boolean),specializations:$("specializations").value.split(",").map(x=>x.trim()).filter(Boolean),bio:$("bio").value.trim(),availability:"project-based"};
       if(!updated.legal_name||!updated.country_code||!updated.state||!updated.city||!updated.specializations.length){message.textContent="Full legal name, country, state, city aur at least one specialization zaroori hai.";return;}
-      if(updated.country_code==="IN"&&updated.postal_code&&!/^\\d{6}$/.test(updated.postal_code)){message.textContent="India PIN Code 6 digits ka hona chahiye.";return;}
+      if(updated.country_code==="IN"&&updated.postal_code&&!/^\d{6}$/.test(updated.postal_code)){message.textContent="India PIN Code 6 digits ka hona chahiye.";return;}
       submit.disabled=true;message.textContent="Corrected profile CSA ko submit ho raha hai…";
       try{const cr=await fetch(API+"/v1/editor/profile-correction",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:response.credential,nonce,profile:updated})}),cd=await cr.json();if(!cr.ok||!cd.ok)throw Error(cd.error?.message||"Profile correction submit nahi hua.");message.textContent="Corrected profile successfully submitted. CSA Admin review pending hai.";submit.hidden=true;status.textContent="Profile correction submitted for review.";}catch(err){message.textContent=err.message;submit.disabled=false;}
      };
@@ -213,7 +213,7 @@ async function onGoogleCredential(response){
     await uploadKycDocument(response.credential);renderKycReviewStatus({kyc_status:"pending"},"submitted");status.textContent="Your replacement KYC document has been securely resubmitted. CSA review is pending.";
    }else{
     if(isEditor&&(!profile.legal_name||!profile.country_code||!profile.state||!profile.city||!profile.specializations.length)){status.textContent="Full legal name, country, state/province, city and specializations are required.";return;}
-    if(isEditor&&profile.country_code==="IN"&&profile.postal_code&&!/^\\d{6}$/.test(profile.postal_code)){status.textContent="India ke liye PIN Code 6 digits ka hona chahiye.";return;}
+    if(isEditor&&profile.country_code==="IN"&&profile.postal_code&&!/^\d{6}$/.test(profile.postal_code)){status.textContent="India ke liye PIN Code 6 digits ka hona chahiye.";return;}
     const portfolioError=validatePortfolioVideos(),kycError=validateKycDocument();
     if(portfolioError||kycError){status.textContent=portfolioError||kycError;return;}
     await uploadKycDocument(response.credential);renderKycReviewStatus({kyc_status:"pending"},"submitted");await uploadPortfolioVideos(response.credential);
