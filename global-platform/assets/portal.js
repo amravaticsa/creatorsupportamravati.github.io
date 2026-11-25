@@ -1,5 +1,5 @@
 (()=>{"use strict";
-const API="https://csa-global-api-staging.creatorsupportamravati.workers.dev",token=sessionStorage.getItem("csa_global_token"),user=JSON.parse(sessionStorage.getItem("csa_global_user")||"null");
+const API=(window.CSA_GLOBAL_API_CONFIG&&window.CSA_GLOBAL_API_CONFIG.activeBaseUrl)||"https://csa-global-api-staging.creatorsupportamravati.workers.dev",token=sessionStorage.getItem("csa_global_token"),user=JSON.parse(sessionStorage.getItem("csa_global_user")||"null");
 const $=id=>document.getElementById(id);
 if(!token||!user){location.href="login.html";return;}
 const headers={"content-type":"application/json","authorization":"Bearer "+token};
