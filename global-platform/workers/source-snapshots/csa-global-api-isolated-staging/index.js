@@ -70,6 +70,7 @@ function adminPermissionFor(req){
 
  if(m==="GET"&&["/v1/admin/finance/overview","/v1/admin/finance/client-balances","/v1/admin/finance/refund-summary","/v1/admin/finance/refund-dashboard","/v1/admin/finance/reconciliation","/v1/admin/finance/editor-payouts"].includes(p))return "finance.read";
  if(m==="POST"&&/^\/v1\/admin\/finance\/editor-payouts\/[\w-]+\/(approve|mark-paid)$/.test(p))return "finance.payouts";
+ if(m==="GET"&&/^\/v1\/client\/refunds\/[\w-]+$/.test(p))return null;
  if(m==="GET"&&p==="/v1/client/balance")return null;
  return "__deny__";
 }
