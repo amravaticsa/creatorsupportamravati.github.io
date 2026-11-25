@@ -23,6 +23,7 @@ async function claims(req,env){
  return c;
 }
 const GLOBAL_ROLE_PERMISSIONS={
+ super_admin:["projects.manage","content.manage","finance.read","finance.refunds","finance.payouts","support.manage"],
  project_admin:["projects.manage"],
  editor_admin:["content.manage"],
  finance_admin:["finance.read"],
@@ -222,7 +223,7 @@ async function handle(req,env){
   const seenIds=new Set(),seenEmails=new Set(),records=[];
   for(const item of snapshot){
    const sourceId=txt(item?.source_admin_id,100),email=txt(item?.email,254).toLowerCase(),role=txt(item?.source_role,40),status=txt(item?.status,20),financeAccess=txt(item?.finance_access_level,10)||"none";
-   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status)||!["none","read","write","manage"].includes(financeAccess))return bad("Snapshot contains an invalid admin record.");
+   if(!sourceId||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["super_admin","project_admin","editor_admin","finance_admin","support_admin"].includes(role)||!["active","suspended","revoked"].includes(status)||!["none","read","write","manage"].includes(financeAccess))return bad("Snapshot contains an invalid admin record.");
    if(seenIds.has(sourceId)||seenEmails.has(email))return bad("Snapshot contains duplicate admin identities.");
    seenIds.add(sourceId);seenEmails.add(email);records.push({sourceId,email,role,status,financeAccess});
   }
@@ -233,7 +234,7 @@ async function handle(req,env){
   for(const a of records){
    statements.push(env.DB.prepare("INSERT INTO global_admin_authorizations(id,source_admin_id,email,source_role,status,finance_access_level) VALUES(?,?,?,?,?,?) ON CONFLICT(source_admin_id) DO UPDATE SET email=excluded.email,source_role=excluded.source_role,status=excluded.status,finance_access_level=excluded.finance_access_level,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(uid("gauth"),a.sourceId,a.email,a.role,a.status,a.financeAccess));
    statements.push(env.DB.prepare("DELETE FROM global_admin_department_access WHERE source_admin_id=?").bind(a.sourceId));
-   const departmentIds=({editor_admin:["dept-content-video"],project_admin:["dept-operations-events"],finance_admin:["dept-finance-accounts"],support_admin:["dept-sales-client"]})[a.role]||[];
+   const departmentIds=a.role==="super_admin"?((await env.DB.prepare("SELECT id FROM global_departments WHERE status='active' ORDER BY id").all()).results||[]).map(x=>x.id):(({editor_admin:["dept-content-video"],project_admin:["dept-operations-events"],finance_admin:["dept-finance-accounts"],support_admin:["dept-sales-client"]})[a.role]||[]);
    if(a.status==="active")for(const departmentId of departmentIds){const level=a.role==="finance_admin"?(a.financeAccess==="read"?"read":(["write","manage"].includes(a.financeAccess)?"manage":"none")):"manage";if(level!=="none")statements.push(env.DB.prepare("INSERT INTO global_admin_department_access(id,source_admin_id,department_id,access_level,granted_by) VALUES(?,?,?,?,?)").bind(uid("deptaccess"),a.sourceId,departmentId,level,"superadmin_role_sync"));}
   }
   statements.push(env.DB.prepare("DELETE FROM admin_sync_nonces WHERE expires_at<?").bind(nowSeconds));
