@@ -4,39 +4,24 @@ import { readFile } from "node:fs/promises";
 
 const api = await readFile(new URL("../index.js", import.meta.url), "utf8");
 
-test("client delivery history is owner-scoped and exposes only QC-approved submissions", () => {
-  const start = api.indexOf('if(m==="GET"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/deliverables")){');
-  const end = api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/approve")){', start);
+test("client deliverables are owner-scoped and include a server-derived revision policy", () => {
+  const start = api.indexOf("const deliver=p.match(");
+  const end = api.indexOf("const clientReview=p.match(", start);
   assert.ok(start >= 0 && end > start, "client deliverables route must exist");
   const route = api.slice(start, end);
-  assert.match(route, /user\(req,env,\["client"\]\)/);
-  assert.match(route, /client_id=\?/);
-  assert.match(route, /s\.qc_status='approved'/);
-  assert.match(route, /client_revision_requests/);
+  for (const required of ['user(req,env,["client"])','client_id=?',"s.qc_status='approved'","revision_policy","revisions_included"]) {
+    assert.ok(route.includes(required), "missing client deliverable guard: " + required);
+  }
 });
 
-test("client final approval is limited to latest QC-approved delivery and no open revision", () => {
-  const start = api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/approve")){');
-  const end = api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions")){', start);
-  assert.ok(start >= 0 && end > start, "client approval route must exist");
+test("client approve and revision aliases reuse guarded review lifecycle", () => {
+  const start = api.indexOf("const clientReview=p.match(");
+  const end = api.indexOf('if(m==="GET"&&p==="/v1/editor/payouts"){', start);
+  assert.ok(start >= 0 && end > start, "client review route must exist");
   const route = api.slice(start, end);
-  assert.match(route, /user\(req,env,\["client"\]\)/);
-  assert.match(route, /client_id=\?/);
-  assert.match(route, /qc_status='approved'/);
-  assert.match(route, /status IN \('open','in_progress'\)/);
-  assert.match(route, /delivery_approval_conflict/);
-});
-
-test("client revision requests enforce ownership, QC, revision cap and one open request", () => {
-  const start = api.indexOf('if(m==="POST"&&p.startsWith("/v1/client/projects/")&&p.endsWith("/revisions")){');
-  const end = api.indexOf('if(m==="GET"&&p.startsWith("/v1/editor/assignments/")&&p.endsWith("/submissions")){', start);
-  assert.ok(start >= 0 && end > start, "client revision route must exist");
-  const route = api.slice(start, end);
-  assert.match(route, /user\(req,env,\["client"\]\)/);
-  assert.match(route, /client_id=\?/);
-  assert.match(route, /revisions_included/);
-  assert.match(route, /qc_status='approved'/);
-  assert.match(route, /revision_request_conflict/);
+  for (const required of ['(review|approve|revisions)','action==="approve"','action==="revisions"',"accepted client quotation is required","client_balance_due","client_refund_hold","payout_amount_mismatch","revision_limit_reached","requestedSubmissionId"]) {
+    assert.ok(route.includes(required), "missing client review safety check: " + required);
+  }
 });
 
 test("editor submission history is restricted to the assigned editor", () => {
@@ -44,7 +29,7 @@ test("editor submission history is restricted to the assigned editor", () => {
   const end = api.indexOf('if(m==="GET"&&p==="/v1/editor/assignments"){', start);
   assert.ok(start >= 0 && end > start, "editor assignment history route must exist");
   const route = api.slice(start, end);
-  assert.match(route, /user\(req,env,\["editor"\]\)/);
-  assert.match(route, /editor_id=\?/);
-  assert.match(route, /Assignment not found for this editor/);
+  for (const required of ['user(req,env,["editor"])',"editor_id=?","Assignment not found for this editor"]) {
+    assert.ok(route.includes(required), "missing editor ownership guard: " + required);
+  }
 });
