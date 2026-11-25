@@ -37,10 +37,10 @@ export async function syncGlobalAdminAuthorizations(env) {
     "SELECT a.id,a.email,a.role,a.status,COALESCE((SELECT m.access_level FROM csa_admin_module_access m WHERE m.admin_id=a.id AND m.module_key='finance'),'none') AS finance_access_level FROM admin_accounts a ORDER BY a.id",
   ).all();
 
-  // Pending invitations are intentionally omitted: they receive no Global access.
+  // Pending invitations are intentionally omitted: they receive no Global access. Active Super Admin is included with the explicit full-access mapping at the receiver.
   // The receiver revokes records absent from this authoritative snapshot.
   const snapshot = (result.results || [])
-    .filter((account) => account.status !== "pending" && account.role !== "super_admin")
+    .filter((account) => account.status !== "pending")
     .map((account) => ({
       source_admin_id: account.id,
       email: String(account.email || "").trim().toLowerCase(),
