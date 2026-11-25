@@ -19,4 +19,7 @@ async function loadSharedShell(){
   newHeader.querySelectorAll(".main-nav a").forEach(a=>{if(new URL(a.href,location.href).pathname===active)a.setAttribute("aria-current","page")});
  }catch(e){console.warn("CSA shared header/footer fallback:",e)}
 }
-await loadSharedShell();\n// Public pages keep account sign-in routes out of visitor navigation.\nreturn;\n})();\n
+await loadSharedShell();
+// Public pages keep account sign-in routes out of visitor navigation.
+return;
+})();
