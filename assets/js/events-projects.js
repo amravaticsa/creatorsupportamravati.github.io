@@ -120,11 +120,9 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
     root.setAttribute("aria-busy", "false");
     root.replaceChildren();
     if (!items.length) {
-      root.classList.add("has-coming-soon");
       root.append(emptyState());
       return;
     }
-    root.classList.remove("has-coming-soon");
     items.forEach(item => root.append(card(item)));
   }
 
@@ -180,7 +178,7 @@ const CSA_EVENTS_API_URL = "https://script.google.com/macros/s/AKfycbwSSvSq1xOCz
 
   function showError(message) {
     // Keep the homepage visually complete even when the optional live feed is offline.
-    // The homepage uses the local Coming Soon slider as a graceful fallback.
+    // The homepage displays a factual empty state when no public events are available.
     if (homeRoot) render(homeRoot, []);
     if (pageRoot) {
       pageRoot.setAttribute("aria-busy", "false");
