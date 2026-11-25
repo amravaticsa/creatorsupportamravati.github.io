@@ -25,45 +25,45 @@ The frontend uses the shared `assets/api-config.js`. It is frozen at runtime and
 
 These checks establish build/preflight success, not full authenticated end-to-end parity.
 
-## Route parity audit — remaining blockers
+## Route parity audit — source-level result
 
-A fresh source inventory compared frontend literal API paths with both Worker source files and inspected method-dispatch branches. The following Legacy API operation families still need explicit isolated parity review; some may be intentionally absent, but must be proven against the actual UI workflow and data model before cutover:
-
-- Admin client-refund detail is implemented and finance-read permission checked. Staging-only Razorpay refund processing is implemented with test-key enforcement and provider idempotency; it remains unavailable unless valid Razorpay test credentials are explicitly configured on the staging Worker and exercised with a disposable test payment.
-- Client refund detail is now implemented with client ownership scoping. It still needs authenticated E2E verification using a dedicated staging client identity.
-- Editor payout creation and approve/mark-paid actions are implemented with QC eligibility, idempotency, state checks and a dedicated `finance.payouts` permission. No bank transfer is initiated. The permission is not granted to the Finance Admin read-only role; real payout mutations remain unavailable until an explicitly authorized role and staging test process are approved.
-- Admin assignment routes and assignment state transitions.
-- Full client project detail, quote, delivery and review route/method matrix. The isolated Worker has a revision-request read route and guarded deliverables/review handlers; legacy and isolated path shapes are not identical.
-- Dynamic editor tender, admin quote, multipart upload session/part/complete/abort, project-file upload/download and media streaming paths require request/response and authorization tests, not just literal string matching.
-- Any route dynamically composed by frontend helpers or constructed from response data must be included in the final browser-call inventory.
-
-The source inventory also found isolated-only editor logout/session-revocation endpoints. These are not a substitute for proving the legacy client workflow parity.
+- A method-dispatch inventory compared Legacy API and isolated Worker source. Every legacy public `/v1/*` and `/health` route/method pattern is present in the isolated Worker. The isolated Worker also adds guarded routes for client deliverables/review/revisions, editor assignment submission history, refund detail, and finance workflows.
+- An automated parity test now extracts the public route inventory from both source files and fails if a legacy public route/method is absent from isolated.
+- Two legacy-only server-to-server endpoints (`/internal/superadmin/finance-data` and `/internal/superadmin/regional-admin-data`) are not used by the current isolated Super Admin Worker. Their current isolated equivalents are the signed finance/refund dashboard bridge and the signed `/internal/regional/*` bridge. The isolated Super Admin Worker also uses the new signed `/internal/superadmin/legacy-links` bridge.
+- Finance Admin remains read-only. Refund/payout mutations are not granted to Finance Admin. The Super Admin bridge validates actor role, allowlist, HMAC, timestamp and nonce. Editor payout readiness checks include completed project/assignment, QC approval, full client payment, no open refunds and matching quote/editor fee. Recording paid requires explicit transfer-completed confirmation and a reference; it does not initiate a transfer.
+- The isolated direct Razorpay client-refund route is staging-only and requires `rzp_test_` credentials. It has not been exercised with a real disposable Razorpay test payment. Do not configure live payment keys or enable a production refund path as part of this migration.
+- The source-level inventory is not authenticated browser E2E. Dedicated client/editor/admin sessions and disposable records are still needed to verify the actual UI request/response flows.
 
 ## Storage and data state
 
-- Isolated Global API D1 binding points to isolated Global D1.
-- Isolated API media binding points to `csa-global-media-isolated-staging`; video bindings point to isolated video resources.
-- The inspected staging R2 buckets were empty at the time of the audit. No object migration was therefore performed.
-- Legacy staging media bucket CORS configuration returned “does not exist”; browser-direct upload compatibility is not established. Do not add permissive CORS. Derive exact origins, methods and headers from the upload transport and test on isolated staging only.
-- Sampled legacy/isolated D1 entities (users, client profiles and projects) had matching stable IDs and counts, but this was not a complete table-by-table reconciliation. Matching samples do not establish transactional consistency.
-- Isolated data sampled: 2 users, 2 client profiles, 3 projects, and zero sampled operational rows for offers, assignments, submissions, payments, refunds, editor profiles and payouts. No real payment or production data mutation is authorized.
+- Isolated Global API bindings point to the isolated Global D1 and isolated media/video resources.
+- The frontend uploads through the API proxy: multipart create, part `PUT`, complete/abort, and authenticated file download. It does not upload directly from the browser to an R2 presigned URL. The Worker CORS layer allows `GET,POST,PUT,OPTIONS` and the required `Authorization`/`Content-Type` headers for the staging Pages origin. The missing bucket-level R2 CORS configuration is therefore not itself a blocker for this proxy-based upload path.
+- All inspected staging media/video R2 buckets were empty at the time of inspection. No object migration was required or performed. A real authenticated upload, resume, complete, private download and cleanup cycle using a disposable staging file remains to be tested.
+- D1 schema alignment migrations were committed and applied:
+  - `0037_isolated_rollback_compatibility.sql` applied additively to Legacy Global staging D1. It adds isolated-required nullable columns while preserving older compatibility columns; no existing rows were rewritten or dropped.
+  - `0038_isolated_staging_index_parity.sql` applied to isolated Global staging D1 to align the remaining indexes.
+- After those changes, both databases have 59 tables, 70 indexes, 15 triggers and 4 views. Both pass `PRAGMA quick_check` and have zero `PRAGMA foreign_key_check` violations. Three old compatibility columns remain only in Legacy (`deposit_ledger.created_by_admin_id`, `editor_deposit_refunds.requested_by_admin_id`, and `legacy_editor_identity_links.created_by/reviewed_by`); the newer source-admin columns exist in both.
+- Row comparison across 55 non-operational tables found no business-data differences after excluding generated timestamps. This includes users, client profiles, projects, countries, department routing, authorization records and regional permission catalog. The 249 country records differ only in `updated_at`; authorization/catalog records differ only in sync/creation timestamps.
+- Generated operational tables (`admin_sync_nonces`, `api_rate_limits`, `multipart_cleanup_runs`) are intentionally not compared as business records.
+- `global_admin_department_access` remains a permission-scope discrepancy: Legacy has an additional `dept-hr-admin` grant for an existing editor-admin source identity; isolated reflects the current Super Admin role-to-department mapping and has only the content department grant. This was not copied or revoked automatically. Review the intended HR grant before cutover.
+- No real payment, payout, refund, employee, editor or client business records were fabricated.
 
 ## Required gates before isolated traffic can be enabled
 
 1. Complete frontend browser-call inventory, including methods, dynamic paths, binary responses and streaming.
 2. Implement and test every required route with method, role, ownership, input validation, response contract and DB side-effect parity.
-3. Compare all D1 tables, indexes, triggers, views and schema versions; reconcile row counts and stable keys with explicit ownership/status rules.
+3. Resolve the remaining HR department-access discrepancy and retain the completed D1 schema/object/data reconciliation evidence.
 4. Verify JWT issuer/audience/JWKS, Google auth, editor credential lifecycle, Cloudflare Access, admin authorization sync and session revocation.
-5. Exercise isolated R2 upload, resumability, multipart completion, private download authorization, video streaming and cleanup using disposable staging objects only.
+5. Exercise isolated R2-backed API upload, resumability, multipart completion, private download authorization, video streaming and cleanup using disposable staging objects only.
 6. Verify no legacy-only schema assumptions and no cross-environment bindings.
 7. Run authenticated client, editor and admin staging E2E with dedicated test identities and disposable records. Unauthenticated smoke tests alone are insufficient.
-8. Perform a staging rollback drill and prove that writes do not split across databases.
+8. Design and perform a staging rollback drill that accounts for separate D1 databases. A URL switch alone does not roll back writes made after isolated traffic begins; prove replication/reconciliation or a write-free canary before switching.
 9. Obtain explicit user acceptance before any production change. Production remains outside this migration.
 
 ## Rollback and write safety
 
-The central config retains the Legacy Staging URL as both active and rollback target. No automatic cross-API fallback for writes is allowed: a timed-out write must first be reconciled by idempotency key against its originating database. Do not retry it against the other API.
+The central config retains the Legacy Staging URL as both active and rollback target. This is a routing fallback only, not a data rollback. The two APIs write to separate D1 databases; a URL switch after isolated writes would leave those writes behind. No automatic cross-API fallback for writes is allowed: a timed-out write must first be reconciled by idempotency key against its originating database. Do not retry it against the other API.
 
 ## Decision
 
-**MIGRATION GATE: BLOCKED.** Keep frontend traffic on Legacy Staging. Latest isolated route additions passed API validation and the Pages staging deployment plus read-only smoke tests passed. Full D1 schema/data reconciliation, disposable R2 upload/download E2E, dedicated authenticated client/editor/admin workflows and rollback drill remain outstanding. Cloudflare D1 API denied the attempted sqlite_master inventory with SQLITE_AUTH, so a complete remote schema inventory was not claimed. This is a safe incremental step, not completion of Step 2. Do not enable isolated traffic or touch production until every gate above is evidenced and signed off.
+**MIGRATION GATE: BLOCKED.** Keep frontend traffic on Legacy Staging. Public route/method source parity is complete and automated; D1 schema/object parity and business-row comparison are substantially complete. Remaining blockers are the HR department-access discrepancy, authenticated client/editor/admin E2E, disposable R2-backed upload/download/stream tests, and a rollback design that protects writes across separate D1 databases. Do not enable isolated traffic or touch production until these gates are evidenced and signed off.
