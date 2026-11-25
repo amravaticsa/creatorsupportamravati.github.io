@@ -38,7 +38,7 @@ test("payout mutations are routed through a separate ungranted finance.payouts p
 
 test("client refund processing is staging-only and requires Razorpay test credentials", () => {
   const start = api.indexOf("const clientRefundProcess=p.match(");
-  const end = api.indexOf("// Read-only finance views", start);
+  const end = api.indexOf('if(m==="GET"&&p==="/v1/client/balance"){' , start);
   assert.ok(start >= 0 && end > start);
   const route = api.slice(start, end);
   assert.match(route, /env\.ENVIRONMENT!=="staging"/);
