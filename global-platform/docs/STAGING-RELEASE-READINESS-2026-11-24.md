@@ -1,8 +1,8 @@
 # CSA Global staging release-readiness audit
 
-**Audit timestamp:** 2026-11-24 16:47 UTC  
+**Audit timestamp:** 2026-11-25 02:48 UTC  
 **Environment:** Cloudflare staging only  
-**Result:** Main and isolated staging stacks are separated. Technical staging is ready for controlled onboarding tests; commercial activation and production release remain blocked.
+**Result:** Main and isolated staging stacks are separated. Infrastructure, schema guards, authentication-boundary smoke tests and the first complete daily backup cycle pass. Real identity enrollment, approved commercial rules, payment credentials and production migration remain blocked.
 
 ## 1. Two distinct staging Global databases
 
@@ -39,7 +39,7 @@ All ten D1 databases attached to the backup Worker were checked with `PRAGMA for
 | Logical database | Tables | FK violations |
 |---|---:|---:|
 | Main staging Global | 59 | 0 |
-| Isolated Global | 58 | 0 |
+| Isolated Global | 59 | 0 |
 | Isolated Super Admin | 50 | 0 |
 | Main Super Admin legacy | 34 | 0 |
 | Isolated video | 14 | 0 |
@@ -51,7 +51,7 @@ All ten D1 databases attached to the backup Worker were checked with `PRAGMA for
 
 Both Global D1 databases currently contain 249 country rows, 2 users and 3 projects. All three projects remain country-unassigned. The isolated Super Admin country registry contains 249 rows; legal-review records remain zero. No country was legally approved or commercially activated by this setup.
 
-Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync succeeded twice after the final schema-role guard: 16:30:03.637–16:30:04.317 UTC and 16:45:03.737–16:45:04.377 UTC (1 record each) against D1 6a32. The isolated country registry last updated at 16:45:05 UTC with all 249 countries. The isolated 16:15 attempt returned 503 while the schema-role guard was being corrected; both later runs passed. The main HMAC admin sync also succeeded at 16:45:22.084–16:45:23.188 UTC (1 record) against D1 470. The two syncs target their matching Global API Worker/D1 pair.
+Both D1s have the `country_legal_evidence` table and zero evidence rows. Only isolated D1 6a32 has the `v_tender_country_scope` view; it currently has zero country legal-review rows. The isolated HMAC admin sync has completed 42 consecutive scheduled successes since the schema-role guard fix, from 16:30:03.637 UTC on 24 November through 02:45:04.021 UTC on 25 November, syncing one authorization each run against D1 6a32. The isolated 16:15 attempt returned 503 before the schema fix; no later scheduled failure is recorded. The main and isolated syncs target their matching Global API Worker/D1 pair.
 
 ## 4. Backup, storage and large uploads
 
@@ -59,7 +59,7 @@ Both D1s have the `country_legal_evidence` table and zero evidence rows. Only is
 - The private backup bucket is `csa-global-db-backups-staging`, in APAC Infrequent Access.
 - Its R2 lifecycle expires `daily/` backups after 30 days and aborts incomplete multipart uploads after 7 days.
 - The backup source verifies each database's role before export: `global` must be isolated D1 6a32, while `global_legacy` must be main D1 470. It captures schema, rows, indexes, views, triggers, quick-check and foreign-key results, gzip-compresses, reads back and verifies the R2 object, then writes a manifest.
-- The backup Worker has been rebound to `DB_GLOBAL` 6a32 and `DB_GLOBAL_LEGACY` 470. R2 contains earlier test artifacts for all ten D1s; the 03:50 UTC set predates the corrected Global database labels and is diagnostic only. The later 05:32–06:47 UTC test artifacts have `quickCheck=ok` and zero FK violations, but only the `global` and `superadmin` objects have explicit read-back verification records. Do not use these partial test artifacts as a complete restore set. The current Worker now writes a manifest and read-back verification record for every database. The first full daily cycle with the final bindings and schema-role guards completed on 25 November, 02:02–02:47 UTC (07:32–08:17 IST): all ten D1 exports have `verification_status=verified`, `quick_check=ok`, and zero foreign-key violations. A restore drill remains pending.
+- The backup Worker has been rebound to `DB_GLOBAL` 6a32 and `DB_GLOBAL_LEGACY` 470. The first full daily cycle with final bindings and schema-role guards completed on 25 November, 02:02–02:47 UTC (07:32–08:17 IST): all ten D1 exports have `verification_status=verified`, `quick_check=ok`, and zero foreign-key violations. The 10 R2 data objects, 10 manifests and 10 verification markers cover 276 tables and 2,291 rows. Each object was read back, decompressed and checked against its manifest. The backup Worker source and deployed module are byte-for-byte synchronized; all ten D1 bindings and schedules are verified.
 - Six inspected staging R2 buckets have no custom public domains and disabled managed public domains. The backup Worker has no public workers.dev or preview subdomain.
 - Large uploads use direct upload up to 90 MB and resumable R2 multipart uploads above 90 MB up to 5 GB per file. Parts are 50 MB, sessions expire after 24 hours, each part is SHA-256 checked, and upload operations are scoped to the authenticated uploader. The canonical upload tables currently show zero open sessions and zero orphaned parts; cleanup logs contain 179 successful runs.
 
@@ -69,7 +69,7 @@ Both D1s have the `country_legal_evidence` table and zero evidence rows. Only is
 - API validation includes Google auth, client upload security, project/country scope, finance read-only, regional bridge authentication, editor workflows, and schema/migration checks.
 - Finance Admin is enforced as `finance.read` only; Write/Manage options are hidden/disabled in the Super Admin UI.
 - Razorpay checkout remains unconfigured; no payment, refund or payout was executed.
-- The GitHub Worker configuration preflight cannot read Worker settings with the existing Pages token (HTTP 403). It correctly records a skipped detailed check rather than reporting a false pass. Add a separate least-privilege `CLOUDFLARE_WORKERS_READ_TOKEN` repository secret with Workers Scripts Read permission to enable the automated read-only binding check. Manual Cloudflare verification was performed during this audit.
+- The GitHub Worker configuration preflight cannot read Worker settings with the existing Pages token (HTTP 403). It correctly records a skipped detailed check rather than reporting a false pass. Add a separate least-privilege `CLOUDFLARE_WORKERS_READ_TOKEN` repository secret with Workers Scripts Read permission to enable the automated read-only binding check. The workflow now includes isolated Rush Admin and the legacy Super Admin binding guard; manual Cloudflare verification was performed during this audit.
 
 ## 6. Business activation gates
 
@@ -94,7 +94,7 @@ The separate production route audit still finds production hostnames routed to s
 
 ## 8. Release decision
 
-**Main and isolated staging technical status:** ready for controlled onboarding tests; the first corrected daily backup cycle remains pending.  
+**Staging infrastructure status:** core isolation, schema, auth-boundary smoke tests and the first 10/10 verified daily backup cycle pass. Controlled onboarding and commercial activation remain gated by real identities, approvals and test credentials.  
 **Commercial activation:** not ready.  
 **Production launch:** blocked.
 
@@ -114,7 +114,7 @@ The private Worker `csa-global-db-backup-staging` executed all ten scheduled slo
 | 02:12 | Main Super Admin legacy | `99bc…` | 34 | 595 | Verified |
 | 02:17 | Main Global legacy | `470a…` | 59 | 490 | Verified |
 | 02:22 | Isolated video legacy | `b611…` | 14 | 0 | Verified |
-| 02:27 | Main Global video legacy | `2d3f…` | 11 | 0 | Verified |
+| 02:27 | Isolated Global video legacy subsystem | `2d3f…` | 11 | 0 | Verified |
 | 02:32 | Editor Super Admin legacy | `1fc2…` | 33 | 0 | Verified |
 | 02:37 | Video workflow | `69f0…` | 10 | 0 | Verified |
 | 02:42 | Rush | `198a…` | 3 | 0 | Verified |
@@ -122,4 +122,4 @@ The private Worker `csa-global-db-backup-staging` executed all ten scheduled slo
 
 Each backup includes schema, rows, indexes, views, triggers and integrity results. The Worker decompresses each R2 object and validates its database identity, table/row counts, quick-check and foreign-key count before writing a manifest and verification record. The R2 bucket remains private and the Worker has no public subdomain.
 
-**Important limitation:** read-back verification proves the stored compressed backup can be read and matches its manifest; it does not prove a full database restore. A controlled restore drill into disposable D1 databases, including representative application smoke tests, is still required before production release.
+**Restore rehearsal status (25 November):** schema restoration has been exercised for all ten databases in disposable D1 databases. Full row-level restore has passed for the six isolated databases in the earlier six-database rehearsal and the 595-row legacy Super Admin database in the current rehearsal. The zero-row video workflow and main Rush databases passed schema/empty-dataset restore checks. The 490-row legacy Global database passed schema-only restoration (59 tables, 65 indexes, 3 views, 13 triggers), but its data rows were not copied into the temporary D1; full row-level restore remains a release blocker. All temporary restore databases were deleted after checks. Read-back verification alone is not a substitute for a full restore.
