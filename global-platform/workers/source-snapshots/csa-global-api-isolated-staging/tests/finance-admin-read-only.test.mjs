@@ -25,3 +25,24 @@ test("refund mutations require an ungranted finance.refunds permission", () => {
   const roleEnd = api.indexOf("function adminPermissionFor", roleStart);
   assert.doesNotMatch(api.slice(roleStart, roleEnd), /finance\.refunds/);
 });
+
+
+test("payout mutations are routed through a separate ungranted finance.payouts permission", () => {
+  const start = api.indexOf("const GLOBAL_ROLE_PERMISSIONS=");
+  const end = api.indexOf("function adminPermissionFor", start);
+  const roles = api.slice(start, end);
+  assert.doesNotMatch(roles, /finance\.payouts/);
+  assert.match(api, /p==="\/v1\/admin\/finance\/editor-payouts"\)return "finance\.payouts"/);
+  assert.match(api, /\/(approve\|mark-paid)\$\/\.test\(p\)\)return "finance\.payouts"/);
+});
+
+test("client refund processing is staging-only and requires Razorpay test credentials", () => {
+  const start = api.indexOf("const clientRefundProcess=p.match(");
+  const end = api.indexOf("// Read-only finance views", start);
+  assert.ok(start >= 0 && end > start);
+  const route = api.slice(start, end);
+  assert.match(route, /env\.ENVIRONMENT!=="staging"/);
+  assert.match(route, /!env\.RAZORPAY_KEY_ID\|\|!env\.RAZORPAY_KEY_SECRET/);
+  assert.match(route, /!env\.RAZORPAY_KEY_ID\.startsWith\("rzp_test_"\)/);
+  assert.match(route, /X-Refund-Idempotency/);
+});
