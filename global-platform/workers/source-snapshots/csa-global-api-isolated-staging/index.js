@@ -53,6 +53,7 @@ function adminPermissionFor(req){
  if((m==="GET"||m==="PUT")&&p==="/v1/notifications/preferences")return ["projects.manage","content.manage","finance.read","support.manage"];
  if(m==="POST"&&p==="/v1/admin/notifications")return "support.manage";
  if(m==="GET"&&p==="/v1/admin/client-refunds")return "finance.read";
+ if(m==="GET"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.read";
  if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
@@ -68,6 +69,7 @@ function adminPermissionFor(req){
  if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\w-]+\/incidents$/.test(p))return "support.manage";
 
  if(m==="GET"&&["/v1/admin/finance/overview","/v1/admin/finance/client-balances","/v1/admin/finance/refund-summary","/v1/admin/finance/refund-dashboard","/v1/admin/finance/reconciliation","/v1/admin/finance/editor-payouts"].includes(p))return "finance.read";
+ if(m==="POST"&&/^\/v1\/admin\/finance\/editor-payouts\/[\w-]+\/(approve|mark-paid)$/.test(p))return "finance.payouts";
  if(m==="GET"&&p==="/v1/client/balance")return null;
  return "__deny__";
 }
@@ -1731,6 +1733,14 @@ async function handle(req,env){
   await log(env,a.id,"in_app_notification_sent","notification",id,{recipient_user_id:recipient,type});
   return out({ok:true,notification_id:id,channel:"in_app",status:"sent"},201);
  }
+ const clientRefundDetail=p.match(/^\/v1\/client\/refunds\/([\w-]+)$/);
+ if(m==="GET"&&clientRefundDetail){
+  const a=await user(req,env,["client"]);
+  const refund=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,review_note,created_at,updated_at,processed_at FROM client_refund_requests WHERE id=? AND client_id=?").bind(clientRefundDetail[1],a.id).first();
+  if(!refund)return bad("Refund request not found.",404);
+  const events=await env.DB.prepare("SELECT action,metadata_json,created_at FROM audit_logs WHERE entity_type='client_refund' AND entity_id=? ORDER BY created_at ASC LIMIT 50").bind(refund.id).all();
+  return out({ok:true,refund,history:(events.results||[]).map(x=>({action:x.action,metadata:JSON.parse(x.metadata_json||"{}"),created_at:x.created_at}))});
+ }
  if(m==="GET"&&p==="/v1/client/refunds"){
   const a=await user(req,env,["client"]),r=await env.DB.prepare("SELECT id,payment_id,project_id,amount_minor,currency,reason,status,created_at,updated_at,processed_at FROM client_refund_requests WHERE client_id=? ORDER BY created_at DESC LIMIT 100").bind(a.id).all();
   return out({ok:true,refunds:r.results||[]});
@@ -1752,6 +1762,14 @@ async function handle(req,env){
   }catch(e){if(String(e.message||"").includes("UNIQUE")){const duplicate=await env.DB.prepare("SELECT id,payment_id,client_id,amount_minor,currency,status FROM client_refund_requests WHERE idempotency_key=?").bind(key).first();if(duplicate){if(duplicate.client_id!==a.id||duplicate.payment_id!==paymentId)return bad("Idempotency key was already used for another request.",409);return out({ok:true,refund:duplicate,replayed:true});}}throw e;}
   await log(env,a.id,"client_refund_requested","client_refund",id,{payment_id:paymentId,amount_minor:amount,currency});
   return out({ok:true,refund:{id,payment_id:paymentId,amount_minor:amount,currency,status:"requested"}},201);
+ }
+ const adminClientRefundDetail=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)$/);
+ if(m==="GET"&&adminClientRefundDetail){
+  const a=await user(req,env,["admin"]);
+  const refund=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.review_note,r.reviewed_by,r.provider_refund_id,r.provider_response_json,r.created_at,r.updated_at,r.processed_at,u.email AS client_email,p.provider,p.provider_payment_id,p.status AS payment_status,p.amount_minor AS payment_amount_minor,p.currency AS payment_currency FROM client_refund_requests r JOIN users u ON u.id=r.client_id JOIN payments p ON p.id=r.payment_id WHERE r.id=?").bind(adminClientRefundDetail[1]).first();
+  if(!refund)return bad("Client refund request not found.",404);
+  const events=await env.DB.prepare("SELECT actor_user_id,action,metadata_json,created_at FROM audit_logs WHERE entity_type='client_refund' AND entity_id=? ORDER BY created_at ASC LIMIT 100").bind(refund.id).all();
+  return out({ok:true,refund,history:(events.results||[]).map(x=>({actor_user_id:x.actor_user_id,action:x.action,metadata:JSON.parse(x.metadata_json||"{}"),created_at:x.created_at}))});
  }
  if(m==="GET"&&p==="/v1/admin/client-refunds"){
   const a=await user(req,env,["admin"]),r=await env.DB.prepare("SELECT r.id,r.payment_id,r.client_id,r.project_id,r.amount_minor,r.currency,r.reason,r.status,r.created_at,r.updated_at,u.email AS client_email FROM client_refund_requests r JOIN users u ON u.id=r.client_id ORDER BY CASE r.status WHEN 'requested' THEN 0 WHEN 'under_review' THEN 1 ELSE 2 END,r.created_at ASC LIMIT 200").all();
@@ -1803,6 +1821,31 @@ async function handle(req,env){
   return out({ok:true,client_refunds:{by_status_and_currency:rows[0],totals_by_currency:rows[1],status_counts:rows[2]},definitions:{pending_statuses:["requested","under_review","approved","processing","unknown"],processed_status:"processed",attention_statuses:["failed","unknown"],amount_unit:"minor currency units"},read_only:true,note:"Client refund summary only. Currency totals are kept separate. No refund, transfer, or payment mutation is initiated."});
  }
 
+ const payoutAction=p.match(/^\/v1\/admin\/finance\/editor-payouts\/([\w-]+)\/(approve|mark-paid)$/);
+ if(m==="POST"&&payoutAction){
+  const a=await user(req,env,["admin"]);
+  const payoutId=payoutAction[1],action=payoutAction[2];
+  let body={};try{body=await req.json();}catch{return bad("A valid JSON body is required.",400,"invalid_json");}
+  const current=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(payoutId).first();
+  if(!current)return bad("Payout record not found.",404,"payout_not_found");
+  if(action==="approve"){
+   if(current.status==="approved"||current.status==="paid")return out({ok:true,payout:current,idempotent:true});
+   if(current.status!=="pending_approval")return bad("Only pending payouts can be approved.",409,"invalid_payout_state");
+   await env.DB.prepare("UPDATE editor_payouts SET status='approved',approved_by=?,approved_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),note=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='pending_approval'").bind(a.id,body.note?String(body.note).slice(0,500):null,payoutId).run();
+   await log(env,a.id,"editor_payout_approved","editor_payout",payoutId,{amount_minor:current.amount_minor,currency:current.currency});
+   await notifyInApp(env,current.editor_id,"editor_payout_approved","Payout approved","Your payout has been approved and is awaiting payment confirmation.",{payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency});
+  }else{
+   const reference=String(body.payment_reference||"").trim();
+   if(reference.length<3||reference.length>120)return bad("Enter the actual bank/UPI transfer reference (3–120 characters).",400,"payment_reference_required");
+   if(current.status==="paid")return out({ok:true,payout:current,idempotent:true});
+   if(current.status!=="approved")return bad("Only Finance-approved payouts can be marked paid.",409,"payout_not_approved");
+   await env.DB.prepare("UPDATE editor_payouts SET status='paid',paid_by=?,paid_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),payment_reference=?,note=COALESCE(?,note),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='approved'").bind(a.id,reference,body.note?String(body.note).slice(0,500):null,payoutId).run();
+   await log(env,a.id,"editor_payout_marked_paid","editor_payout",payoutId,{amount_minor:current.amount_minor,currency:current.currency,payment_reference:reference});
+   await notifyInApp(env,current.editor_id,"editor_payout_paid","Payout marked paid","Finance has recorded your payout as paid.",{payout_id:payoutId,amount_minor:current.amount_minor,currency:current.currency,payment_reference:reference});
+  }
+  const updated=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(payoutId).first();
+  return out({ok:true,payout:updated,transfer_initiated:false,note:"This records Finance approval/payment confirmation only. It does not initiate a bank or Razorpay transfer."});
+ }
  if(m==="GET"&&p==="/v1/admin/finance/refund-dashboard"){
   const a=await user(req,env,["admin"]);
   const results=await env.DB.batch([
