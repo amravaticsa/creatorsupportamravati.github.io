@@ -55,6 +55,7 @@ function adminPermissionFor(req){
  if(m==="GET"&&p==="/v1/admin/client-refunds")return "finance.read";
  if(m==="GET"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.read";
  if(m==="PATCH"&&/^\/v1\/admin\/client-refunds\/[\w-]+$/.test(p))return "finance.refunds";
+ if(m==="POST"&&/^\/v1\/admin\/client-refunds\/[\w-]+\/process$/.test(p))return "finance.refunds";
  if(m==="POST"&&/^\/v1\/admin\/deposits\/[\w-]+\/refund$/.test(p))return "finance.refunds";
  if((m==="GET"&&p==="/v1/admin/agreements")||(m==="POST"&&(p==="/v1/admin/agreements"||/^\/v1\/admin\/agreements\/[\w-]+\/activate$/.test(p))))return "content.manage";
  if(m==="GET"&&p==="/v1/admin/editors/pending")return "content.manage";
@@ -69,6 +70,7 @@ function adminPermissionFor(req){
  if(m==="POST"&&/^\/v1\/admin\/multipart-uploads\/[\w-]+\/incidents$/.test(p))return "support.manage";
 
  if(m==="GET"&&["/v1/admin/finance/overview","/v1/admin/finance/client-balances","/v1/admin/finance/refund-summary","/v1/admin/finance/refund-dashboard","/v1/admin/finance/reconciliation","/v1/admin/finance/editor-payouts"].includes(p))return "finance.read";
+ if(m==="POST"&&p==="/v1/admin/finance/editor-payouts")return "finance.payouts";
  if(m==="POST"&&/^\/v1\/admin\/finance\/editor-payouts\/[\w-]+\/(approve|mark-paid)$/.test(p))return "finance.payouts";
  if(m==="GET"&&/^\/v1\/client\/refunds\/[\w-]+$/.test(p))return null;
  if(m==="GET"&&p==="/v1/client/balance")return null;
@@ -1793,6 +1795,63 @@ async function handle(req,env){
   return out({ok:true,status:next,provider_refund_started:false});
  }
 
+ const clientRefundProcess=p.match(/^\/v1\/admin\/client-refunds\/([\w-]+)\/process$/);
+ if(m==="POST"&&clientRefundProcess){
+  const a=await user(req,env,["admin"]);
+  if(env.ENVIRONMENT!=="staging"||!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET||!env.RAZORPAY_KEY_ID.startsWith("rzp_test_"))return bad("Client refund processing is restricted to Razorpay Test Mode on Staging.",503);
+  const refund=await env.DB.prepare("SELECT r.*,p.provider_payment_id,p.amount_minor AS payment_amount_minor,p.currency AS payment_currency,p.status AS payment_status,p.provider,p.payment_type FROM client_refund_requests r JOIN payments p ON p.id=r.payment_id WHERE r.id=?").bind(clientRefundProcess[1]).first();
+  if(!refund)return bad("Client refund request not found.",404);
+  if(!["approved","unknown"].includes(refund.status))return bad("Only approved or safely retryable unknown refunds can be processed.",409);
+  if(refund.provider!=="razorpay"||!refund.provider_payment_id||!["client_advance","client_balance"].includes(refund.payment_type))return bad("Original Razorpay client payment is not eligible.",409);
+  if(!["succeeded","partially_refunded"].includes(refund.payment_status))return bad("Original payment is not in a refundable captured state.",409);
+  const idempotencyKey=("csa_refund_"+refund.id).replace(/[^A-Za-z0-9_-]/g,"").slice(0,36);
+  const lock=await env.DB.prepare("UPDATE client_refund_requests SET status='processing',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status IN ('approved','unknown')").bind(refund.id).run();
+  if(!lock.meta?.changes)return bad("Refund is already processing or its status changed. Refresh the queue.",409);
+  const auth="Basic "+btoa(env.RAZORPAY_KEY_ID+":"+env.RAZORPAY_KEY_SECRET);
+  let providerPayment,verify;
+  try{
+   verify=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(refund.provider_payment_id),{headers:{Authorization:auth}});
+   providerPayment=await verify.json().catch(()=>({}));
+  }catch(e){
+   await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"payment_verification",error:txt(String(e),1000)}),refund.id).run();
+   return bad("Payment verification was interrupted. No refund was sent.",502);
+  }
+  if(!verify.ok||providerPayment.id!==refund.provider_payment_id||providerPayment.status!=="captured"||Number(providerPayment.amount)!==Number(refund.payment_amount_minor)||String(providerPayment.currency||"").toUpperCase()!==String(refund.payment_currency||"").toUpperCase()){
+   await env.DB.prepare("UPDATE client_refund_requests SET status='approved',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"payment_verification",http_status:verify.status,response:providerPayment}).slice(0,3000),refund.id).run();
+   return bad("Razorpay could not verify captured payment, amount and currency. No refund was sent.",409);
+  }
+  let response,payload;
+  try{
+   response=await fetch("https://api.razorpay.com/v1/payments/"+encodeURIComponent(refund.provider_payment_id)+"/refund",{method:"POST",headers:{Authorization:auth,"Content-Type":"application/json","X-Refund-Idempotency":idempotencyKey},body:JSON.stringify({amount:Number(refund.amount_minor),notes:{csa_refund_request_id:refund.id,csa_payment_id:refund.payment_id,csa_source:"CSA Global"}})});
+   payload=await response.json().catch(()=>({}));
+  }catch(e){
+   await env.DB.prepare("UPDATE client_refund_requests SET status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(JSON.stringify({stage:"refund_request",error:txt(String(e),1000),idempotency_key:idempotencyKey}),refund.id).run();
+   await log(env,a.id,"client_refund_unknown","client_refund",refund.id,{payment_id:refund.payment_id});
+   return bad("Razorpay response was interrupted. Refund state is unknown; retry this same request to reuse its idempotency key.",502,"refund_status_unknown");
+  }
+  if(!response.ok||!payload.id){
+   const uncertain=response.status===409||response.status>=500,next=uncertain?"unknown":"failed";
+   await env.DB.prepare("UPDATE client_refund_requests SET status=?,provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status='processing'").bind(next,JSON.stringify({http_status:response.status,response:payload,idempotency_key:idempotencyKey}).slice(0,3000),refund.id).run();
+   await log(env,a.id,"client_refund_"+next,"client_refund",refund.id,{payment_id:refund.payment_id,http_status:response.status});
+   return bad(uncertain?"Razorpay reports an uncertain or in-progress request. Reconcile before retrying.":"Razorpay rejected the refund request; review the provider response.",502,"refund_provider_response");
+  }
+  if(payload.payment_id!==refund.provider_payment_id||Number(payload.amount)!==Number(refund.amount_minor)||String(payload.currency||"").toUpperCase()!==String(refund.currency||"").toUpperCase()){
+   await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=?,status='unknown',provider_response_json=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(payload.id,JSON.stringify({reason:"Provider response mismatch",payment_id:payload.payment_id??null,amount:payload.amount??null,currency:payload.currency??null}).slice(0,3000),refund.id).run();
+   await log(env,a.id,"client_refund_unknown","client_refund",refund.id,{provider_refund_id:payload.id});
+   return bad("Razorpay response mismatch. Refund status is unknown and needs reconciliation.",502,"refund_response_mismatch");
+  }
+  const next=payload.status==="processed"?"processed":payload.status==="failed"?"failed":"processing";
+  await env.DB.prepare("UPDATE client_refund_requests SET provider_refund_id=?,status=?,provider_response_json=?,processed_at=CASE WHEN ?='processed' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE processed_at END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND status NOT IN ('processed','failed','rejected','cancelled')").bind(payload.id,next,JSON.stringify(payload).slice(0,3000),next,refund.id).run();
+  const finalRefund=await env.DB.prepare("SELECT status FROM client_refund_requests WHERE id=?").bind(refund.id).first();
+  const finalStatus=finalRefund?.status||next;
+  if(finalStatus==="processed"){
+   const totals=await env.DB.prepare("SELECT COALESCE(SUM(amount_minor),0) AS total FROM client_refund_requests WHERE payment_id=? AND status='processed'").bind(refund.payment_id).first();
+   await env.DB.prepare("UPDATE payments SET status=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?").bind(Number(totals?.total||0)>=Number(refund.payment_amount_minor)?"refunded":"partially_refunded",refund.payment_id).run();
+  }
+  await log(env,a.id,"client_refund_"+finalStatus,"client_refund",refund.id,{payment_id:refund.payment_id,provider_refund_id:payload.id,amount_minor:refund.amount_minor,currency:refund.currency});
+  return out({ok:true,refund_id:refund.id,provider_refund_id:payload.id,status:finalStatus,amount_minor:refund.amount_minor,currency:refund.currency});
+ }
+
  if(m==="GET"&&p==="/v1/client/balance"){
   const a=await user(req,env,["client"]);
   const q=await env.DB.prepare("SELECT q.id AS quote_id,q.project_id,q.total_amount_minor,q.currency,q.status AS quote_status,q.payment_status,COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.payment_type IN ('client_advance','client_balance') THEN p.amount_minor ELSE 0 END),0) AS paid_minor FROM client_quotes q LEFT JOIN payments p ON p.quote_id=q.id WHERE q.client_id=? GROUP BY q.id ORDER BY q.created_at DESC LIMIT 100").bind(a.id).all();
@@ -1822,6 +1881,22 @@ async function handle(req,env){
   return out({ok:true,client_refunds:{by_status_and_currency:rows[0],totals_by_currency:rows[1],status_counts:rows[2]},definitions:{pending_statuses:["requested","under_review","approved","processing","unknown"],processed_status:"processed",attention_statuses:["failed","unknown"],amount_unit:"minor currency units"},read_only:true,note:"Client refund summary only. Currency totals are kept separate. No refund, transfer, or payment mutation is initiated."});
  }
 
+ if(m==="POST"&&p==="/v1/admin/finance/editor-payouts"){
+  const a=await user(req,env,["admin"]);
+  let body={};try{body=await req.json();}catch{return bad("A valid JSON body is required.",400,"invalid_json");}
+  const offerId=String(body.offer_id||"").trim();
+  if(!/^[A-Za-z0-9_-]{4,100}$/.test(offerId))return bad("A valid accepted offer_id is required.",400,"invalid_offer_id");
+  const existing=await env.DB.prepare("SELECT * FROM editor_payouts WHERE offer_id=?").bind(offerId).first();
+  if(existing)return out({ok:true,payout:existing,created:false,idempotent:true});
+  const eligible=await env.DB.prepare("SELECT o.id AS offer_id,o.project_id,o.editor_id,o.proposed_fee_minor AS amount_minor,o.fee_currency AS currency FROM project_offers o JOIN assignments x ON x.offer_id=o.id AND x.editor_id=o.editor_id WHERE o.id=? AND o.status='accepted' AND o.proposed_fee_minor>0 AND EXISTS(SELECT 1 FROM work_submissions s WHERE s.assignment_id=x.id AND s.qc_status='approved') LIMIT 1").bind(offerId).first();
+  if(!eligible)return bad("Payout can be created only for an accepted offer with QC-approved work and a positive fee.",409,"not_payout_eligible");
+  const id=uid("payout");
+  await env.DB.prepare("INSERT INTO editor_payouts(id,offer_id,project_id,editor_id,amount_minor,currency,status,created_by) VALUES(?,?,?,?,?,?,'pending_approval',?)").bind(id,eligible.offer_id,eligible.project_id,eligible.editor_id,eligible.amount_minor,eligible.currency,a.id).run();
+  await log(env,a.id,"editor_payout_created","editor_payout",id,{offer_id:offerId,amount_minor:eligible.amount_minor,currency:eligible.currency});
+  await notifyInApp(env,eligible.editor_id,"editor_payout_pending","Payout entered finance review","Your QC-approved work has been added to the Finance payout queue.",{payout_id:id,amount_minor:eligible.amount_minor,currency:eligible.currency});
+  const payout=await env.DB.prepare("SELECT * FROM editor_payouts WHERE id=?").bind(id).first();
+  return out({ok:true,payout,created:true},201);
+ }
  const payoutAction=p.match(/^\/v1\/admin\/finance\/editor-payouts\/([\w-]+)\/(approve|mark-paid)$/);
  if(m==="POST"&&payoutAction){
   const a=await user(req,env,["admin"]);
