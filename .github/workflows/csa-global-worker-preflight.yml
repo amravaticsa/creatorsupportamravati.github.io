@@ -86,13 +86,16 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ACCESS_TEAM_DOMAIN" and .type == "plain_text" and .text == "https://small-hill-75c4.cloudflareaccess.com") ] | length == 1)
-            and ([ $b[] | select(.name == "ACCESS_AUD" and .type == "plain_text" and
-              (.text | contains("93b95ad5e4186070c5b5a20cccf79e86f9c9dfbf77bd4ec616588d0ed05bcda0")) and
-              (.text | contains("ee2d255c41583c28e6c01478c7618b4e19c14ca600b90cda47712e6c0f8c7931")) and
-              (.text | contains("cebb3c8b2522408c413fffd8eaf65681cfcf45913e1db75cc89d6537d1722d55")) and
-              (.text | contains("a4bb61884b81efa28edf7633dc1cbaa9d4db9e183cb679e9991c91506bc6f6ce")) ] | length == 1)
+            and ([ $b[] | select(.name == "ACCESS_AUD" and .type == "plain_text") | .text | split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$";"")) | sort ] | .[0]) as $aud
+            | $aud == ([
+              "93b95ad5e4186070c5b5a20cccf79e86f9c9dfbf77bd4ec616588d0ed05bcda0",
+              "ee2d255c41583c28e6c01478c7618b4e19c14ca600b90cda47712e6c0f8c7931",
+              "cebb3c8b2522408c413fffd8eaf65681cfcf45913e1db75cc89d6537d1722d55",
+              "a4bb61884b81efa28edf7633dc1cbaa9d4db9e183cb679e9991c91506bc6f6ce",
+              "5027a7e31e4cdc670269bc86f0fd466e957fc38f2a89c5e5bf7f675f89ecbc43"
+            ] | sort)
           ' csa-superadmin-isolated-staging.json >/dev/null
-          echo "PASS: isolated Super Admin Access audience allowlist includes all four staging host applications."
+          echo "PASS: isolated Super Admin Access allowlist exactly matches four routed staging host apps plus the admin-staging bootstrap path."
 
       - name: Verify daily backup schedule and private Worker exposure
         if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
