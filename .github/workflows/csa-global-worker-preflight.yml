@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           for worker in \
             csa-global-api-staging \
+            csa-superadmin-api-staging \
             csa-global-api-isolated-staging \
             csa-superadmin-isolated-staging \
             csa-editor-portal-isolated-staging \
@@ -119,6 +120,14 @@ jobs:
         if: ${{ steps.token.outputs.available == 'true' && steps.settings.outputs.available == 'true' }}
         run: |
           set -euo pipefail
+          jq -e '
+            (.result.bindings // []) as $b
+            | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
+            and ([ $b[] | select(.name == "DB" and .type == "d1" and .id == "99bc81fc-e97e-488b-a380-eb0237ff8ffc") ] | length == 1)
+            and ([ $b[] | select(.name == "ATTENDANCE_MEDIA" and .type == "r2_bucket" and .bucket_name == "csa-attendance-evidence") ] | length == 1)
+          ' csa-superadmin-api-staging.json >/dev/null
+          echo "PASS: legacy Super Admin remains bound to its protected legacy D1/R2 store until identity migration is complete."
+
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ENVIRONMENT" and .type == "plain_text" and .text == "staging") ] | length == 1)
