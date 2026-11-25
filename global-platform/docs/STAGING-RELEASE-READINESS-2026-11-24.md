@@ -92,6 +92,8 @@ The separate production route audit still finds production hostnames routed to s
 
 **Do not fix these production route issues by pointing production hosts to isolated staging Workers.** No production Worker, D1, R2, DNS, route, secret or payment configuration was modified during this staging work.
 
+The separate legacy staging hostname `superadmin-staging.creatorsupportamravati.in` remains routed to `csa-superadmin-api-staging`, bound to the non-isolated `csa-superadmin-staging` D1 (99bc…) and `csa-attendance-evidence` R2 bucket. Its whole-host Cloudflare Access policy and unauthenticated route smoke tests pass. Its 595-row D1 backup and full temporary-D1 restore rehearsal pass, but the existing admin identities and unrevoked sessions must be migrated or formally retired before this hostname is repointed or removed. The `admin-staging` alias routes to the isolated Super Admin Worker and has whole-host Access protection.
+
 ## 8. Release decision
 
 **Staging infrastructure status:** core isolation, schema, auth-boundary smoke tests and the first 10/10 verified daily backup cycle pass. Controlled onboarding and commercial activation remain gated by real identities, approvals and test credentials.  
