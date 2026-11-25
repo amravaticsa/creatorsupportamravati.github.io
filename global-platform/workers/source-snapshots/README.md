@@ -35,7 +35,7 @@ The scheduled `csa-global-db-backup-staging` Worker deliberately backs up both i
 - `DB_SUPERADMIN` → isolated Super Admin D1 (`c2bb...`)
 - `DB_SUPERADMIN_LEGACY` → legacy Super Admin D1 (`99bc...`)
 
-The source snapshot and deployed Worker module are synchronized. Its bindings were checked against the deployed mapping. The R2 backup bucket is private; the backup Worker has no public zone route and workers.dev is disabled. Daily schedules cover ten D1 databases at 02:02–02:47 UTC. The latest older legacy artifacts have manifests and integrity checks, but most predate the current readback/decompression verifier. Six isolated databases passed a separate restore rehearsal; a fresh ten-database backup and restore rehearsal is still required before production release.
+The source snapshot and deployed Worker module are byte-for-byte synchronized. Its ten D1 bindings and ten daily Cron schedules were checked against the deployed configuration. The R2 backup bucket is private; the backup Worker has no public zone route and workers.dev and preview subdomains are disabled. Daily schedules cover ten D1 databases at 02:02–02:47 UTC. On 2026-11-25, the first eight database backups passed R2 readback/decompression verification with explicit D1 UUIDs, manifests, verification markers, quick_check=ok and zero FK violations; the final two scheduled backups are pending at 02:42 and 02:47 UTC. Restore rehearsals passed for all six isolated databases, the 595-row legacy Super Admin database, and the zero-row video workflow database. The legacy Global and main Rush databases still require controlled restore rehearsals before production release.
 
 ## Current schema and runtime checks
 
@@ -60,4 +60,4 @@ Before any Worker deployment:
 5. Verify D1/R2 bindings and route isolation after deployment.
 6. Record the previous deployment version for rollback.
 
-Use only `*-isolated-staging` hosts for new end-to-end tests. Legacy `admin-staging` and `superadmin-staging` aliases remain separate and must be formally retired or migrated before launch.
+Use only `*-isolated-staging` hosts for new end-to-end tests. The `admin-staging` alias now routes to `csa-superadmin-isolated-staging` and has whole-host Cloudflare Access protection. The `superadmin-staging` alias still routes to legacy Worker `csa-superadmin-api-staging`, bound to non-isolated D1 `csa-superadmin-staging` (`99bc81fc-e97e-488b-a380-eb0237ff8ffc`) and R2 `csa-attendance-evidence`; it has its own whole-host Access allow policy. Its private backup and restore rehearsal passed, but its active admin identities and sessions must be formally migrated or retired before the legacy hostname is repointed or removed.
