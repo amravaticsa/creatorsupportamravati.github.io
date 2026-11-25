@@ -125,6 +125,9 @@ jobs:
       - name: Check isolated Global API JavaScript syntax
         run: node --check global-platform/workers/source-snapshots/csa-global-api-isolated-staging/index.js
 
+      - name: Test isolated Global API client delivery and editor history route guards
+        run: node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/portal-route-parity.test.mjs
+
       - name: Test isolated Global API legacy bridge
         run: node --test global-platform/workers/source-snapshots/csa-global-api-isolated-staging/tests/legacy-bridge-signing.test.mjs
 
