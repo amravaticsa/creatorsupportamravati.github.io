@@ -19,9 +19,9 @@ The frontend uses the shared `assets/api-config.js`. It is frozen at runtime and
 - Pages staging deployment workflow run `45542657114`: success.
 - The route additions include client deliverables/review/revisions, editor assignment submission history, client balance and finance read-only endpoints.
 - The isolated Worker uses the isolated Global D1 and isolated media/video bindings. No browser traffic has been switched to it.
-- Additional isolated routes were added on 25 November: owner-scoped client refund detail, finance-read admin refund detail, and editor payout approve/mark-paid actions. The payout handler records finance state only and explicitly does not initiate a bank transfer.
+- Additional isolated routes were added on 25 November: owner-scoped client refund detail, finance-read admin refund detail, staging-only Razorpay client refund processing (requires `rzp_test_` credentials), editor payout queue creation, and editor payout approve/mark-paid actions. Payout handlers record Finance state only and explicitly do not initiate a bank transfer.
 - The refund detail and payout action route tests were added. The first test attempt exposed a missing client-detail permission-map entry; that entry was corrected and the subsequent API validation passed.
-- Latest validation run `45544372541`: success. Latest staging Pages deployment run `45544372345`: success, including frontend/API health and read-only authorization smoke tests.
+- Latest validation run after refund detail/payout action tests `45544372541`: success. Latest validation run including staging-only refund processing and payout queue creation `45544628723`: success. Latest staging Pages deployment run `45544628987`: success, including frontend/API health and read-only authorization smoke tests.
 
 These checks establish build/preflight success, not full authenticated end-to-end parity.
 
@@ -29,9 +29,9 @@ These checks establish build/preflight success, not full authenticated end-to-en
 
 A fresh source inventory compared frontend literal API paths with both Worker source files and inspected method-dispatch branches. The following Legacy API operation families still need explicit isolated parity review; some may be intentionally absent, but must be proven against the actual UI workflow and data model before cutover:
 
-- Admin client-refund detail is now implemented and finance-read permission checked. The staging-only Razorpay refund processing action remains unimplemented in the isolated API and is deliberately not enabled until test-mode credentials, provider reconciliation and idempotency behavior can be verified.
+- Admin client-refund detail is implemented and finance-read permission checked. Staging-only Razorpay refund processing is implemented with test-key enforcement and provider idempotency; it remains unavailable unless valid Razorpay test credentials are explicitly configured on the staging Worker and exercised with a disposable test payment.
 - Client refund detail is now implemented with client ownership scoping. It still needs authenticated E2E verification using a dedicated staging client identity.
-- Editor payout approve/mark-paid actions are now implemented with state checks and a dedicated `finance.payouts` permission. No bank transfer is initiated. The permission is not granted to the Finance Admin read-only role; real payout mutations remain unavailable until an explicitly authorized role and staging test process are approved.
+- Editor payout creation and approve/mark-paid actions are implemented with QC eligibility, idempotency, state checks and a dedicated `finance.payouts` permission. No bank transfer is initiated. The permission is not granted to the Finance Admin read-only role; real payout mutations remain unavailable until an explicitly authorized role and staging test process are approved.
 - Admin assignment routes and assignment state transitions.
 - Full client project detail, quote, delivery and review route/method matrix. The isolated Worker has a revision-request read route and guarded deliverables/review handlers; legacy and isolated path shapes are not identical.
 - Dynamic editor tender, admin quote, multipart upload session/part/complete/abort, project-file upload/download and media streaming paths require request/response and authorization tests, not just literal string matching.
@@ -66,4 +66,4 @@ The central config retains the Legacy Staging URL as both active and rollback ta
 
 ## Decision
 
-**MIGRATION GATE: BLOCKED.** Keep frontend traffic on Legacy Staging. Latest isolated route additions passed API validation and the Pages staging deployment plus read-only smoke tests passed. This is a safe incremental step, not completion of Step 2. Do not enable isolated traffic or touch production until every gate above is evidenced and signed off.
+**MIGRATION GATE: BLOCKED.** Keep frontend traffic on Legacy Staging. Latest isolated route additions passed API validation and the Pages staging deployment plus read-only smoke tests passed. Full D1 schema/data reconciliation, disposable R2 upload/download E2E, dedicated authenticated client/editor/admin workflows and rollback drill remain outstanding. Cloudflare D1 API denied the attempted sqlite_master inventory with SQLITE_AUTH, so a complete remote schema inventory was not claimed. This is a safe incremental step, not completion of Step 2. Do not enable isolated traffic or touch production until every gate above is evidenced and signed off.
