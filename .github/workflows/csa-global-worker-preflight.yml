@@ -199,3 +199,30 @@ jobs:
 
           echo "NOTE: secret names are present; secret values, equality, and token validity are not read or verified."
           echo "NOTE: this preflight is read-only. It does not deploy code, call readiness endpoints, or modify D1/R2 resources."
+
+      - name: Summarize preflight coverage
+        if: always()
+        env:
+          TOKEN_AVAILABLE: ${{ steps.token.outputs.available }}
+          SETTINGS_AVAILABLE: ${{ steps.settings.outputs.available }}
+        run: |
+          set -euo pipefail
+          if [ "${TOKEN_AVAILABLE}" != "true" ]; then
+            {
+              echo "## Cloudflare Worker preflight: NOT VERIFIED"
+              echo "No Cloudflare Workers Scripts Read token is available. Detailed binding, HMAC, Access and backup-schedule checks were skipped."
+              echo "Configure `CLOUDFLARE_WORKERS_READ_TOKEN` with least-privilege Workers Scripts Read permission to enable them."
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${SETTINGS_AVAILABLE}" != "true" ]; then
+            {
+              echo "## Cloudflare Worker preflight: INCOMPLETE"
+              echo "The available token could not read Worker settings (likely missing Workers Scripts Read permission). Detailed binding, HMAC, Access and backup-schedule checks were skipped."
+              echo "Configure `CLOUDFLARE_WORKERS_READ_TOKEN` with least-privilege Workers Scripts Read permission."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Cloudflare Worker preflight: READ-ONLY CHECKS COMPLETED"
+              echo "Worker settings, D1/R2 bindings, secret names, Access audiences, backup schedules and public exposure checks completed."
+              echo "Secret values were not read. No Cloudflare resources were modified."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
