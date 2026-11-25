@@ -86,7 +86,7 @@ jobs:
           jq -e '
             (.result.bindings // []) as $b
             | ([ $b[] | select(.name == "ACCESS_TEAM_DOMAIN" and .type == "plain_text" and .text == "https://small-hill-75c4.cloudflareaccess.com") ] | length == 1)
-            and ([ $b[] | select(.name == "ACCESS_AUD" and .type == "plain_text") | .text | split(",") | map(gsub("^\\\\s+|\\\\s+$";"")) | sort ] | .[0]) as $aud
+            and ([ $b[] | select(.name == "ACCESS_AUD" and .type == "plain_text") | .text | split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$";"")) | sort ] | .[0]) as $aud
             | $aud == ([
               "93b95ad5e4186070c5b5a20cccf79e86f9c9dfbf77bd4ec616588d0ed05bcda0",
               "ee2d255c41583c28e6c01478c7618b4e19c14ca600b90cda47712e6c0f8c7931",
