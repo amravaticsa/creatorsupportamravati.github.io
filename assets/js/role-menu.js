@@ -15,7 +15,7 @@ async function loadSharedShell(){
   if(oldHeader)oldHeader.replaceWith(newHeader);else document.body.prepend(newHeader);
   if(oldFooter)oldFooter.replaceWith(newFooter);else document.body.append(newFooter);
   const p=location.pathname.replace(/\\/g,"/");
-  let active=p.startsWith("/blog/")?"/blog.html":p.startsWith("/portfolio/")?"/portfolio.html":p==="/"?"/index.html":p;
+  let active=p.startsWith("/blog/")?"/blog.html":p.startsWith("/portfolio/")?"/portfolio.html":p==="/"?"/":p;
   newHeader.querySelectorAll(".main-nav a").forEach(a=>{if(new URL(a.href,location.href).pathname===active)a.setAttribute("aria-current","page")});
  }catch(e){console.warn("CSA shared header/footer fallback:",e)}
 }
