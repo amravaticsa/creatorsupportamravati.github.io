@@ -9,7 +9,7 @@
   var main=document.querySelector('main');
   if(main&&!document.querySelector('.csa-article-breadcrumb')){
     var crumb=document.createElement('nav');crumb.className='csa-article-breadcrumb';crumb.setAttribute('aria-label','Breadcrumb');
-    crumb.innerHTML='<a href="../index.html">Home</a> <span aria-hidden="true">›</span> <a href="../blog.html">Blog / ब्लॉग</a> <span aria-hidden="true">›</span> <span aria-current="page">Article</span>';
+    crumb.innerHTML='<a href="../">Home</a> <span aria-hidden="true">›</span> <a href="../blog.html">Blog / ब्लॉग</a> <span aria-hidden="true">›</span> <span aria-current="page">Article</span>';
     main.insertBefore(crumb,main.firstChild);
   }
   var headings=Array.from(article.querySelectorAll('h2'));
