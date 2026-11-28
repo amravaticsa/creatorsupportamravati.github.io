@@ -8,6 +8,10 @@ on:
       - ".github/workflows/optimize-images.yml"
   workflow_dispatch:
 
+concurrency:
+  group: csa-image-optimization
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -39,9 +43,9 @@ jobs:
           with Image.open(source) as image:
               image.save(target, "WEBP", quality=82, method=6)
 
-          # Keep the original PNG as a fallback; supporting browsers use WebP.
+          # The original PNG remains as a fallback for browsers without WebP.
           pattern = re.compile(
-              r'(<img\b[^>]*?\bsrc=["\'])([^"\']*assets/images/logo\.png)(["\'][^>]*>)',
+              r'(<img\b[^>]*?src=")([^"]*assets/images/logo\.png)(".*?>)',
               re.IGNORECASE
           )
           for name in ("index.html", "blog.html", "blog/index.html"):
@@ -59,6 +63,8 @@ jobs:
               if count:
                   path.write_text(new_html, encoding="utf-8")
                   print(f"{name}: updated {count} logo reference(s)")
+              else:
+                  print(f"{name}: no matching logo references")
           print("WebP size:", target.stat().st_size, "bytes")
           PY
 
@@ -71,5 +77,6 @@ jobs:
             echo "No optimization changes to commit."
           else
             git commit -m "Optimize shared logo with WebP and PNG fallback"
+            git pull --rebase origin main
             git push origin HEAD:main
           fi
