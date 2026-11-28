@@ -5,15 +5,21 @@
   #csa-enquiry-modal{width:min(560px,100%);max-height:92vh;overflow:auto;background:#fff;color:#211b35;border-radius:20px;box-shadow:0 25px 90px #0005;padding:26px;position:relative;font-family:Inter,Arial,sans-serif}
   #csa-enquiry-modal h2{font-size:25px;line-height:1.2;margin:0 36px 8px 0;color:#211b35}
   #csa-enquiry-modal p{font-size:13px;line-height:1.6;color:#686477;margin:0 0 18px}
-  #csa-enquiry-modal label{display:block;font-size:12px;font-weight:700;color:#39334d;margin:12px 0 6px}
-  #csa-enquiry-modal input,#csa-enquiry-modal select,#csa-enquiry-modal textarea{box-sizing:border-box;width:100%;border:1px solid #ded9ea;border-radius:10px;padding:12px;font:inherit;font-size:14px;background:#fff;color:#211b35}
-  #csa-enquiry-modal textarea{min-height:90px;resize:vertical}
+  #csa-enquiry-form{display:grid;grid-template-columns:minmax(0,1fr);gap:0;width:100%;margin:0}
+  #csa-enquiry-form label{display:block;width:100%;box-sizing:border-box;font-size:12px;font-weight:700;line-height:1.45;letter-spacing:.01em;color:#39334d;margin:15px 0 7px}
+  #csa-enquiry-form input,#csa-enquiry-form select,#csa-enquiry-form textarea{display:block;box-sizing:border-box;width:100%;min-width:0;min-height:46px;margin:0;padding:12px 14px;border:1px solid #ded9ea;border-radius:11px;font-family:inherit;font-size:14px;line-height:1.45;background:#fff;color:#211b35;box-shadow:0 1px 2px rgba(25,15,55,.03);transition:border-color .18s ease,box-shadow .18s ease}
+  #csa-enquiry-form input::placeholder,#csa-enquiry-form textarea::placeholder{color:#9993a8;opacity:1}
+  #csa-enquiry-form input:focus,#csa-enquiry-form select:focus,#csa-enquiry-form textarea:focus{outline:none;border-color:#8058e8;box-shadow:0 0 0 3px rgba(105,56,220,.12)}
+  #csa-enquiry-form select{appearance:auto;cursor:pointer}
+  #csa-enquiry-form textarea{min-height:104px;resize:vertical}
   #csa-enquiry-modal button{cursor:pointer;border:0;border-radius:999px;padding:13px 19px;font-weight:800}
-  #csa-enquiry-submit{background:#6938dc;color:#fff;width:100%;margin-top:16px}
+  #csa-enquiry-submit{display:block;min-height:50px;background:linear-gradient(135deg,#6938dc,#8255e8);color:#fff;width:100%;margin-top:19px;box-shadow:0 8px 20px rgba(105,56,220,.2);transition:transform .18s ease,box-shadow .18s ease}
+  #csa-enquiry-submit:hover{transform:translateY(-1px);box-shadow:0 11px 24px rgba(105,56,220,.26)}
+  #csa-enquiry-submit:focus-visible,#csa-enquiry-close:focus-visible{outline:3px solid rgba(105,56,220,.3);outline-offset:3px}
   #csa-enquiry-close{position:absolute;right:16px;top:14px;background:#f2eff8;color:#31264c;font-size:20px;width:36px;height:36px;padding:0}
-  #csa-enquiry-modal .csa-enquiry-note{font-size:11px;color:#777186;margin:12px 0 0}
+  #csa-enquiry-modal .csa-enquiry-note{font-size:11px;line-height:1.6;color:#777186;margin:13px 0 0}
   body.csa-modal-open{overflow:hidden}
-  @media(max-width:520px){#csa-enquiry-modal{padding:21px 17px;border-radius:16px}#csa-enquiry-modal h2{font-size:22px}}
+  @media(max-width:520px){#csa-enquiry-overlay{padding:10px}#csa-enquiry-modal{width:100%;max-height:94vh;padding:22px 17px;border-radius:16px}#csa-enquiry-modal h2{font-size:22px}#csa-enquiry-form label{margin-top:13px}#csa-enquiry-form input,#csa-enquiry-form select,#csa-enquiry-form textarea{font-size:16px}}
   `;
   const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
   const overlay=document.createElement('div');overlay.id='csa-enquiry-overlay';overlay.innerHTML=`
