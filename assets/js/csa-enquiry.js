@@ -32,15 +32,30 @@
     </form>
   </section>`;
   document.body.appendChild(overlay);
-  const open=()=>{overlay.style.display='flex';document.body.classList.add('csa-modal-open');setTimeout(()=>document.getElementById('csa-enquiry-name').focus(),40)};
+  // Send privacy-safe GA4 events. Never include names, phone numbers or free-text enquiry details.
+  const track=(eventName,params={})=>{
+    const payload={page_location:location.href,page_path:location.pathname,...params};
+    if(typeof window.gtag==='function')window.gtag('event',eventName,payload);
+    else{window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:eventName,...payload})}
+  };
+  const open=()=>{overlay.style.display='flex';document.body.classList.add('csa-modal-open');track('enquiry_form_open',{form_name:'project_enquiry'});setTimeout(()=>document.getElementById('csa-enquiry-name').focus(),40)};
   const close=()=>{overlay.style.display='none';document.body.classList.remove('csa-modal-open')};
-  document.addEventListener('click',e=>{const trigger=e.target.closest('[data-csa-enquiry],a[href="#csa-enquiry"]');if(trigger){e.preventDefault();open()}});
+  document.addEventListener('click',e=>{
+    const trigger=e.target.closest('[data-csa-enquiry],a[href="#csa-enquiry"]');
+    if(trigger){e.preventDefault();open();return}
+    const link=e.target.closest('a[href]');
+    if(!link)return;
+    const href=link.getAttribute('href')||'';
+    if(/^tel:/i.test(href))track('click_call',{link_url:href,link_text:(link.textContent||'').trim().slice(0,80)});
+    else if(/wa\.me\//i.test(href)||/whatsapp/i.test(href))track('click_whatsapp',{link_url:href.split('?')[0],link_text:(link.textContent||'').trim().slice(0,80)});
+  });
   document.getElementById('csa-enquiry-close').addEventListener('click',close);
   overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.style.display==='flex')close()});
   document.getElementById('csa-enquiry-form').addEventListener('submit',e=>{
     e.preventDefault();const d=new FormData(e.currentTarget);
     const msg=['Hello Creator Support Amravati, I would like to discuss a project.','Name: '+d.get('name'),'Phone: '+d.get('phone'),'Business/Brand: '+(d.get('business')||'Not provided'),'Service: '+d.get('service'),'Requirement: '+(d.get('details')||'Please contact me to discuss.')].join('\n');
+    track('whatsapp_enquiry_handoff',{form_name:'project_enquiry',service_category:String(d.get('service')||'').slice(0,80)});
     window.open('https://wa.me/919225515679?text='+encodeURIComponent(msg),'_blank','noopener');close();
   });
 })();
