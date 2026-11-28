@@ -62,6 +62,9 @@
     e.preventDefault();const d=new FormData(e.currentTarget);
     const msg=['Hello Creator Support Amravati, I would like to discuss a project.','Name: '+d.get('name'),'Phone: '+d.get('phone'),'Business/Brand: '+(d.get('business')||'Not provided'),'Service: '+d.get('service'),'Requirement: '+(d.get('details')||'Please contact me to discuss.')].join('\n');
     track('whatsapp_enquiry_handoff',{form_name:'project_enquiry',service_category:String(d.get('service')||'').slice(0,80)});
-    window.open('https://wa.me/919225515679?text='+encodeURIComponent(msg),'_blank','noopener');close();
+    const whatsappUrl='https://api.whatsapp.com/send?phone=919225515679&text='+encodeURIComponent(msg);
+    const whatsappWindow=window.open(whatsappUrl,'_blank');
+    if(!whatsappWindow)window.location.href=whatsappUrl;
+    close();
   });
 })();
